@@ -73,16 +73,29 @@ const Layout = () => {
     navigate('/login');
   };
 
-  const menuItems = [
-    { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
-    { text: 'Live Tracker', icon: <LocationOn />, path: '/live-tracker' },
-    { text: 'Fleet', icon: <LocalShipping />, path: '/fleet' },
-    { text: 'Billings', icon: <Receipt />, path: '/billing' },
-    { text: 'Driver', icon: <Person />, path: '/driver' },
-    { text: 'Consignment', icon: <Assignment />, path: '/consignment' },
-    { text: 'Bid Management', icon: <ListAlt />, path: '/bid-management' },
-    { text: 'Reports', icon: <Assessment />, path: '/reports' },
-  ];
+  // Define menu items based on userType
+  let menuItems = [];
+  if (userType === 'trucker') {
+    menuItems = [
+      { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
+      { text: 'Live Tracker', icon: <LocationOn />, path: '/live-tracker' },
+      { text: 'Fleet', icon: <LocalShipping />, path: '/fleet' },
+      { text: 'Billing', icon: <Receipt />, path: '/billing' },
+      { text: 'Driver', icon: <Person />, path: '/driver' },
+      { text: 'Consignment', icon: <Assignment />, path: '/consignment' },
+      { text: 'Bid Management', icon: <ListAlt />, path: '/bid-management' },
+      { text: 'Report', icon: <Assessment />, path: '/reports' },
+    ];
+  } else if (userType === 'shipper') {
+    menuItems = [
+      { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
+      { text: 'Live Tracker', icon: <LocationOn />, path: '/live-tracker' },
+      { text: 'Bills', icon: <Receipt />, path: '/bills' },
+      { text: 'Consignment', icon: <Assignment />, path: '/consignment' },
+      { text: 'Load Board', icon: <ListAlt />, path: '/loadboard' },
+      { text: 'Report', icon: <Assessment />, path: '/reports' },
+    ];
+  }
 
   const drawer = (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>

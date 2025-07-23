@@ -16,6 +16,8 @@ import {
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
 import alertify from 'alertifyjs';
+import axios from 'axios';
+import { BASE_API_URL } from '../../apiConfig';
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -55,7 +57,7 @@ const Login = () => {
     return formData[fieldName].trim() !== '';
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
@@ -72,34 +74,27 @@ const Login = () => {
       return;
     }
 
-    // Check hardcoded credentials
-    let user = null;
-
-    if (emailId === 'harsh@gmail.com' && password === '1234') {
-      user = {
-        id: 1,
-        name: 'Harsh Trucker',
+    try {
+      const response = await axios.post(`${BASE_API_URL}/api/v1/shipper_driver/login`, {
         email: emailId,
-        type: 'trucker',
-        company: 'Power LOGISTICS',
-      };
-    } else if (emailId === 'smt@gmail.com' && password === '1234') {
-      user = {
-        id: 2,
-        name: 'SMT Shipper',
-        email: emailId,
-        type: 'shipper',
-        company: 'Power LOGISTICS',
-      };
-    } else {
-      alertify.error('Invalid email or password');
-      return;
+        password: password,
+        withCredentials: true
+      });
+      const data = response.data;
+      if (data.success) {
+        const user = { ...data.user, type: data.user.userType };
+        if (data.user.token) {
+          localStorage.setItem('token', data.user.token);
+        }
+        login(user);
+        alertify.success('Login successful! Welcome back.');
+        navigate('/dashboard');
+      } else {
+        alertify.error(data.message || 'Login failed');
+      }
+    } catch (err) {
+      alertify.error(err.response?.data?.message || 'Login failed');
     }
-
-    // Login and redirect
-    login(user);
-    alertify.success('Login successful! Welcome back.');
-    navigate('/dashboard');
   };
 
   return (
