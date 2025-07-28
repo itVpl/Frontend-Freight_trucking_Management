@@ -15,6 +15,7 @@ import {
   Paper,
   useMediaQuery,
   useTheme,
+  TableContainer,
 } from '@mui/material';
 import {
   LocalShipping,
@@ -28,173 +29,203 @@ import {
   LocationOn,
 } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
+import group23 from "../../assets/Icons super admin/group23.png"
+import group22 from "../../assets/Icons super admin/group22.png"
+import group26 from "../../assets/Icons super admin/group26.png"
+import group21 from "../../assets/Icons super admin/group21.png"
+import group28 from "../../assets/Icons super admin/group28.png"
+import cancel from "../../assets/Icons super admin/cancel.png"
+import group29 from "../../assets/Icons super admin/group29.png"
+import group20 from "../../assets/Icons super admin/Vectors/group20.png"
+import group30 from "../../assets/Icons super admin/Vectors/group30.png"
+import group27 from "../../assets/Icons super admin/Vectors/group27.png"
+import CardBoard from "../../assets/Icons super admin/Vectors/CardBoard.png"
+import Deliver from "../../assets/Icons super admin/Vectors/deliver.png"
+import USA from "../../assets/Icons super admin/Vectors/USA.png"
+import localshipping from "../../assets/Icons super admin/Vectors/localshipping.png"
+import autotowing from "../../assets/Icons super admin/Vectors/autotowing.png"
 
 const Dashboard = () => {
   const { user, userType } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-  const StatCard = ({ title, value, icon, extraContent }) => (
-    <Card
+  
+  const StatCard = ({ title, value, icon, image }) => (
+    <Paper
+      elevation={2}
       sx={{
-        width: '100%',
-        height: 200,
-        borderRadius: 2,
-        boxShadow: 3,
-        transition: 'all 0.3s ease',
-        '&:hover': {
-          transform: 'translateY(-5px)',
-          boxShadow: 6,
-        },
+        p: 2,
+        borderRadius: 5,
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
       }}
     >
-      <CardContent sx={{ height: '100%' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-          <Avatar sx={{ bgcolor: '#1976d2', width: 56, height: 56, mr: 2 }}>{icon}</Avatar>
-          <Box>
-            <Typography variant="h5" fontWeight={700} color="text.primary">
-              {value}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {title}
-            </Typography>
-          </Box>
+      {/* Top Header */}
+      <Box display="flex" alignItems="center" gap={1}>
+        <Box
+        // sx={{
+        //   backgroundColor: '#1E293B',
+        //   p: 1,
+        //   borderRadius: '50%',
+        //   display: 'flex',
+        //   alignItems: 'center',
+        //   justifyContent: 'center',
+        // }}
+        >
+          <img src={icon} alt={title} width={50} />
         </Box>
-        {extraContent && <Box mt={2}>{extraContent}</Box>}
-      </CardContent>
-    </Card>
-  );
+        <Typography fontWeight="bold" fontSize={20}>
+          {title}
+        </Typography>
+      </Box>
 
+      {/* Value & Image */}
+      <Box display="flex" justifyContent="space-between" alignItems="center" mt={2}>
+        <Typography fontWeight="bold" fontSize={24}>
+          {value}
+        </Typography>
+        {image && <img src={image} alt={title} width={100} />}
+      </Box>
+    </Paper>
+  );
   return (
     <Box sx={{ p: 3 }}>
-      {/* Stat Cards in Fixed 3-Card Rows */}
-      <Grid container spacing={3}>
-        {[
-          { title: 'Total Delivery Today', value: '60', icon: <LocalShipping /> },
-          {
-            title: 'Pending DOCS',
-            value: '0',
-            icon: <Assignment />,
-            extraContent: (
-              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                <LocalShipping sx={{ color: '#f44336' }} />
-                <LocationOn sx={{ color: '#f44336', fontSize: 16 }} />
-              </Box>
-            ),
-          },
-          {
-            title: 'Active',
-            value: '40',
-            icon: <Assignment />,
-            extraContent: (
-              <Box
-                sx={{
-                  width: 50,
-                  height: 50,
-                  bgcolor: '#4caf50',
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4, 1fr)',
+          gridTemplateRows: 'repeat(3, auto)',
+          gap: 2,
+          p: 2,
+        }}
+      >
+        {/* Row 1 */}
+        <Box sx={{ gridColumn: 'span 1' }}>
+          <StatCard title="Total Delivery Today" value="60" icon={group23} image={CardBoard} />
+        </Box>
+        <Box sx={{ gridColumn: 'span 1' }}>
+          <StatCard title="Pending DOCS" value="0" icon={group22} image={Deliver} />
+        </Box>
+        <Box sx={{ gridColumn: 'span 2', gridRow: 'span 3' }}>
+          <Paper elevation={2} sx={{ p: 2, borderRadius: 5, height: '100%' }}>
+            <Box display="flex" flexDirection="column" alignItems="center">
+              <img src={USA} alt="Map" style={{ width: '100%', height: "300px", maxWidth: 300 }} />
+              <Button
+                variant="contained"
+                size="small"
+                sx={{ mt: 2, borderRadius: 8, textTransform: 'none' }}
               >
-                <CheckCircle sx={{ color: '#fff' }} />
-              </Box>
-            ),
-          },
-          {
-            title: 'Delayed',
-            value: '5',
-            icon: <Schedule />,
-            extraContent: (
-              <Box
-                sx={{
-                  width: 36,
-                  height: 36,
-                  bgcolor: '#1976d2',
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  ml: 'auto',
-                }}
-              >
-                <Schedule sx={{ color: 'white', fontSize: 18 }} />
-              </Box>
-            ),
-          },
-          {
-            title: 'In Transit',
-            value: '15',
-            icon: <TrendingUp />,
-            extraContent: <LocalShipping sx={{ color: '#ff9800', fontSize: 28, ml: 'auto' }} />,
-          },
-          {
-            title: 'Missed Delivery',
-            value: '0',
-            icon: <Cancel />,
-            extraContent: (
-              <Box sx={{ position: 'relative', ml: 'auto' }}>
-                <LocalShipping sx={{ color: '#f44336', fontSize: 28 }} />
-                <Cancel
-                  sx={{
-                    color: 'white',
-                    fontSize: 16,
-                    position: 'absolute',
-                    top: -4,
-                    right: -4,
-                    bgcolor: '#f44336',
-                    borderRadius: '50%',
-                    width: 20,
-                    height: 20,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                />
-              </Box>
-            ),
-          },
-        ].map((card, index) => (
-          <Grid key={index} item xs={12} sm={6} md={4}>
-            <StatCard {...card} />
-          </Grid>
-        ))}
-      </Grid>
+                Track Shipment In Real-Time
+              </Button>
+            </Box>
+          </Paper>
+        </Box>
 
-      {/* Table Section */}
+        {/* Row 2 */}
+        <Box sx={{ gridColumn: 'span 1', gridRow: 'span 2' }}>
+          <StatCard title="Active" value="40" icon={group26} image={group20} />
+        </Box>
+        <Box sx={{ gridColumn: 'span 1', gridRow: 'span 2' }}>
+          <StatCard title="Delayed" value="05" icon={group21} image={group30} />
+        </Box>
+        <Box sx={{ gridColumn: 'span 1' }}>
+          <StatCard title="In Transit" value="15" icon={group28} image={group27} />
+        </Box>
+        <Box sx={{ gridColumn: 'span 2' }}>
+          <StatCard title="Missed Delivery" value="0" icon={cancel} image={localshipping} />
+        </Box>
+
+        {/* Row 3 */}
+        <Box sx={{ gridColumn: 'span 1' }}>
+          <StatCard title="Fleet Breakdown" value="0" icon={group29} image={autotowing} />
+        </Box>
+      </Box>
       <Box mt={4}>
-        <Typography variant="h6" fontWeight={600} mb={2}>
-          Recent Shipments
-        </Typography>
-        <Paper elevation={3}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Shipment ID</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Origin</TableCell>
-                <TableCell>Destination</TableCell>
-                <TableCell>ETA</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              <TableRow>
-                <TableCell>#123456</TableCell>
-                <TableCell>In Transit</TableCell>
-                <TableCell>Houston, TX</TableCell>
-                <TableCell>Los Angeles, CA</TableCell>
-                <TableCell>22 July 2025</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell>#123457</TableCell>
-                <TableCell>Delivered</TableCell>
-                <TableCell>Chicago, IL</TableCell>
-                <TableCell>Newark, NJ</TableCell>
-                <TableCell>18 July 2025</TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
+        <Paper
+          elevation={3}
+          sx={{ borderRadius: 3, overflow: 'hidden' }}
+        >
+          <Box
+            sx={{
+              bgcolor: '#1976d2',
+              color: '#fff',
+              py: 2,
+              textAlign: 'center',
+            }}
+          >
+            <Typography variant="h6" fontWeight={600}>
+              Bid Management
+            </Typography>
+          </Box>
+
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow sx={{ backgroundColor: '#f8f9fa' }}>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Load ID</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Load Type</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>From</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>To</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>ETA</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                <TableRow>
+                  <TableCell>LD0331</TableCell>
+                  <TableCell>OTR</TableCell>
+                  <TableCell>New York</TableCell>
+                  <TableCell>Dallas</TableCell>
+                  <TableCell>1d</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>LD0331</TableCell>
+                  <TableCell>OTR</TableCell>
+                  <TableCell>San Diego</TableCell>
+                  <TableCell>Dallas</TableCell>
+                  <TableCell>3d</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>LD0331</TableCell>
+                  <TableCell>OTR</TableCell>
+                  <TableCell>Dallas</TableCell>
+                  <TableCell>New York</TableCell>
+                  <TableCell>5d</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>LD0331</TableCell>
+                  <TableCell>OTR</TableCell>
+                  <TableCell>Dallas</TableCell>
+                  <TableCell>Houston</TableCell>
+                  <TableCell>7d</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>LD0331</TableCell>
+                  <TableCell>OTR</TableCell>
+                  <TableCell>Houston</TableCell>
+                  <TableCell>Phoenix</TableCell>
+                  <TableCell>1d</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </TableContainer>
+
+          {/* <Box textAlign="center" py={2}>
+          <Button
+            variant="contained"
+            sx={{
+              borderRadius: 10,
+              textTransform: 'none',
+              backgroundColor: '#2196f3',
+              px: 4,
+              '&:hover': { backgroundColor: '#1976d2' },
+            }}
+          >
+            View all
+          </Button>
+        </Box> */}
         </Paper>
       </Box>
     </Box>

@@ -209,8 +209,8 @@ const Dashboard = () => {
           Bid Overview
         </Typography>
         <Stack direction="row" spacing={1} alignItems="center">
-          <TextField
-            variant="standard"
+         <TextField
+            variant="outlined"
             size="small"
             placeholder="Search..."
             value={searchTerm}
@@ -222,7 +222,7 @@ const Dashboard = () => {
                 </InputAdornment>
               ),
               sx: {
-                borderBottom: '2px solid #1976d2',
+                borderRadius: 2,
                 fontSize: '0.85rem',
                 px: 1,
               },

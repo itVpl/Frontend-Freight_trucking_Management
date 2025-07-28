@@ -1,299 +1,186 @@
-import { useState, useEffect } from 'react';
+import React, { useEffect, useState } from "react";
+import axios from "axios";
 import {
   Box,
-  Grid,
-  Card,
-  CardContent,
   Typography,
-  Paper,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
-  Chip,
-  LinearProgress,
   TextField,
-  InputAdornment,
-} from '@mui/material';
-import {
-  LocationOn,
-  LocalShipping,
-  Schedule,
-  CheckCircle,
-  Warning,
-  Search,
-  DirectionsCar,
-} from '@mui/icons-material';
-import { useAuth } from '../../context/AuthContext';
+  Paper,
+  Collapse,
+  IconButton,
+  Avatar,
+  Stack,
+} from "@mui/material";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import ExpandLessIcon from "@mui/icons-material/ExpandLess";
+import LocationOnIcon from "@mui/icons-material/LocationOn";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
+import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import truckIconPng from "../../assets/Icons super admin/truck.png";
 
-const LiveTracker = () => {
-  const { userType } = useAuth();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [trackingData, setTrackingData] = useState([]);
+const truckIcon = new L.Icon({
+  iconUrl: truckIconPng,
+  iconSize: [40, 40],
+  iconAnchor: [20, 40],
+});
+
+function RecenterMap({ lat, lng }) {
+  const map = useMap();
+  useEffect(() => {
+    if (lat && lng) map.setView([lat, lng], 6);
+  }, [lat, lng]);
+  return null;
+}
+
+export default function LiveTracker() {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [expandedId, setExpandedId] = useState(null);
+  const [consignments, setConsignments] = useState([]);
+  const [selectedShipment, setSelectedShipment] = useState(null);
+
+  const toggleExpand = (item) => {
+    setExpandedId((prev) => (prev === item.id ? null : item.id));
+    setSelectedShipment(item);
+  };
+
+  const fetchConsignments = async () => {
+    try {
+      const res = await axios.get(
+        `https://vpl-liveproject-1.onrender.com/api/v1/load/shipment/${searchTerm.toUpperCase() || "SHP1806022"}`
+      );
+      if (res.data?.tracking) {
+        const track = res.data.tracking;
+        setConsignments([
+          {
+            id: track._id,
+            number: track.shipmentNumber,
+            location: `${track.load.origin.city}, ${track.load.origin.state} → ${track.load.destination.city}, ${track.load.destination.state}`,
+            lat: track.currentLocation.lat,
+            lng: track.currentLocation.lon,
+            status: [
+              {
+                label: "Loading",
+                name: track.driverName || "Driver",
+                time: new Date(track.startedAt).toLocaleString(),
+                done: true,
+              },
+              {
+                label: "In-Transit",
+                name: track.driverName || "Driver",
+                time: new Date(track.currentLocation.updatedAt).toLocaleString(),
+                done: track.status !== "loading",
+              },
+              {
+                label: "Delivered",
+                name: track.driverName || "Driver",
+                time: new Date(track.load?.deliveryDate || Date.now()).toLocaleString(),
+                done: track.status === "delivered",
+              },
+            ],
+          },
+        ]);
+      } else setConsignments([]);
+    } catch (err) {
+      console.error("Error fetching data", err);
+      setConsignments([]);
+    }
+  };
 
   useEffect(() => {
-    // Mock tracking data
-    const mockData = userType === 'trucker' 
-      ? [
-          {
-            id: 1,
-            vehicleNumber: 'MH-12-AB-1234',
-            driver: 'Rajesh Kumar',
-            route: 'Mumbai → Delhi',
-            status: 'in-transit',
-            progress: 65,
-            eta: '4 hours',
-            currentLocation: 'Agra, UP',
-            lastUpdate: '2 minutes ago',
-            cargo: 'Electronics',
-            distance: '1,400 km',
-          },
-          {
-            id: 2,
-            vehicleNumber: 'DL-01-CD-5678',
-            driver: 'Amit Singh',
-            route: 'Delhi → Bangalore',
-            status: 'completed',
-            progress: 100,
-            eta: 'Delivered',
-            currentLocation: 'Bangalore, KA',
-            lastUpdate: '1 hour ago',
-            cargo: 'Textiles',
-            distance: '2,100 km',
-          },
-          {
-            id: 3,
-            vehicleNumber: 'KA-05-EF-9012',
-            driver: 'Suresh Patel',
-            route: 'Bangalore → Chennai',
-            status: 'delayed',
-            progress: 30,
-            eta: '8 hours',
-            currentLocation: 'Salem, TN',
-            lastUpdate: '5 minutes ago',
-            cargo: 'Machinery',
-            distance: '350 km',
-          },
-        ]
-      : [
-          {
-            id: 1,
-            shipmentId: 'SH-001',
-            carrier: 'ABC Trucking',
-            route: 'Mumbai → Delhi',
-            status: 'in-transit',
-            progress: 65,
-            eta: '4 hours',
-            currentLocation: 'Agra, UP',
-            lastUpdate: '2 minutes ago',
-            cargo: 'Electronics',
-            value: '₹25,000',
-          },
-          {
-            id: 2,
-            shipmentId: 'SH-002',
-            carrier: 'XYZ Transport',
-            route: 'Delhi → Bangalore',
-            status: 'completed',
-            progress: 100,
-            eta: 'Delivered',
-            currentLocation: 'Bangalore, KA',
-            lastUpdate: '1 hour ago',
-            cargo: 'Textiles',
-            value: '₹18,000',
-          },
-          {
-            id: 3,
-            shipmentId: 'SH-003',
-            carrier: 'PQR Logistics',
-            route: 'Bangalore → Chennai',
-            status: 'delayed',
-            progress: 30,
-            eta: '8 hours',
-            currentLocation: 'Salem, TN',
-            lastUpdate: '5 minutes ago',
-            cargo: 'Machinery',
-            value: '₹32,000',
-          },
-        ];
-
-    setTrackingData(mockData);
-  }, [userType]);
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'completed':
-        return 'success';
-      case 'in-transit':
-        return 'primary';
-      case 'delayed':
-        return 'error';
-      default:
-        return 'default';
-    }
-  };
-
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'completed':
-        return <CheckCircle color="success" />;
-      case 'in-transit':
-        return <Schedule color="primary" />;
-      case 'delayed':
-        return <Warning color="error" />;
-      default:
-        return <LocationOn />;
-    }
-  };
-
-  const filteredData = trackingData.filter(item =>
-    item.route.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (userType === 'trucker' ? item.vehicleNumber : item.shipmentId).toLowerCase().includes(searchTerm.toLowerCase())
-  );
+    fetchConsignments();
+    const interval = setInterval(fetchConsignments, 10000);
+    return () => clearInterval(interval);
+  }, [searchTerm]);
 
   return (
-    <Box>
-      <Typography variant="h4" sx={{ mb: 3 }}>
-        Live Tracker
-      </Typography>
-      
-      <TextField
-        fullWidth
-        variant="outlined"
-        placeholder={`Search by ${userType === 'trucker' ? 'vehicle number' : 'shipment ID'} or route...`}
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-        sx={{ mb: 3 }}
-        InputProps={{
-          startAdornment: (
-            <InputAdornment position="start">
-              <Search />
-            </InputAdornment>
-          ),
-        }}
-      />
+    <Box sx={{ display: "flex", height: "93vh", overflow: "hidden" }}>
+      {/* Sidebar */}
+      <Paper
+        elevation={3}
+        sx={{ width: 380, p: 2, borderRadius: "0 20px 20px 0", overflowY: "auto", zIndex: 1000 }}
+      >
+        <Typography variant="h6" fontWeight={600} mb={2}>Consignment</Typography>
+        <TextField
+          fullWidth
+          placeholder="Search by Shipment Number..."
+          size="small"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          sx={{ mb: 2, borderRadius: "10px" }}
+        />
 
-      <Grid container spacing={3}>
-        {filteredData.map((item) => (
-          <Grid item xs={12} md={6} lg={4} key={item.id}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="h6" color="primary">
-                    {userType === 'trucker' ? item.vehicleNumber : item.shipmentId}
-                  </Typography>
-                  <Chip
-                    label={item.status.replace('-', ' ').toUpperCase()}
-                    color={getStatusColor(item.status)}
-                    size="small"
-                  />
-                </Box>
+        {consignments.map((item) => (
+          <Paper
+            key={item.id}
+            sx={{ mb: 2, p: 2, backgroundColor: "#fafafa", borderRadius: 3, cursor: "pointer" }}
+            onClick={() => toggleExpand(item)}
+          >
+            <Box display="flex" alignItems="center" gap={1}>
+              {/* <Avatar src={boxIconPng} alt="box" sx={{ width: 36, height: 36 }} /> */}
+              <Box sx={{display:"flex",background: "#AABBCC" , height:"45px", width:"45px", borderRadius:"50%",justifyContent:"center",alignItems:"center",textAlign:"center"}}>
+              <Typography fontSize={32}>📦</Typography>
+              </Box>
 
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                  <DirectionsCar sx={{ mr: 1, color: 'text.secondary' }} />
-                  <Typography variant="body2" color="text.secondary">
-                    {item.route}
-                  </Typography>
-                </Box>
+              <Box flexGrow={1}>
+                <Typography fontWeight={700} fontSize={14}>{item.number}</Typography>
+                <Typography fontSize={12} color="GrayText">{item.location}</Typography>
+              </Box>
+              <IconButton>{expandedId === item.id ? <ExpandLessIcon /> : <ExpandMoreIcon />}</IconButton>
+            </Box>
 
-                {userType === 'trucker' && (
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                    Driver: {item.driver}
-                  </Typography>
-                )}
-
-                {userType === 'shipper' && (
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                    Carrier: {item.carrier}
-                  </Typography>
-                )}
-
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Cargo: {item.cargo}
-                </Typography>
-
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Progress
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {item.progress}%
-                  </Typography>
-                </Box>
-
-                <LinearProgress
-                  variant="determinate"
-                  value={item.progress}
-                  sx={{ mb: 2 }}
-                />
-
-                <List dense>
-                  <ListItem sx={{ px: 0 }}>
-                    <ListItemIcon sx={{ minWidth: 36 }}>
-                      <LocationOn color="primary" fontSize="small" />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary="Current Location"
-                      secondary={item.currentLocation}
-                    />
-                  </ListItem>
-
-                  <ListItem sx={{ px: 0 }}>
-                    <ListItemIcon sx={{ minWidth: 36 }}>
-                      <Schedule color="primary" fontSize="small" />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary="ETA"
-                      secondary={item.eta}
-                    />
-                  </ListItem>
-
-                  {userType === 'trucker' && (
-                    <ListItem sx={{ px: 0 }}>
-                      <ListItemIcon sx={{ minWidth: 36 }}>
-                        <LocalShipping color="primary" fontSize="small" />
-                      </ListItemIcon>
-                      <ListItemText
-                        primary="Distance"
-                        secondary={item.distance}
-                      />
-                    </ListItem>
-                  )}
-
-                  {userType === 'shipper' && (
-                    <ListItem sx={{ px: 0 }}>
-                      <ListItemIcon sx={{ minWidth: 36 }}>
-                        <LocalShipping color="primary" fontSize="small" />
-                      </ListItemIcon>
-                      <ListItemText
-                        primary="Value"
-                        secondary={item.value}
-                      />
-                    </ListItem>
-                  )}
-                </List>
-
-                <Typography variant="caption" color="text.secondary">
-                  Last updated: {item.lastUpdate}
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
+            <Collapse in={expandedId === item.id}>
+              <Box mt={2}>
+                {item.status.map((step, index) => (
+                  <Box key={index} display="flex" alignItems="flex-start" mb={2}>
+                    <Box mt={0.5}>
+                      {step.done ? (
+                        <CheckCircleIcon sx={{ color: "green" }} fontSize="small" />
+                      ) : index === 2 ? (
+                        <LocationOnIcon sx={{ color: "gray" }} fontSize="small" />
+                      ) : (
+                        <RadioButtonUncheckedIcon sx={{ color: "gray" }} fontSize="small" />
+                      )}
+                    </Box>
+                    <Box ml={1} borderLeft={index !== item.status.length - 1 ? "3px solid #16a34a" : "none"} pl={1}>
+                      <Typography
+                        fontWeight={600}
+                        color={step.done && index !== 2 ? "#16a34a" : "text.primary"}
+                        fontSize={14}
+                      >
+                        {step.label}
+                      </Typography>
+                      <Typography fontSize={13}>{step.name}</Typography>
+                      <Typography fontSize={12} color="GrayText">{step.time}</Typography>
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
+            </Collapse>
+          </Paper>
         ))}
-      </Grid>
+      </Paper>
 
-      {filteredData.length === 0 && (
-        <Paper sx={{ p: 4, textAlign: 'center' }}>
-          <Typography variant="h6" color="text.secondary">
-            No tracking data found
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Try adjusting your search criteria
-          </Typography>
-        </Paper>
-      )}
+      {/* Map */}
+      <Box flexGrow={1} position="relative">
+        <MapContainer
+          center={[39.8283, -98.5795]}
+          zoom={4}
+          scrollWheelZoom={true}
+          className="leaflet-container"
+          style={{ height: "93vh", width: "100%", zIndex: 1 }}
+        >
+          <TileLayer
+            attribution="&copy; OpenStreetMap contributors"
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          {consignments.map((truck) => (
+            <Marker key={truck.id} position={[truck.lat, truck.lng]} icon={truckIcon} />
+          ))}
+          {selectedShipment && <RecenterMap lat={selectedShipment.lat} lng={selectedShipment.lng} />}
+        </MapContainer>
+      </Box>
     </Box>
   );
-};
-
-export default LiveTracker; 
+}

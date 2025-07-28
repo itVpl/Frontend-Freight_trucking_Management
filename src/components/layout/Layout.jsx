@@ -118,7 +118,6 @@ const Layout = () => {
                 marginBottom: '8px'
               }}
             />
-
             {/* Toggle Button - positioned floating above sidebar border */}
             <IconButton
               onClick={handleSidebarToggle}
