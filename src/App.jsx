@@ -16,6 +16,7 @@ import Layout from './components/layout/Layout';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
 import './App.css';
+import Completed from './pages/reports/Completed';
 
 function App() {
   return (
@@ -33,6 +34,7 @@ function App() {
               <Route path="live-tracker" element={<LiveTracker />} />
               <Route path="consignment" element={<Consignment />} />
               <Route path="reports" element={<Reports />} />
+              <Route path="/reports/complete" element={<Completed />} />
               <Route path="profile" element={<Profile />} />
               
               {/* Trucker Only Routes */}
