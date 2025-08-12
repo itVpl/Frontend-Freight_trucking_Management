@@ -279,7 +279,7 @@ const Dashboard = () => {
             >
               Export CSV
             </Button>
-            <Button
+            {/* <Button
               variant="contained"
               startIcon={<Receipt />}
               sx={{
@@ -296,7 +296,7 @@ const Dashboard = () => {
               }}
             >
               Generate Bill
-            </Button>
+            </Button> */}
           </Stack>
         </Box>
 
@@ -308,8 +308,8 @@ const Dashboard = () => {
                 <TableCell sx={{ fontWeight: 600 }}>Date</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Amount</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>View Detail</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Download</TableCell>
+                {/* <TableCell sx={{ fontWeight: 600 }}>View Detail</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Download</TableCell> */}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -319,16 +319,16 @@ const Dashboard = () => {
                   <TableRow key={i} hover sx={{ transition: '0.3s', '&:hover': { backgroundColor: '#e3f2fd' } }}>
                     <TableCell>{bill.billId}</TableCell>
                     <TableCell>{bill.date}</TableCell>
-                    <TableCell>₹{bill.amount.toLocaleString()}</TableCell>
+                    <TableCell>${bill.amount.toLocaleString()}</TableCell>
                     <TableCell>
                       <Chip label={bill.status} color={getStatusColor(bill.status)} size="small" />
                     </TableCell>
-                    <TableCell>
+                    {/* <TableCell>
                       <Button size="small" variant="text">View</Button>
                     </TableCell>
                     <TableCell>
                       <Button size="small" variant="text" startIcon={<Download />}>Download</Button>
-                    </TableCell>
+                    </TableCell> */}
                   </TableRow>
                 ))}
             </TableBody>

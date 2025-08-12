@@ -502,7 +502,7 @@ const Dashboard = () => {
                     fullWidth
                     required
                     InputProps={{
-                      startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+                      startAdornment: <InputAdornment position="start">$</InputAdornment>,
                     }}
                     error={!!bidErrors.bidAmount}
                     sx={{

@@ -36,7 +36,7 @@ const Reports = () => {
       y: {
         beginAtZero: true,
         ticks: {
-          callback: value => `₹${value / 1000}K`,
+          callback: value => `$${value / 1000}K`,
         },
       },
     },

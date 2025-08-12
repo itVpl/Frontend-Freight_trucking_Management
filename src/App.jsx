@@ -17,6 +17,7 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
 import './App.css';
 import Completed from './pages/reports/Completed';
+import LoadCalculator from './loadshippertruckercalculator/LoadCalculator';
 
 function App() {
   return (
@@ -36,6 +37,7 @@ function App() {
               <Route path="reports" element={<Reports />} />
               <Route path="/reports/complete" element={<Completed />} />
               <Route path="profile" element={<Profile />} />
+              <Route path="loadcalculator" element={<LoadCalculator />} />
               
               {/* Trucker Only Routes */}
               <Route path="fleet" element={<ProtectedRoute userType="trucker"><Fleet /></ProtectedRoute>} />
