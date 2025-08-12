@@ -320,7 +320,7 @@ const Bills = () => {
                   >
                     <TableCell>{bill.billId}</TableCell>
                     <TableCell>{bill.date}</TableCell>
-                    <TableCell>₹{bill.amount.toLocaleString()}</TableCell>
+                    <TableCell>${bill.amount.toLocaleString()}</TableCell>
                     <TableCell>
                       <Chip label={bill.status} color={getStatusColor(bill.status)} size="small" />
                     </TableCell>

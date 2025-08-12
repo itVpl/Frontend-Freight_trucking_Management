@@ -85,6 +85,7 @@ const Layout = () => {
       { text: 'Consignment', icon: <Assignment />, path: '/consignment' },
       { text: 'Bid Management', icon: <ListAlt />, path: '/bid-management' },
       { text: 'Report', icon: <Assessment />, path: '/reports' },
+      { text: 'Load Calculator', icon: <AccountBalance />, path: '/loadcalculator' },
     ];
   } else if (userType === 'shipper') {
     menuItems = [
@@ -94,6 +95,7 @@ const Layout = () => {
       { text: 'Consignment', icon: <Assignment />, path: '/consignment' },
       { text: 'Load Board', icon: <ListAlt />, path: '/loadboard' },
       { text: 'Report', icon: <Assessment />, path: '/reports' },
+      { text: 'Load Calculator', icon: <AccountBalance />, path: '/loadcalculator' },
     ];
   }
 
