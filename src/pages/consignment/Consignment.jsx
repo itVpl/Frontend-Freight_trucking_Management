@@ -187,7 +187,18 @@ const Dashboard = () => {
                   <TableCell>{row.loadType}</TableCell>
                   <TableCell>{row.driver}</TableCell>
                   <TableCell>
-                    <Chip label={row.status} color={row.status === 'Pending' ? 'warning' : 'success'} size="small" />
+                    <Chip
+  label={row.status}
+  size="small"
+  // keep green for success, make Pending a bright yellow
+  color={row.status === 'Pending' ? undefined : 'success'}
+  sx={
+    row.status === 'Pending'
+      ? { bgcolor: '#FFEB3B', color: '#000', fontWeight: 700 } // yellow bg, black text
+      : undefined
+  }
+/>
+
                   </TableCell>
                 </TableRow>
               ))}
