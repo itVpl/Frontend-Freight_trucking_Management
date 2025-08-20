@@ -23,6 +23,7 @@
     "chart.js": "^4.5.0",
     "date-fns": "^4.1.0",
     "framer-motion": "^12.23.12",
+    "jspdf": "^3.0.1",
     "leaflet": "^1.9.4",
     "react": "^19.1.0",
     "react-chartjs-2": "^5.3.0",

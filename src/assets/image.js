@@ -8,6 +8,10 @@ import Group21 from './Icons super admin/Group 21.png';
 import truck from './Icons super admin/truck.png';
 import cancel from './Icons super admin/cancel.png';
 import ImagesNewUsers from './Icons super admin/Images-new-users.png';
+import checkcircle from './Icons super admin/checkcircle.png';
+import locationMarker from './Icons super admin/locationMarker.png';
+import ArrowDown from './Icons super admin/ArrowDown.png';
+import ArrowUp from './Icons super admin/ArrowUp.png';
 
 // Export all images
 export {
@@ -26,6 +30,11 @@ export {
   truck as localShipping,
   Group29 as AutoTowing,
   ImagesNewUsers as NewUSerImage,
+  checkcircle as Checkcircle,
+  locationMarker,
+  ArrowDown,
+  ArrowUp,
+  truck,
   // Placeholder for USA map - you can replace with actual map image
   Group23 as USA
 }; 

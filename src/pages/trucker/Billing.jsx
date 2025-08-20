@@ -117,9 +117,9 @@ const Dashboard = () => {
 
   const getStatusColor = (status) => {
     switch (status.toLowerCase()) {
-      case 'pending': return 'error';
+      case 'pending': return 'warning';
       case 'paid': return 'success';
-      case 'overdue': return 'warning';
+      case 'overdue': return 'error';
       default: return 'default';
     }
   };
@@ -320,9 +320,22 @@ const Dashboard = () => {
                     <TableCell>{bill.billId}</TableCell>
                     <TableCell>{bill.date}</TableCell>
                     <TableCell>${bill.amount.toLocaleString()}</TableCell>
-                    <TableCell>
-                      <Chip label={bill.status} color={getStatusColor(bill.status)} size="small" />
-                    </TableCell>
+                                          <TableCell>
+                        <Chip 
+                          label={bill.status} 
+                          color={getStatusColor(bill.status)} 
+                          size="small"
+                          sx={{
+                            ...(bill.status.toLowerCase() === 'pending' && {
+                              backgroundColor: '#ffeb3b',
+                              color: '#000',
+                              '&:hover': {
+                                backgroundColor: '#fdd835'
+                              }
+                            })
+                          }}
+                        />
+                      </TableCell>
                     {/* <TableCell>
                       <Button size="small" variant="text">View</Button>
                     </TableCell>
