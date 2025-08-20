@@ -271,6 +271,13 @@ function palletMetersToUI(m, u) { return toUI(m, u); }
 
 const unitShort = (u) => (u === "inch" ? "in" : u === "ft" ? "ft" : u);
 const fmt2 = (n) => Number(n).toFixed(2);
+const LB_TO_KG = 0.45359237;
+const toKg = (v, u) => {
+  const x = Number(v) || 0;
+  return u === "lb" ? x * LB_TO_KG : x;
+};
+const fromKg = (kg, u) => (u === "lb" ? kg / LB_TO_KG : kg);
+
 const exampleByUnit = (u) => {
   switch (u) {
     case "mm": return "e.g., 1200";
@@ -1095,6 +1102,7 @@ export default function LoadCalculator() {
   const [customSize, setCustomSize] = useState(CONTAINER_SIZES["Custom"]);
   const [items, setItems] = useState([]); // METERS / liquidM3 for liquids
 
+  const [entries, setEntries] = useState([]);
 
   // Popup 3D View ke liye
   const [open3D, setOpen3D] = useState(false);
@@ -1136,6 +1144,7 @@ export default function LoadCalculator() {
     sg: 1.0,           // specific gravity
     maxFillPercent: 95 // safety headspace
   });
+const [weightUnit, setWeightUnit] = useState("kg"); // "kg" | "lb"
 
   const [nextPosition, setNextPosition] = useState({
     x: 0, y: 0, z: 0, rowDepth: 0, levelHeight: 0,
@@ -1208,6 +1217,16 @@ export default function LoadCalculator() {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
+const handleWeightUnitChange = (nextUnit) => {
+  setWeightUnit((prev) => {
+    if (!nextUnit || nextUnit === prev) return prev;
+    // current input ko convert karke same real weight rakho
+    const kgNow = toKg(form.weight, prev);
+    const displayInNext = fromKg(kgNow, nextUnit);
+    setForm((p) => ({ ...p, weight: Number(displayInNext.toFixed(2)) }));
+    return nextUnit;
+  });
+};
 
   const handleUnitSwitch = (nextUnit) => {
     const Lm = parseToMeters(form.length, unit);
@@ -1286,12 +1305,34 @@ export default function LoadCalculator() {
         renderGroupId: Date.now(),
       };
       setItems((prev) => [...prev, addedItem]);
+      // --- snapshot (Liquid) ---
+      {
+        const groupId = addedItem.renderGroupId;
+        setEntries((prev) => [
+          ...prev,
+          {
+            id: groupId,
+            isLiquid: true,
+            cargoType: "Liquid",
+            productName: form.productName,
+            color: form.color,
+            unit,
+            liquidVolume: form.liquidVolume,
+            sg: Number(form.sg) || 0,
+            maxFillPercent: Number(form.maxFillPercent) || 95,
+            weight,              // computed kg
+            quantity: 1
+          }
+        ]);
+      }
+
       return; // liquid: no discrete 3D blocks
     }
 
     // -------- NON-LIQUID (with palletization) --------
     const quantity = Number(form.quantity) || 0;
-    const weight = Number(form.weight) || 0;
+const weight = toKg(Number(form.weight) || 0, weightUnit); // always kg
+
 
     const mLength = parseToMeters(form.length, unit);
     const mWidth = parseToMeters(form.width, unit);
@@ -1530,6 +1571,24 @@ export default function LoadCalculator() {
         renderGroupId,
       };
       setItems((prev) => [...prev, addedItem]);
+      // --- snapshot (Non-Liquid) ---
+      setEntries((prev) => [
+        ...prev,
+        {
+          id: renderGroupId,
+          isLiquid: false,
+          cargoType,
+          productName: form.productName,
+          color: form.color,
+          unit,
+          length: form.length,   // user-entered string (e.g., "1200")
+          width: form.width,
+          height: form.height,
+          weight: Number(form.weight) || 0,
+          quantity: added        // actually added pieces
+        }
+      ]);
+
 
       setNextPosition(temp);
       setTimeline((prev) => {
@@ -1551,7 +1610,8 @@ export default function LoadCalculator() {
       return;
     }
 
-    const weight = Number(form.weight) || 0;
+    const weight = toKg(Number(form.weight) || 0, weightUnit); // always kg
+
     const L = parseToMeters(form.length, unit);
     const W = parseToMeters(form.width, unit);
     const H = parseToMeters(form.height, unit);
@@ -1766,7 +1826,7 @@ export default function LoadCalculator() {
             <Box sx={{ p: 3 }}>
               <Grid container spacing={2} alignItems="center">
                 {/* Mode */}
-                <Grid item xs={12} md="auto">
+                {/* <Grid item xs={12} md="auto">
                   <FormControl size="small">
                     <InputLabel>Target</InputLabel>
                     <Select value={mode} label="Target" onChange={(e) => handleModeChange(e.target.value)}>
@@ -1774,7 +1834,55 @@ export default function LoadCalculator() {
                       <MenuItem value="Truck">Truck</MenuItem>
                     </Select>
                   </FormControl>
+                </Grid> */}
+                {/* Mode (Target) — tab-style buttons */}
+                <Grid item xs={12} md="auto">
+                  <Tabs
+                    value={mode}
+                    onChange={(_, v) => v && handleModeChange(v)}
+                    aria-label="Select target"
+                    sx={{
+                      minHeight: 40,
+                      "& .MuiTabs-flexContainer": {
+                        gap: 8,
+                        background: "linear-gradient(180deg,#f7fbff,#eef4ff)",
+                        padding: "6px",
+                        borderRadius: "12px",
+                        border: "1px solid #e5edff",
+                      },
+                      "& .MuiTab-root": {
+                        minHeight: 36,
+                        padding: "8px 14px",
+                        borderRadius: "10px",
+                        textTransform: "none",
+                        fontWeight: 800,
+                        color: "#334155",
+                      },
+                      "& .Mui-selected": {
+                        color: "#0b3a86 !important",
+                        background: "#ffffff",
+                        boxShadow: "0 8px 20px rgba(30,136,229,.12)",
+                      },
+                      "& .MuiTabs-indicator": { display: "none" }, // pill look (no underline)
+                    }}
+                  >
+                    <Tab
+                      value="Container"
+                      icon={<ViewInArIcon fontSize="small" />}
+                      iconPosition="start"
+                      label="Container"
+                      disableRipple
+                    />
+                    <Tab
+                      value="Truck"
+                      icon={<LocalShippingIcon fontSize="small" />}
+                      iconPosition="start"
+                      label="Truck"
+                      disableRipple
+                    />
+                  </Tabs>
                 </Grid>
+
 
                 {/* Units quick switch */}
                 {/* <Grid item xs={12} md="auto">
@@ -1808,14 +1916,20 @@ export default function LoadCalculator() {
                     <TypeGallery
                       items={CONTAINER_CATALOG}
                       selectedKey={selectedSize}
-                      onUse={(k) => handleContainerChange(k)}
+                      onUse={(k) => {
+                        handleContainerChange(k);
+                        setTab(1);              // ⬅️ Auto-jump to Products tab
+                      }}
                       onInfo={(it) => openInfo(it)}
                     />
                   ) : (
                     <TypeGallery
                       items={TRUCK_CATALOG}
                       selectedKey={selectedTruck}
-                      onUse={(k) => handleTruckChange(k)}
+                      onUse={(k) => {
+                        handleTruckChange(k);
+                        setTab(1);              // ⬅️ Auto-jump to Products tab
+                      }}
                       onInfo={(it) => openInfo(it)}
                     />
                   )}
@@ -1887,52 +2001,243 @@ export default function LoadCalculator() {
 
                 {!isLiquid && (
                   <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1, flexWrap: "wrap" }}>
-                    <Typography variant="subtitle2" sx={{ mr: 1 }}>Quick Presets:</Typography>
-                    {presets.map((p) => (
-                      <Chip
-                        key={p.label}
-                        variant="outlined"
-                        label={p.label}
-                        onClick={() => applyPreset(p)}
-                        sx={{ borderStyle: "dashed" }}
-                      />
-                    ))}
+  <Typography variant="subtitle2" sx={{ mr: 1 }}>Quick Presets:</Typography>
 
-                    {/* Mini unit toggle for convenience */}
-                    <Box sx={{ ml: "auto" }}>
-                      <ToggleButtonGroup
-                        size="small"
-                        value={unit}
-                        exclusive
-                        onChange={(_, v) => v && handleUnitSwitch(v)}
-                      >
-                        <ToggleButton value="mm">mm</ToggleButton>
-                        <ToggleButton value="cm">cm</ToggleButton>
-                        <ToggleButton value="m">m</ToggleButton>
-                        <ToggleButton value="inch">inch</ToggleButton>
-                        <ToggleButton value="ft">feet</ToggleButton>
-                      </ToggleButtonGroup>
-                    </Box>
-                  </Stack>
+  {presets.map((p) => (
+    <Chip
+      key={p.label}
+      variant="outlined"
+      label={p.label}
+      onClick={() => applyPreset(p)}
+      sx={{ borderStyle: "dashed" }}
+    />
+  ))}
+
+  <Box sx={{ ml: "auto", display: "flex", alignItems: "center", gap: 1 }}>
+    {/* L/W/H unit toggle (as-is) */}
+    <ToggleButtonGroup
+      size="small"
+      value={unit}
+      exclusive
+      onChange={(_, v) => v && handleUnitSwitch(v)}
+    >
+      <ToggleButton value="mm">mm</ToggleButton>
+      <ToggleButton value="cm">cm</ToggleButton>
+      <ToggleButton value="m">m</ToggleButton>
+      <ToggleButton value="inch">inch</ToggleButton>
+      <ToggleButton value="ft">feet</ToggleButton>
+    </ToggleButtonGroup>
+
+    {/* NEW: Weight unit toggle */}
+    <ToggleButtonGroup
+      size="small"
+      value={weightUnit}
+      exclusive
+      onChange={(_, v) => v && handleWeightUnitChange(v)}
+    >
+      <ToggleButton value="kg">kg</ToggleButton>
+      <ToggleButton value="lb">lbs</ToggleButton>
+    </ToggleButtonGroup>
+
+    {/* Quick conversion hint for current input */}
+    <Chip
+      size="small"
+      variant="outlined"
+      label={
+        weightUnit === "kg"
+          ? `wt: ${Number(form.weight) || 0} kg ≈ ${(Number(form.weight) ? (Number(form.weight) / LB_TO_KG) : 0).toFixed(2)} lb`
+          : `wt: ${Number(form.weight) || 0} lb ≈ ${(Number(form.weight) ? (Number(form.weight) * LB_TO_KG) : 0).toFixed(2)} kg`
+      }
+    />
+  </Box>
+</Stack>
+
                 )}
               </Paper>
 
               {/* Main Form Cards */}
               <Grid container spacing={2}>
                 {/* Left card: Item details */}
+                {/* Left card: Item details — now SINGLE ROW */}
                 <Grid item xs={12} md={7}>
-                  <Paper elevation={1} sx={{ p: 2 }}>
-                    <Stack
-                      direction={{ xs: "column", sm: "row" }}
-                      spacing={1.5}
-                      alignItems={{ xs: "flex-start", sm: "center" }}
-                      justifyContent="space-between"
-                      sx={{ mb: 1 }}
-                    >
-                      <Typography variant="h6">➕ Add Item</Typography>
+                  <Divider sx={{ my: 1.5 }} />
 
+<Typography variant="subtitle2" sx={{ mb: 1 }}>
+  Previous inputs
+</Typography>
+
+{entries.length === 0 ? (
+  <Typography variant="body2" color="text.secondary">No entries yet.</Typography>
+) : (
+  <Stack spacing={1.25}>
+    {entries.map((e) => (
+      <Paper key={e.id} variant="outlined" sx={{ p: 1.25, overflowX: "auto" }}>
+        <Box
+          sx={{
+            display: "flex",
+            gap: 1.25,
+            alignItems: "center",
+            flexWrap: "nowrap",
+            minWidth: 980, // same row layout, scrollable
+          }}
+        >
+          <TextField
+            label="Cargo Type"
+            value={e.cargoType}
+            size="small"
+            disabled
+            sx={{ width: 220 }}
+          />
+
+          <TextField
+            label="Product Name"
+            value={e.productName || ""}
+            size="small"
+            disabled
+            sx={{ width: 240 }}
+          />
+
+          
+
+          {e.isLiquid ? (
+            <>
+              <TextField
+                label="Volume"
+                value={e.liquidVolume || ""}
+                size="small"
+                disabled
+                sx={{ width: 160 }}
+                InputProps={{ endAdornment: <InputAdornment position="end">L</InputAdornment> }}
+              />
+              <TextField
+                label="SG"
+                value={e.sg}
+                size="small"
+                disabled
+                sx={{ width: 110 }}
+              />
+              <TextField
+                label="Max Fill %"
+                value={e.maxFillPercent}
+                size="small"
+                disabled
+                sx={{ width: 130 }}
+              />
+              <TextField
+                label="Weight"
+                value={fmt2(e.weight)}
+                size="small"
+                disabled
+                sx={{ width: 140 }}
+                InputProps={{ endAdornment: <InputAdornment position="end">kg</InputAdornment> }}
+              />
+              <TextField
+                label="Qty"
+                value={e.quantity}
+                size="small"
+                disabled
+                sx={{ width: 100 }}
+              />
+              <TextField
+            label="Color"
+            type="color"
+            value={e.color}
+            size="small"
+            disabled
+            sx={{ width: 90 }}
+          />
+            </>
+          ) : (
+            <>
+              <TextField
+                label="length"
+                value={e.length}
+                size="small"
+                disabled
+                sx={{ width: 150 }}
+                InputProps={{ endAdornment: <InputAdornment position="end">{unitShort(e.unit)}</InputAdornment> }}
+              />
+              <TextField
+                label="width"
+                value={e.width}
+                size="small"
+                disabled
+                sx={{ width: 150 }}
+                InputProps={{ endAdornment: <InputAdornment position="end">{unitShort(e.unit)}</InputAdornment> }}
+              />
+              <TextField
+                label="height"
+                value={e.height}
+                size="small"
+                disabled
+                sx={{ width: 150 }}
+                InputProps={{ endAdornment: <InputAdornment position="end">{unitShort(e.unit)}</InputAdornment> }}
+              />
+              <TextField
+                label="weight"
+                value={e.weight}
+                size="small"
+                disabled
+                sx={{ width: 140 }}
+                InputProps={{ endAdornment: <InputAdornment position="end">kg</InputAdornment> }}
+              />
+              <TextField
+                label="quantity (added)"
+                value={e.quantity}
+                size="small"
+                disabled
+                sx={{ width: 150 }}
+              />
+              <TextField
+            label="Color"
+            type="color"
+            value={e.color}
+            size="small"
+            disabled
+            sx={{ width: 90 }}
+          />
+            </>
+          )}
+
+          <IconButton
+            color="error"
+            size="small"
+            onClick={() => {
+              const groupId = e.id;
+              setItems((prev) => prev.filter((it) => it.renderGroupId !== groupId));
+              setTimeline((prev) => {
+                const nt = prev.filter((r) => r.renderGroupId !== groupId);
+                setPlayhead((p) => Math.min(p, nt.length));
+                return nt;
+              });
+              setEntries((prev) => prev.filter((s) => s.id !== groupId));
+            }}
+            title="Remove this entry"
+            sx={{ ml: 0.5 }}
+          >
+            <DeleteIcon fontSize="small" />
+          </IconButton>
+        </Box>
+      </Paper>
+    ))}
+  </Stack>
+)}
+                  <Paper elevation={1} sx={{ p: 2, overflowX: "auto" }}>
+                    <Typography variant="h6" sx={{ mb: 1 }}>➕ Add Item</Typography>
+
+                    {/* Row container */}
+                    <Box
+                      sx={{
+                        display: "flex",
+                        gap: 1.25,
+                        alignItems: "center",
+                        flexWrap: "nowrap",
+                        minWidth: 980,           // fields ek hi row me; chhote screens par scroll
+                        pb: 0.5,
+                      }}
+                    >
                       {/* Cargo type */}
-                      <FormControl size="small" sx={{ minWidth: 220 }}>
+                      <FormControl size="small" sx={{ width: 220 }}>
                         <InputLabel>Cargo Type</InputLabel>
                         <Select
                           value={cargoType}
@@ -1940,7 +2245,7 @@ export default function LoadCalculator() {
                           onChange={(e) => {
                             const val = e.target.value;
                             setCargoType(val);
-                            if (autoColor) setForm(prev => ({ ...prev, color: CARGO_COLORS[val] || prev.color }));
+                            if (autoColor) setForm((prev) => ({ ...prev, color: CARGO_COLORS[val] || prev.color }));
                           }}
                           renderValue={(val) => (
                             <Stack direction="row" spacing={1} alignItems="center">
@@ -1959,10 +2264,8 @@ export default function LoadCalculator() {
                           ))}
                         </Select>
                       </FormControl>
-                    </Stack>
 
-                    {/* Product name + color */}
-                    <Stack direction="row" spacing={2} sx={{ mb: 2, flexWrap: "wrap" }}>
+                      {/* Product name */}
                       <TextField
                         label="Product Name"
                         name="productName"
@@ -1970,23 +2273,14 @@ export default function LoadCalculator() {
                         onChange={handleFormChange}
                         type="text"
                         size="small"
-                        sx={{ minWidth: 260 }}
+                        sx={{ width: 240 }}
                       />
-                      <TextField
-                        label="Color"
-                        name="color"
-                        type="color"
-                        value={form.color}
-                        onChange={(e) => { setAutoColor(false); handleFormChange(e); }}
-                        size="small"
-                        sx={{ width: 80 }}
-                      />
-                    </Stack>
 
-                    {/* Liquid vs Non-liquid fields */}
-                    {isLiquid && isTank ? (
-                      <Grid container spacing={2}>
-                        <Grid item xs={12} sm={4}>
+
+
+                      {/* LIQUID vs NON-LIQUID (inline) */}
+                      {isLiquid && isTank ? (
+                        <>
                           <TextField
                             label="Volume (L)"
                             name="liquidVolume"
@@ -1995,14 +2289,9 @@ export default function LoadCalculator() {
                             type="number"
                             size="small"
                             inputProps={{ min: 0, step: "any" }}
-                            helperText={`Tank cap: ${tankCapL} L • Max Fill: ${form.maxFillPercent}%`}
-                            InputProps={{
-                              endAdornment: <InputAdornment position="end">L</InputAdornment>,
-                            }}
-                            fullWidth
+                            sx={{ width: 160 }}
+                            InputProps={{ endAdornment: <InputAdornment position="end">L</InputAdornment> }}
                           />
-                        </Grid>
-                        <Grid item xs={12} sm={3}>
                           <TextField
                             label="SG"
                             name="sg"
@@ -2011,12 +2300,8 @@ export default function LoadCalculator() {
                             type="number"
                             size="small"
                             inputProps={{ min: 0.1, step: 0.01 }}
-                            helperText="Water≈1.00 • Diesel≈0.83"
-                            fullWidth
+                            sx={{ width: 110 }}
                           />
-                        </Grid>
-                        
-                        <Grid item xs={12} sm={3}>
                           <TextField
                             label="Max Fill %"
                             name="maxFillPercent"
@@ -2025,68 +2310,72 @@ export default function LoadCalculator() {
                             type="number"
                             size="small"
                             inputProps={{ min: 50, max: 100, step: 1 }}
-                            fullWidth
+                            sx={{ width: 130 }}
                           />
-                        </Grid>
-                        <Grid>
+                          {/* Color */}
+                          <TextField
+                            label="Color"
+                            name="color"
+                            type="color"
+                            value={form.color}
+                            onChange={(e) => { setAutoColor(false); handleFormChange(e); }}
+                            size="small"
+                            sx={{ width: 90 }}
+                          />
                           <Button
                             variant="contained"
                             onClick={addItem}
-                            disabled={
-                              isLiquid && isTank
-                                ? !(Number(form.liquidVolume) > 0 && Number(form.sg) > 0)
-                                : (!form.length || !form.width || !form.height || !Number(form.quantity) || !Number(form.weight))
-                            }
-                            sx={{ background: "linear-gradient(90deg,#1e88e5,#42a5f5)" }}
+                            disabled={!(Number(form.liquidVolume) > 0 && Number(form.sg) > 0)}
+                            sx={{ background: "linear-gradient(90deg,#1e88e5,#42a5f5)", width: 120 }}
                           >
                             Add
                           </Button>
-                        </Grid>
-                        <Grid item xs={12} sm={2} sx={{ display: "flex", alignItems: "center" }}>
-                          <Chip color="info" variant="outlined" label={`≈ ${fmt2(computedLiquidWeight())} kg`} />
-                        </Grid>
-                      </Grid>
-                    ) : (
-                      <Grid container spacing={2}>
-                        {["length", "width", "height"].map((field) => {
-                          const meters = field === "length" ? mLength : field === "width" ? mWidth : mHeight;
-                          const u = unitShort(unit);
-                          return (
-                            <Grid item xs={12} sm={4} key={field}>
+
+                          <Chip
+                            color="info"
+                            variant="outlined"
+                            label={`≈ ${fmt2(computedLiquidWeight())} kg`}
+                            sx={{ ml: 0.5 }}
+                          />
+                        </>
+                      ) : (
+                        <>
+                          {/* L, W, H in a row */}
+                          {["length", "width", "height"].map((field) => {
+                            const meters = field === "length" ? mLength : field === "width" ? mWidth : mHeight;
+                            const u = unitShort(unit);
+                            return (
                               <TextField
-                                label={`${field}`}
+                                key={field}
+                                label={field}
                                 name={field}
                                 value={form[field]}
                                 onChange={handleFormChange}
                                 type="text"
                                 size="small"
                                 placeholder={exampleByUnit(unit)}
-                                helperText={`= ${Number.isFinite(meters) ? meters.toFixed(3) : "?"} m`}
                                 error={!Number.isFinite(meters)}
-                                InputProps={{
-                                  endAdornment: <InputAdornment position="end">{u}</InputAdornment>,
-                                }}
-                                fullWidth
+                                sx={{ width: 150 }}
+                                InputProps={{ endAdornment: <InputAdornment position="end">{u}</InputAdornment> }}
                               />
-                            </Grid>
-                          );
-                        })}
-                        <Grid item xs={12} sm={4}>
+                            );
+                          })}
+
                           <TextField
-                            label="weight"
-                            name="weight"
-                            value={form.weight}
-                            onChange={handleFormChange}
-                            type="number"
-                            size="small"
-                            inputProps={{ min: 0.1, step: 0.1 }}
-                            InputProps={{
-                              endAdornment: <InputAdornment position="end">kg</InputAdornment>,
-                            }}
-                            fullWidth
-                          />
-                        </Grid>
-                        <Grid item xs={12} sm={3}>
+  label="weight"
+  name="weight"
+  value={form.weight}
+  onChange={handleFormChange}
+  type="number"
+  size="small"
+  inputProps={{ min: 0.1, step: 0.1 }}
+  sx={{ width: 160 }}
+  InputProps={{
+    endAdornment: <InputAdornment position="end">{weightUnit}</InputAdornment>,
+  }}
+/>
+
+
                           <TextField
                             label="quantity"
                             name="quantity"
@@ -2095,27 +2384,34 @@ export default function LoadCalculator() {
                             type="number"
                             size="small"
                             inputProps={{ min: 1, step: 1 }}
-                            fullWidth
+                            sx={{ width: 130 }}
                           />
-                        </Grid>
-                        <Grid>
+                          {/* Color */}
+                          <TextField
+                            label="Color"
+                            name="color"
+                            type="color"
+                            value={form.color}
+                            onChange={(e) => { setAutoColor(false); handleFormChange(e); }}
+                            size="small"
+                            sx={{ width: 90 }}
+                          />
                           <Button
                             variant="contained"
                             onClick={addItem}
-                            disabled={
-                              isLiquid && isTank
-                                ? !(Number(form.liquidVolume) > 0 && Number(form.sg) > 0)
-                                : (!form.length || !form.width || !form.height || !Number(form.quantity) || !Number(form.weight))
-                            }
-                            sx={{ background: "linear-gradient(90deg,#1e88e5,#42a5f5)" }}
+                            disabled={!form.length || !form.width || !form.height || !Number(form.quantity) || !Number(form.weight)}
+                            sx={{ background: "linear-gradient(90deg,#1e88e5,#42a5f5)", width: 120 }}
                           >
                             Add
                           </Button>
-                        </Grid>
-                      </Grid>
-                    )}
+                        </>
+                      )}
+                    </Box>
+                    
+
                   </Paper>
                 </Grid>
+
 
                 {/* Right card: Palletization + Live capacity */}
                 <Grid item xs={12} md={5}>
@@ -2274,88 +2570,7 @@ export default function LoadCalculator() {
                 </Stack>
               </Stack>
 
-              {/* Items Table (unchanged, with zebra sx retained) */}
-              <Box mt={4}>
-                <Typography variant="h6" gutterBottom>📋 Added Items</Typography>
-                <Paper elevation={2} sx={{ overflowX: "auto" }}>
-                  <Table
-                    sx={{
-                      minWidth: 1200,
-                      "& tbody tr:nth-of-type(odd)": { backgroundColor: "#fafcff" },
-                      "& td, & th": { borderColor: "#eef2ff" },
-                    }}
-                  >
-                    <TableHead>
-                      <TableRow>
-                        <TableCell><strong>Type</strong></TableCell>
-                        <TableCell><strong>Product Name</strong></TableCell>
-                        <TableCell><strong>Length</strong></TableCell>
-                        <TableCell><strong>Width</strong></TableCell>
-                        <TableCell><strong>Height</strong></TableCell>
-                        <TableCell><strong>Volume (m³)</strong></TableCell>
-                        <TableCell><strong>Weight (kg)</strong></TableCell>
-                        <TableCell><strong>Quantity</strong></TableCell>
-                        <TableCell><strong>Row Total Weight (kg)</strong></TableCell>
-                        <TableCell><strong>Row Volume (m³)</strong></TableCell>
-                        <TableCell><strong>Color</strong></TableCell>
-                        <TableCell><strong>Action</strong></TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {items.map((item, index) => {
-                        const rowTotalWeight = (item.weight || 0) * (item.quantity || 1);
-                        const u = unitShort(unit);
-                        const isLiqRow = item.cargoType === "Liquid";
-                        const rowVol = isLiqRow
-                          ? (item.liquidM3 || 0)
-                          : (item.length * item.width * item.height) * (item.quantity || 1);
-
-                        return (
-                          <TableRow key={index}>
-                            <TableCell>
-                              <Stack direction="row" spacing={1} alignItems="center">
-                                {cargoIcon(item.cargoType)}
-                                {/* <span style={{ fontSize: 12 }}>{item.cargoType}</span> */}
-                              </Stack>
-                            </TableCell>
-                            <TableCell>{item.productName || "-"}</TableCell>
-                            <TableCell>{isLiqRow ? "—" : `${toUI(item.length, unit)} ${u}`}</TableCell>
-                            <TableCell>{isLiqRow ? "—" : `${toUI(item.width, unit)} ${u}`}</TableCell>
-                            <TableCell>{isLiqRow ? "—" : `${toUI(item.height, unit)} ${u}`}</TableCell>
-                            <TableCell>{isLiqRow ? fmt2(item.liquidM3 || 0) : fmt2(item.length * item.width * item.height)}</TableCell>
-                            <TableCell>{fmt2(item.weight)}</TableCell>
-                            <TableCell>{item.quantity}</TableCell>
-                            <TableCell>{fmt2(rowTotalWeight)}</TableCell>
-                            <TableCell>{fmt2(rowVol)}</TableCell>
-                            <TableCell>
-                              <Tooltip title={item.color}>
-                                <Box sx={{ width: 24, height: 24, borderRadius: "50%", backgroundColor: item.color, border: "1px solid #ccc" }} />
-                              </Tooltip>
-                            </TableCell>
-                            <TableCell>
-                              <IconButton
-                                color="error"
-                                size="small"
-                                onClick={() => {
-                                  const groupId = items[index].renderGroupId;
-                                  setItems((prev) => prev.filter((_, i) => i !== index));
-                                  setTimeline((prev) => {
-                                    const nt = prev.filter((r) => r.renderGroupId !== groupId);
-                                    setPlayhead((p) => Math.min(p, nt.length));
-                                    return nt;
-                                  });
-                                }}
-                              >
-                                <DeleteIcon />
-                              </IconButton>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </Paper>
-              </Box>
+              
             </Box>
           </TabPanel>
 
@@ -2658,12 +2873,19 @@ export default function LoadCalculator() {
           <DialogActions>
             <Button onClick={closeInfo}>Close</Button>
             {infoItem && (
-              <Button variant="contained" onClick={() => {
-                if (mode === "Container") setSelectedSize(infoItem.key);
-                else setSelectedTruck(infoItem.key);
-                closeInfo();
-              }}>Use this</Button>
+              <Button
+                variant="contained"
+                onClick={() => {
+                  if (mode === "Container") setSelectedSize(infoItem.key);
+                  else setSelectedTruck(infoItem.key);
+                  closeInfo();
+                  setTab(1);              // ⬅️ Auto-jump to Products tab
+                }}
+              >
+                Use this
+              </Button>
             )}
+
           </DialogActions>
         </Dialog>
       </Box>
