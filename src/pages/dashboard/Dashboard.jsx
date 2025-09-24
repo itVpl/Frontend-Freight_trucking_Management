@@ -29,7 +29,7 @@ import {
   LocationOn,
 } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
-import group23 from "../../assets/Icons super admin/group23.png"
+import group23 from "../../assets/Icons super admin/Group23.png"
 import group22 from "../../assets/Icons super admin/group22.png"
 import group26 from "../../assets/Icons super admin/group26.png"
 import group21 from "../../assets/Icons super admin/group21.png"
