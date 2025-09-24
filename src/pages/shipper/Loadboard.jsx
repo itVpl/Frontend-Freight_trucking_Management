@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { BASE_API_URL } from '../../apiConfig';
 import {
@@ -27,9 +28,10 @@ import {
   FormControl,
   InputLabel
 } from '@mui/material';
-import { Add } from '@mui/icons-material';
+import { Add, Refresh, Clear } from '@mui/icons-material';
 import { Download, Search } from '@mui/icons-material';
 import PersonIcon from '@mui/icons-material/Person';
+import SearchNavigationFeedback from '../../components/SearchNavigationFeedback';
 
 // US Cities List
 const usCities = [
@@ -158,11 +160,14 @@ const usCities = [
 ];
 
 const LoadBoard = () => {
+  const location = useLocation();
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [modalOpen, setModalOpen] = useState(false);
   const [loadType, setLoadType] = useState('OTR');
   const [searchTerm, setSearchTerm] = useState('');
+  const [originalLoadData, setOriginalLoadData] = useState([]);
+  const [isFiltered, setIsFiltered] = useState(false);
 
   const [form, setForm] = useState({
     fromCity: '',
@@ -203,6 +208,62 @@ const LoadBoard = () => {
   const [acceptBidId, setAcceptBidId] = useState(null);
   const [acceptErrors, setAcceptErrors] = useState({});
 
+  // Edit modal state
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [selectedLoad, setSelectedLoad] = useState(null);
+  const [editForm, setEditForm] = useState({
+    fromCity: '',
+    fromState: '',
+    toCity: '',
+    toState: '',
+    pickupDate: '',
+    deliveryDate: '',
+    weight: '',
+    commodity: '',
+    vehicleType: '',
+    rate: '',
+    rateType: 'Flat Rate',
+    loadType: 'OTR',
+    containerNo: '',
+    poNumber: '',
+    bolNumber: '',
+    notes: '',
+    returnDate: '',
+    drayageLocation: ''
+  });
+  const [editErrors, setEditErrors] = useState({});
+  const [editLoading, setEditLoading] = useState(false);
+
+  // Handle search result from universal search
+  useEffect(() => {
+    if (location.state?.selectedShipment) {
+      const shipment = location.state.selectedShipment;
+      setSearchTerm(shipment.shipmentNumber || '');
+      console.log('Navigated from search:', shipment);
+      
+      // Filter to show only the searched shipment
+      if (originalLoadData.length > 0) {
+        const filteredShipment = originalLoadData.find(load => 
+          load.shipmentNumber === shipment.shipmentNumber ||
+          load._id === shipment.id ||
+          load.id === shipment.id
+        );
+        
+        if (filteredShipment) {
+          setLoadData([filteredShipment]);
+          setIsFiltered(true);
+        }
+      }
+    }
+  }, [location.state, originalLoadData]);
+
+  // Clear search filter
+  const clearSearchFilter = () => {
+    setLoadData(originalLoadData);
+    setIsFiltered(false);
+    setSearchTerm('');
+  };
+
   useEffect(() => {
     const fetchLoads = async () => {
       setLoading(true);
@@ -216,10 +277,13 @@ const LoadBoard = () => {
         let data = response.data;
         if (data && data.loads && Array.isArray(data.loads)) {
           setLoadData(data.loads);
+          setOriginalLoadData(data.loads); // Store original data
         } else if (Array.isArray(data)) {
           setLoadData(data);
+          setOriginalLoadData(data); // Store original data
         } else {
           setLoadData([]);
+          setOriginalLoadData([]);
         }
       } catch (err) {
         console.error('Error fetching loads:', err);
@@ -414,6 +478,219 @@ const LoadBoard = () => {
     setAcceptModalOpen(false);
     setAcceptBidId(null);
   };
+
+  // Edit handlers
+  const handleEditLoad = (load) => {
+    setSelectedLoad(load);
+    setEditForm({
+      fromCity: load.origin?.city || '',
+      fromState: load.origin?.state || '',
+      toCity: load.destination?.city || '',
+      toState: load.destination?.state || '',
+      pickupDate: load.pickupDate ? new Date(load.pickupDate).toISOString().split('T')[0] : '',
+      deliveryDate: load.deliveryDate ? new Date(load.deliveryDate).toISOString().split('T')[0] : '',
+      weight: load.weight || '',
+      commodity: load.commodity || '',
+      vehicleType: load.vehicleType || '',
+      rate: load.rate || '',
+      rateType: load.rateType || 'Flat Rate',
+      loadType: load.loadType || 'OTR',
+      containerNo: load.containerNo || '',
+      poNumber: load.poNumber || '',
+      bolNumber: load.bolNumber || '',
+      notes: load.notes || '',
+      returnDate: load.returnDate ? new Date(load.returnDate).toISOString().split('T')[0] : '',
+      drayageLocation: load.drayageLocation || ''
+    });
+    setEditErrors({});
+    setEditModalOpen(true);
+  };
+
+  const handleCloseEditModal = () => {
+    setEditModalOpen(false);
+    setSelectedLoad(null);
+    setEditForm({
+      fromCity: '',
+      fromState: '',
+      toCity: '',
+      toState: '',
+      pickupDate: '',
+      deliveryDate: '',
+      weight: '',
+      commodity: '',
+      vehicleType: '',
+      rate: '',
+      rateType: 'Flat Rate',
+      loadType: 'OTR',
+      containerNo: '',
+      poNumber: '',
+      bolNumber: '',
+      notes: '',
+      returnDate: '',
+      drayageLocation: ''
+    });
+    setEditErrors({});
+  };
+
+  const handleEditFormChange = (e) => {
+    setEditForm({ ...editForm, [e.target.name]: e.target.value });
+    // Clear error when user starts typing
+    if (editErrors[e.target.name]) {
+      setEditErrors({ ...editErrors, [e.target.name]: false });
+    }
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    setEditLoading(true);
+    
+    // Validation
+    const newErrors = {};
+    if (!editForm.fromCity) newErrors.fromCity = true;
+    if (!editForm.fromState) newErrors.fromState = true;
+    if (!editForm.toCity) newErrors.toCity = true;
+    if (!editForm.toState) newErrors.toState = true;
+    if (!editForm.pickupDate) newErrors.pickupDate = true;
+    if (!editForm.deliveryDate) newErrors.deliveryDate = true;
+    if (!editForm.weight) newErrors.weight = true;
+    if (!editForm.commodity) newErrors.commodity = true;
+    if (!editForm.vehicleType) newErrors.vehicleType = true;
+    if (!editForm.rate) newErrors.rate = true;
+
+    if (Object.keys(newErrors).length > 0) {
+      setEditErrors(newErrors);
+      setEditLoading(false);
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const updateData = {
+        fromCity: editForm.fromCity,
+        fromState: editForm.fromState,
+        toCity: editForm.toCity,
+        toState: editForm.toState,
+        pickupDate: new Date(editForm.pickupDate).toISOString(),
+        deliveryDate: new Date(editForm.deliveryDate).toISOString(),
+        weight: editForm.weight,
+        commodity: editForm.commodity,
+        vehicleType: editForm.vehicleType,
+        rate: editForm.rate,
+        rateType: editForm.rateType,
+        loadType: editForm.loadType,
+        containerNo: editForm.containerNo,
+        poNumber: editForm.poNumber,
+        bolNumber: editForm.bolNumber,
+        notes: editForm.notes
+      };
+
+      const response = await axios.put(
+        `${BASE_API_URL}/api/v1/load/shipper/load/${selectedLoad._id}`,
+        updateData,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (response.data.success) {
+        // Refresh the loads data
+        const loadsResponse = await axios.get(`${BASE_API_URL}/api/v1/load/shipper`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        let data = loadsResponse.data;
+        if (data && data.loads && Array.isArray(data.loads)) {
+          setLoadData(data.loads);
+        } else if (Array.isArray(data)) {
+          setLoadData(data);
+        } else {
+          setLoadData([]);
+        }
+        
+        handleCloseEditModal();
+        // Show success notification
+        if (window.alertify) {
+          window.alertify.success('Load updated successfully!');
+        } else {
+          alert('Load updated successfully!');
+        }
+      } else {
+        // Show error notification
+        if (window.alertify) {
+          window.alertify.error('Failed to update load: ' + (response.data.message || 'Unknown error'));
+        } else {
+          alert('Failed to update load: ' + (response.data.message || 'Unknown error'));
+        }
+      }
+    } catch (error) {
+      console.error('Error updating load:', error);
+      // Show error notification
+      if (window.alertify) {
+        window.alertify.error('Error updating load: ' + (error.response?.data?.message || error.message));
+      } else {
+        alert('Error updating load: ' + (error.response?.data?.message || error.message));
+      }
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  // Handle refresh load created-at
+  const handleRefreshLoad = async (loadId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.put(
+        `${BASE_API_URL}/api/v1/load/shipper/load/${loadId}/update-created-at`,
+        {},
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (response.data.success) {
+        // Show success notification
+        if (window.alertify) {
+          window.alertify.success('Load timestamp updated successfully!');
+        } else {
+          alert('Load timestamp updated successfully!');
+        }
+        
+        // Refresh the loads data
+        const loadsResponse = await axios.get(`${BASE_API_URL}/api/v1/load/shipper`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        let data = loadsResponse.data;
+        if (data && data.loads && Array.isArray(data.loads)) {
+          setLoadData(data.loads);
+        } else if (Array.isArray(data)) {
+          setLoadData(data);
+        } else {
+          setLoadData([]);
+        }
+      } else {
+        // Show error notification
+        if (window.alertify) {
+          window.alertify.error('Failed to update load timestamp: ' + (response.data.message || 'Unknown error'));
+        } else {
+          alert('Failed to update load timestamp: ' + (response.data.message || 'Unknown error'));
+        }
+      }
+    } catch (error) {
+      console.error('Error updating load timestamp:', error);
+      // Show error notification
+      if (window.alertify) {
+        window.alertify.error('Error updating load timestamp: ' + (error.response?.data?.message || error.message));
+      } else {
+        alert('Error updating load timestamp: ' + (error.response?.data?.message || error.message));
+      }
+    }
+  };
+
   const handleAcceptFormChange = (e) => {
     const { name, value } = e.target;
     if (name.startsWith('origin.')) {
@@ -488,6 +765,10 @@ const LoadBoard = () => {
 
   return (
     <Box sx={{ p: 3 }}>
+      <SearchNavigationFeedback 
+        searchResult={location.state?.selectedShipment} 
+        searchQuery={location.state?.searchQuery} 
+      />
       <Box
         sx={{
           display: 'flex',
@@ -498,9 +779,20 @@ const LoadBoard = () => {
           gap: 2,
         }}
       >
-        <Typography variant="h5" fontWeight={700}>
-          Load Board
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Typography variant="h5" fontWeight={700}>
+            Load Board
+          </Typography>
+          {isFiltered && (
+            <Chip
+              label={`Filtered: ${loadData.length} result${loadData.length !== 1 ? 's' : ''}`}
+              color="primary"
+              onDelete={clearSearchFilter}
+              deleteIcon={<Clear />}
+              sx={{ fontWeight: 600 }}
+            />
+          )}
+        </Box>
         <Stack direction="row" spacing={1} alignItems="center">
           <TextField
             variant="outlined"
@@ -579,8 +871,26 @@ const LoadBoard = () => {
             ) : (
               filteredData
                 .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                .map((load, i) => (
-                                     <TableRow key={load._id} hover>
+                .map((load, i) => {
+                  const isSearchedItem = isFiltered && location.state?.selectedShipment && 
+                    (load.shipmentNumber === location.state.selectedShipment.shipmentNumber ||
+                     load._id === location.state.selectedShipment.id ||
+                     load.id === location.state.selectedShipment.id);
+                  
+                  return (
+                    <TableRow 
+                      key={load._id} 
+                      hover
+                      sx={{ 
+                        transition: '0.3s', 
+                        '&:hover': { backgroundColor: '#e3f2fd' },
+                        ...(isSearchedItem && {
+                          backgroundColor: '#fff3e0',
+                          borderLeft: '4px solid #ff9800',
+                          '&:hover': { backgroundColor: '#ffe0b2' }
+                        })
+                      }}
+                    >
                      <TableCell>{load._id ? `L-${load._id.slice(-4)}` : '-'}</TableCell>
                      <TableCell>{load.shipmentNumber}</TableCell>
                      <TableCell>{load.weight !== undefined && load.weight !== null && load.weight !== '' ? `${load.weight} Kg` : '-'}</TableCell>
@@ -591,21 +901,51 @@ const LoadBoard = () => {
                        <Chip label={load.status || '-'} color={getStatusColor(load.status || '')} size="small" />
                      </TableCell>
                                            <TableCell>
-                        <Button 
-                          size="small" 
-                          variant="outlined" 
-                          onClick={() => handleViewBids(load._id)}
-                          disabled={['Assigned', 'In Transit', 'Delivered'].includes(load.status)}
-                          sx={{
-                            opacity: ['Assigned', 'In Transit', 'Delivered'].includes(load.status) ? 0.5 : 1,
-                            cursor: ['Assigned', 'In Transit', 'Delivered'].includes(load.status) ? 'not-allowed' : 'pointer'
-                          }}
-                        >
-                          View
-                        </Button>
+                        <Stack direction="row" spacing={1}>
+                          <Button 
+                            size="small" 
+                            variant="outlined" 
+                            onClick={() => handleViewBids(load._id)}
+                            disabled={['Assigned', 'In Transit', 'Delivered'].includes(load.status)}
+                            sx={{
+                              opacity: ['Assigned', 'In Transit', 'Delivered'].includes(load.status) ? 0.5 : 1,
+                              cursor: ['Assigned', 'In Transit', 'Delivered'].includes(load.status) ? 'not-allowed' : 'pointer'
+                            }}
+                          >
+                            View
+                          </Button>
+                          <Button 
+                            size="small" 
+                            variant="outlined" 
+                            onClick={() => handleEditLoad(load)}
+                            disabled={load.status !== 'Posted'}
+                            sx={{
+                              opacity: load.status !== 'Posted' ? 0.5 : 1,
+                              cursor: load.status !== 'Posted' ? 'not-allowed' : 'pointer'
+                            }}
+                          >
+                            Edit
+                          </Button>
+                          <Button 
+                            size="small" 
+                            variant="outlined" 
+                            onClick={() => handleRefreshLoad(load._id)}
+                            disabled={load.status !== 'Posted'}
+                            sx={{
+                              minWidth: 'auto',
+                              px: 1,
+                              opacity: load.status !== 'Posted' ? 0.5 : 1,
+                              cursor: load.status !== 'Posted' ? 'not-allowed' : 'pointer'
+                            }}
+                            title="Refresh Load Timestamp"
+                          >
+                            <Refresh fontSize="small" />
+                          </Button>
+                        </Stack>
                       </TableCell>
                    </TableRow>
-                ))
+                  );
+                })
             )}
           </TableBody>
         </Table>
@@ -973,59 +1313,166 @@ const LoadBoard = () => {
           ) : bids.length === 0 ? (
             <Typography align="center" sx={{ my: 4 }}>No bids found for this load.</Typography>
           ) : (
-            <Grid container spacing={3} sx={{ minHeight: 400, alignItems: 'center', justifyContent: 'center' }}>
-              {bids.map((bid, i) => (
-                <Grid item xs={12} sm={6} md={4} lg={3} key={bid._id || i}>
-                  <Box sx={{
-                    background: '#eaf4fb',
-                    borderRadius: 4,
-                    boxShadow: '0 2px 12px rgba(25, 118, 210, 0.08)',
-                    p: 3,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    minHeight: 260,
-                  }}>
-                    <Avatar
-                      src={bid.bidder?.avatar || ''}
-                      alt="Trucker"
-                      sx={{ width: 70, height: 70, mb: 2, fontSize: 32, bgcolor: '#fff', color: '#1976d2', border: '2px solid #fff', boxShadow: 1 }}
-                    >
-                      {bid.carrier?.compName ?
-                        (bid.carrier.compName.split(' ').map(w => w[0]).join('').toUpperCase()) :
-                        <PersonIcon sx={{ fontSize: 40, color: '#1976d2' }} />
-                      }
-                    </Avatar>
-                    <Typography sx={{ fontWeight: 600, fontSize: 18, mb: 0.5, textAlign: 'center' }}>
-                      {bid.driver?.name || bid.driverName || 'Driver'}
-                    </Typography>
-                    <Typography sx={{ fontWeight: 500, fontSize: 14, mb: 1, textAlign: 'center', color: '#666' }}>
-                      ({bid.vehicle?.number || bid.vehicleNumber || 'N/A'})
-                    </Typography>
-                    <Typography sx={{ fontWeight: 700, fontSize: 20, mb: 2, color: '#222', textAlign: 'center' }}>
-                      ${bid.intermediateRate?.toLocaleString() || '-'}
-                    </Typography>
-                    <Box sx={{ display: 'flex', gap: 1, width: '100%', justifyContent: 'center', mt: 'auto' }}>
-                      <Button
-                        variant="contained"
-                        color="success"
-                        sx={{ borderRadius: 3, fontWeight: 600, px: 3, textTransform: 'none', fontSize: 15 }}
-                        onClick={() => handleAcceptBid(bid)}
+                         <Grid container spacing={2} sx={{ minHeight: 300, mt: 2 }}>
+               {bids.map((bid, i) => (
+                 <Grid item xs={12} sm={6} md={4} key={bid._id || i}>
+                   <Box sx={{
+                     background: '#fff',
+                     borderRadius: 3,
+                     boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+                     p: 2.5,
+                     display: 'flex',
+                     flexDirection: 'column',
+                     alignItems: 'center',
+                     minHeight: 200,
+                     border: '2px solid #e3f2fd',
+                     transition: 'all 0.3s ease',
+                     '&:hover': {
+                       transform: 'translateY(-4px)',
+                       boxShadow: '0 8px 25px rgba(25, 118, 210, 0.15)',
+                       borderColor: '#1976d2'
+                     }
+                   }}>
+                     {/* Bid Number */}
+                     <Box sx={{
+                       position: 'absolute',
+                       top: 8,
+                       right: 8,
+                       background: '#1976d2',
+                       color: '#fff',
+                       borderRadius: '50%',
+                       width: 28,
+                       height: 28,
+                       display: 'flex',
+                       alignItems: 'center',
+                       justifyContent: 'center',
+                       fontSize: 12,
+                       fontWeight: 600
+                     }}>
+                       {i + 1}
+                     </Box>
+
+                                           {/* Avatar */}
+                      <Avatar
+                        src={bid.bidder?.avatar || ''}
+                        alt="Driver"
+                        sx={{ 
+                          width: 50, 
+                          height: 50, 
+                          mb: 1.5,
+                          bgcolor: '#e3f2fd',
+                          color: '#1976d2',
+                          border: '2px solid #1976d2'
+                        }}
                       >
-                        Accept
-                      </Button>
-                      <Button
-                        variant="outlined"
-                        sx={{ borderRadius: 3, fontWeight: 600, px: 3, textTransform: 'none', fontSize: 15, borderColor: '#222', color: '#222', '&:hover': { borderColor: '#1976d2', color: '#1976d2' } }}
-                        onClick={() => handleViewBidDetails(bid)}
-                      >
-                        View details
-                      </Button>
-                    </Box>
-                  </Box>
-                </Grid>
-              ))}
-            </Grid>
+                        {bid.driver?.name ?
+                          (bid.driver.name.split(' ').map(w => w[0]).join('').toUpperCase()) :
+                          <PersonIcon sx={{ fontSize: 24, color: '#1976d2' }} />
+                        }
+                      </Avatar>
+
+                     {/* Driver Name */}
+                     <Typography sx={{ 
+                       fontWeight: 600, 
+                       fontSize: 15, 
+                       mb: 0.5, 
+                       textAlign: 'center',
+                       color: '#333'
+                     }}>
+                       {bid.driver?.name || bid.driverName || 'Driver'}
+                     </Typography>
+                     
+                     {/* Vehicle Number */}
+                     <Typography sx={{ 
+                       fontWeight: 500, 
+                       fontSize: 12, 
+                       mb: 1.5, 
+                       textAlign: 'center', 
+                       color: '#666'
+                     }}>
+                       🚛 {bid.vehicle?.number || bid.vehicleNumber || 'N/A'}
+                     </Typography>
+
+                     {/* Price */}
+                     <Box sx={{
+                       background: '#f8f9fa',
+                       borderRadius: 2,
+                       p: 1.5,
+                       mb: 2,
+                       width: '100%',
+                       textAlign: 'center',
+                       border: '1px solid #e9ecef'
+                     }}>
+                       <Typography sx={{ 
+                         fontWeight: 600, 
+                         fontSize: 11, 
+                         color: '#666',
+                         mb: 0.5,
+                         textTransform: 'uppercase'
+                       }}>
+                         Bid Amount
+                       </Typography>
+                       <Typography sx={{ 
+                         fontWeight: 700, 
+                         fontSize: 20, 
+                         color: '#1976d2'
+                       }}>
+                         ${bid.intermediateRate?.toLocaleString() || '-'}
+                       </Typography>
+                     </Box>
+
+                     {/* Action Buttons */}
+                     <Box sx={{ 
+                       display: 'flex', 
+                       gap: 1, 
+                       width: '100%', 
+                       justifyContent: 'center'
+                     }}>
+                       <Button
+                         variant="contained"
+                         size="small"
+                         sx={{ 
+                           borderRadius: 2, 
+                           fontWeight: 600, 
+                           px: 2, 
+                           py: 0.5,
+                           textTransform: 'none', 
+                           fontSize: 12,
+                           bgcolor: '#4caf50',
+                           '&:hover': {
+                             bgcolor: '#388e3c'
+                           }
+                         }}
+                         onClick={() => handleAcceptBid(bid)}
+                       >
+                         Accept
+                       </Button>
+                       <Button
+                         variant="outlined"
+                         size="small"
+                         sx={{ 
+                           borderRadius: 2, 
+                           fontWeight: 600, 
+                           px: 2, 
+                           py: 0.5,
+                           textTransform: 'none', 
+                           fontSize: 12,
+                           borderColor: '#1976d2',
+                           color: '#1976d2',
+                           '&:hover': { 
+                             borderColor: '#0d47a1', 
+                             color: '#0d47a1'
+                           }
+                         }}
+                         onClick={() => handleViewBidDetails(bid)}
+                       >
+                         Details
+                       </Button>
+                     </Box>
+                   </Box>
+                 </Grid>
+               ))}
+             </Grid>
           )}
         </DialogContent>
         <DialogActions sx={{ p: 2, background: '#fff' }}>
@@ -1033,67 +1480,230 @@ const LoadBoard = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Bid Details Modal */}
-      <Dialog open={bidDetailsModalOpen} onClose={handleCloseBidDetailsModal} maxWidth="xs" fullWidth PaperProps={{
-        sx: {
-          borderRadius: 3,
-          boxShadow: 8,
-          background: '#f8fafc',
-        }
-      }}>
-        <DialogTitle sx={{
-          fontWeight: 700,
-          color: '#1976d2',
-          fontSize: 24,
-          background: 'linear-gradient(90deg, #e3f0ff 60%, #dbeafe 100%)',
-          borderTopLeftRadius: 12,
-          borderTopRightRadius: 12,
-          py: 3,
-          textAlign: 'center',
-          letterSpacing: 1,
-        }}>
-          Bid Details
-        </DialogTitle>
-        <DialogContent sx={{ px: 4, py: 3, background: '#f8fafc' }}>
-          {selectedBid && (
-            <Box sx={{
-              background: '#fff',
+                                                                                   {/* Bid Details Modal */}
+          <Dialog open={bidDetailsModalOpen} onClose={handleCloseBidDetailsModal} maxWidth={false} fullWidth PaperProps={{
+            sx: {
               borderRadius: 3,
-              boxShadow: '0 2px 12px rgba(25, 118, 210, 0.08)',
-              p: 3,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 2,
-              alignItems: 'flex-start',
-              minWidth: 320,
-            }}>
-                             <Box sx={{ mb: 2, width: '100%' }}>
-                                 <Typography sx={{ fontWeight: 600, color: '#1976d2', fontSize: 16 }}>Driver Name</Typography>
-                 <Typography sx={{ fontWeight: 500, fontSize: 16, color: '#333', mt: 0.5 }}>{selectedBid.driver?.name || selectedBid.driverName || '-'}</Typography>
-              </Box>
-              <Box sx={{ mb: 2, width: '100%' }}>
-                <Typography sx={{ fontWeight: 600, color: '#1976d2', fontSize: 16 }}>Vehicle Number</Typography>
-                <Typography sx={{ fontWeight: 500, fontSize: 16, color: '#333', mt: 0.5 }}>{selectedBid.vehicle?.number || selectedBid.vehicleNumber || '-'}</Typography>
-              </Box>
-              <Box sx={{ mb: 2, width: '100%' }}>
-                <Typography sx={{ fontWeight: 600, color: '#1976d2', fontSize: 16 }}>Message</Typography>
-                <Typography sx={{ fontWeight: 500, fontSize: 16, color: '#333', mt: 0.5 }}>{selectedBid.message || '-'}</Typography>
-              </Box>
-              <Box sx={{ mb: 2, width: '100%' }}>
-                <Typography sx={{ fontWeight: 600, color: '#1976d2', fontSize: 16 }}>Pickup ETA</Typography>
-                <Typography sx={{ fontWeight: 500, fontSize: 16, color: '#333', mt: 0.5 }}>{selectedBid.estimatedPickupDate ? new Date(selectedBid.estimatedPickupDate).toLocaleString() : '-'}</Typography>
-              </Box>
-              <Box sx={{ width: '100%' }}>
-                <Typography sx={{ fontWeight: 600, color: '#1976d2', fontSize: 16 }}>Drop ETA</Typography>
-                <Typography sx={{ fontWeight: 500, fontSize: 16, color: '#333', mt: 0.5 }}>{selectedBid.estimatedDeliveryDate ? new Date(selectedBid.estimatedDeliveryDate).toLocaleString() : '-'}</Typography>
-              </Box>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ p: 2, background: '#f8fafc', borderBottomLeftRadius: 12, borderBottomRightRadius: 12 }}>
-          <Button onClick={handleCloseBidDetailsModal} variant="outlined" sx={{ borderRadius: 2, fontWeight: 600, color: '#1976d2', borderColor: '#1976d2' }}>Close</Button>
-        </DialogActions>
-      </Dialog>
+              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
+              background: '#fff',
+              maxHeight: '45vh',
+              width: '700px',
+              maxWidth: '90vw'
+            }
+          }}>
+          <DialogTitle sx={{
+            fontWeight: 700,
+            color: '#1976d2',
+            fontSize: 20,
+            background: '#f8fafc',
+            borderBottom: '2px solid #e3f2fd',
+            py: 2,
+            textAlign: 'center'
+          }}>
+            🚛 Bid Details
+          </DialogTitle>
+                                           <DialogContent sx={{ px: 3, py: 2 }}>
+              {selectedBid && (
+                <Box sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 2
+                }}>
+                  {/* Driver Name - Centered */}
+                  <Box sx={{ textAlign: 'center', mb: 2, mt: 1 }}>
+                   <Avatar
+                     src={selectedBid.bidder?.avatar || ''}
+                     alt="Driver"
+                     sx={{ 
+                       width: 60, 
+                       height: 60, 
+                       mb: 1,
+                       bgcolor: '#e3f2fd',
+                       color: '#1976d2',
+                       border: '2px solid #1976d2',
+                       fontSize: 24,
+                       fontWeight: 600,
+                       mx: 'auto'
+                     }}
+                   >
+                     {selectedBid.driver?.name ?
+                       (selectedBid.driver.name.split(' ').map(w => w[0]).join('').toUpperCase()) :
+                       <PersonIcon sx={{ fontSize: 28, color: '#1976d2' }} />
+                     }
+                   </Avatar>
+                   <Typography sx={{ 
+                     fontWeight: 700, 
+                     fontSize: 18, 
+                     color: '#1976d2',
+                     mb: 0.5
+                   }}>
+                     {selectedBid.driver?.name || selectedBid.driverName || 'Driver Name'}
+                   </Typography>
+                 </Box>
+
+                 {/* Row 1: Vehicle No, Bid Amount, Pickup ETA, Drop ETA */}
+                 <Box sx={{ 
+                   display: 'grid', 
+                   gridTemplateColumns: '1fr 1fr 1fr 1fr',
+                   gap: 2,
+                   mb: 2
+                 }}>
+                   <Box sx={{
+                     background: '#f8f9fa',
+                     borderRadius: 2,
+                     p: 1.5,
+                     border: '1px solid #e9ecef',
+                     textAlign: 'center'
+                   }}>
+                     <Typography sx={{ 
+                       fontWeight: 600, 
+                       color: '#1976d2', 
+                       fontSize: 12,
+                       mb: 0.5
+                     }}>
+                       Vehicle No
+                     </Typography>
+                     <Typography sx={{ 
+                       fontWeight: 600, 
+                       fontSize: 14, 
+                       color: '#333'
+                     }}>
+                       🚛 {selectedBid.vehicle?.number || selectedBid.vehicleNumber || 'N/A'}
+                     </Typography>
+                   </Box>
+
+                   <Box sx={{
+                     background: '#f8f9fa',
+                     borderRadius: 2,
+                     p: 1.5,
+                     border: '1px solid #e9ecef',
+                     textAlign: 'center'
+                   }}>
+                     <Typography sx={{ 
+                       fontWeight: 600, 
+                       color: '#1976d2', 
+                       fontSize: 12,
+                       mb: 0.5
+                     }}>
+                       Bid Amount
+                     </Typography>
+                     <Typography sx={{ 
+                       fontWeight: 700, 
+                       fontSize: 16, 
+                       color: '#4caf50'
+                     }}>
+                       ${selectedBid.intermediateRate?.toLocaleString() || '-'}
+                     </Typography>
+                   </Box>
+
+                   <Box sx={{
+                     background: '#fff3e0',
+                     borderRadius: 2,
+                     p: 1.5,
+                     border: '1px solid #ffcc02',
+                     textAlign: 'center'
+                   }}>
+                     <Typography sx={{ 
+                       fontWeight: 600, 
+                       color: '#f57c00', 
+                       fontSize: 12,
+                       mb: 0.5
+                     }}>
+                       Pickup ETA
+                     </Typography>
+                     <Typography sx={{ 
+                       fontWeight: 600, 
+                       fontSize: 13, 
+                       color: '#333'
+                     }}>
+                       {selectedBid.estimatedPickupDate ? 
+                         new Date(selectedBid.estimatedPickupDate).toLocaleDateString('en-US', {
+                           month: 'short',
+                           day: 'numeric',
+                           hour: '2-digit',
+                           minute: '2-digit'
+                         }) : 'Not specified'}
+                     </Typography>
+                   </Box>
+
+                   <Box sx={{
+                     background: '#e8f5e8',
+                     borderRadius: 2,
+                     p: 1.5,
+                     border: '1px solid #4caf50',
+                     textAlign: 'center'
+                   }}>
+                     <Typography sx={{ 
+                       fontWeight: 600, 
+                       color: '#2e7d32', 
+                       fontSize: 12,
+                       mb: 0.5
+                     }}>
+                       Drop ETA
+                     </Typography>
+                     <Typography sx={{ 
+                       fontWeight: 600, 
+                       fontSize: 13, 
+                       color: '#333'
+                     }}>
+                       {selectedBid.estimatedDeliveryDate ? 
+                         new Date(selectedBid.estimatedDeliveryDate).toLocaleDateString('en-US', {
+                           month: 'short',
+                           day: 'numeric',
+                           hour: '2-digit',
+                           minute: '2-digit'
+                         }) : 'Not specified'}
+                     </Typography>
+                   </Box>
+                 </Box>
+
+                 {/* Row 2: Message - Full Width */}
+                 <Box sx={{
+                   background: '#f8f9fa',
+                   borderRadius: 2,
+                   p: 2,
+                   border: '1px solid #e9ecef'
+                 }}>
+                   <Typography sx={{ 
+                     fontWeight: 600, 
+                     color: '#1976d2', 
+                     fontSize: 13,
+                     mb: 1
+                   }}>
+                     Message
+                   </Typography>
+                   <Typography sx={{ 
+                     fontWeight: 500, 
+                     fontSize: 14, 
+                     color: '#333',
+                     fontStyle: 'italic',
+                     textAlign: 'center'
+                   }}>
+                     "{selectedBid.message || 'No message provided'}"
+                   </Typography>
+                 </Box>
+               </Box>
+             )}
+           </DialogContent>
+          <DialogActions sx={{ p: 2, background: '#f8fafc', justifyContent: 'center' }}>
+            <Button 
+              onClick={handleCloseBidDetailsModal} 
+              variant="contained" 
+              sx={{ 
+                borderRadius: 2, 
+                fontWeight: 600, 
+                px: 3,
+                py: 1,
+                bgcolor: '#1976d2',
+                '&:hover': {
+                  bgcolor: '#1565c0'
+                }
+              }}
+            >
+              Close
+            </Button>
+          </DialogActions>
+        </Dialog>
 
       {/* Accept Bid Modal */}
       <Dialog open={acceptModalOpen} onClose={handleCloseAcceptModal} maxWidth="sm" fullWidth>
@@ -1207,6 +1817,351 @@ const LoadBoard = () => {
             <DialogActions sx={{ mt: 3, p: 0 }}>
               <Button onClick={handleCloseAcceptModal} variant="outlined" sx={{ borderRadius: 2, fontWeight: 600, color: '#1976d2', borderColor: '#1976d2' }}>Cancel</Button>
               <Button type="submit" variant="contained" color="primary" sx={{ borderRadius: 2, fontWeight: 700 }}>Accept</Button>
+            </DialogActions>
+          </Box>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Load Modal */}
+      <Dialog open={editModalOpen} onClose={handleCloseEditModal} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700, color: '#1976d2', fontSize: 22, borderBottom: '1px solid #e0e0e0' }}>
+          Edit Load
+        </DialogTitle>
+        <DialogContent sx={{ pb: 4 }}>
+          <Box component="form" onSubmit={handleEditSubmit} sx={{ mt: 1, px: 2 }}>
+            {/* Tab Toggle */}
+            <Stack direction="row" spacing={1} sx={{ mb: 3 }} justifyContent="center">
+              <Button
+                variant={editForm.loadType === 'OTR' ? 'contained' : 'outlined'}
+                onClick={() => setEditForm({ ...editForm, loadType: 'OTR' })}
+                sx={{ borderRadius: 5, minWidth: 120 }}
+              >
+                OTR
+              </Button>
+              <Button
+                variant={editForm.loadType === 'Drayage' ? 'contained' : 'outlined'}
+                onClick={() => setEditForm({ ...editForm, loadType: 'Drayage' })}
+                sx={{ borderRadius: 5, minWidth: 120 }}
+              >
+                Drayage
+              </Button>
+            </Stack>
+
+            {/* Grid Fields */}
+            <Grid container spacing={2} sx={{ mb: 2 }}>
+              {/* From City - From State */}
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="From City"
+                  name="fromCity"
+                  value={editForm.fromCity}
+                  onChange={handleEditFormChange}
+                  fullWidth
+                  error={!!editErrors.fromCity}
+                  sx={{
+                    '& .MuiInputBase-root': {
+                      borderRadius: '12px',
+                      paddingRight: 3,
+                    },
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="From State"
+                  name="fromState"
+                  value={editForm.fromState}
+                  onChange={handleEditFormChange}
+                  fullWidth
+                  error={!!editErrors.fromState}
+                  sx={{
+                    '& .MuiInputBase-root': {
+                      borderRadius: '12px',
+                      paddingRight: 3,
+                    },
+                  }}
+                />
+              </Grid>
+
+              {/* To City - To State */}
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="To City"
+                  name="toCity"
+                  value={editForm.toCity}
+                  onChange={handleEditFormChange}
+                  fullWidth
+                  error={!!editErrors.toCity}
+                  sx={{
+                    '& .MuiInputBase-root': {
+                      borderRadius: '12px',
+                      paddingRight: 3,
+                    },
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="To State"
+                  name="toState"
+                  value={editForm.toState}
+                  onChange={handleEditFormChange}
+                  fullWidth
+                  error={!!editErrors.toState}
+                  sx={{
+                    '& .MuiInputBase-root': {
+                      borderRadius: '12px',
+                      paddingRight: 3,
+                    },
+                  }}
+                />
+              </Grid>
+
+              {/* Pickup Date - Drop Date */}
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  type="date"
+                  label="Pickup Date"
+                  name="pickupDate"
+                  value={editForm.pickupDate}
+                  onChange={handleEditFormChange}
+                  fullWidth
+                  error={!!editErrors.pickupDate}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{
+                    '& .MuiInputBase-root': {
+                      borderRadius: '12px',
+                      paddingRight: 3,
+                    },
+                    '& input[type="date"]': {
+                      fontSize: '16px',
+                      height: '1.4375em',
+                      padding: '16.5px 14px',
+                      width: '195px',
+                    },
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  type="date"
+                  label="Drop Date"
+                  name="deliveryDate"
+                  value={editForm.deliveryDate}
+                  onChange={handleEditFormChange}
+                  fullWidth
+                  error={!!editErrors.deliveryDate}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{
+                    '& .MuiInputBase-root': {
+                      borderRadius: '12px',
+                      paddingRight: 3,
+                    },
+                    '& input[type="date"]': {
+                      fontSize: '16px',
+                      height: '1.4375em',
+                      padding: '16.5px 14px',
+                      width: '195px',
+                    },
+                  }}
+                />
+              </Grid>
+
+              {/* Vehicle Type - Commodity */}
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Vehicle Type"
+                  name="vehicleType"
+                  value={editForm.vehicleType}
+                  onChange={handleEditFormChange}
+                  fullWidth
+                  error={!!editErrors.vehicleType}
+                  sx={{
+                    '& .MuiInputBase-root': {
+                      borderRadius: '12px',
+                      paddingRight: 3,
+                    },
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Commodity"
+                  name="commodity"
+                  value={editForm.commodity}
+                  onChange={handleEditFormChange}
+                  fullWidth
+                  error={!!editErrors.commodity}
+                  sx={{
+                    '& .MuiInputBase-root': {
+                      borderRadius: '12px',
+                      paddingRight: 3,
+                    },
+                  }}
+                />
+              </Grid>
+
+              {/* Weight (kg) - Container No (Optional) */}
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Weight (kg)"
+                  name="weight"
+                  value={editForm.weight}
+                  onChange={handleEditFormChange}
+                  fullWidth
+                  error={!!editErrors.weight}
+                  sx={{
+                    '& .MuiInputBase-root': {
+                      borderRadius: '12px',
+                      paddingRight: 3,
+                    },
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Container No (Optional)"
+                  name="containerNo"
+                  value={editForm.containerNo}
+                  onChange={handleEditFormChange}
+                  fullWidth
+                  sx={{
+                    '& .MuiInputBase-root': {
+                      borderRadius: '12px',
+                      paddingRight: 3,
+                    },
+                  }}
+                />
+              </Grid>
+
+              {/* PO Number (Optional) - BOL Number (Optional) */}
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="PO Number (Optional)"
+                  name="poNumber"
+                  value={editForm.poNumber}
+                  onChange={handleEditFormChange}
+                  fullWidth
+                  sx={{
+                    '& .MuiInputBase-root': {
+                      borderRadius: '12px',
+                      paddingRight: 3,
+                    },
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="BOL Number (Optional)"
+                  name="bolNumber"
+                  value={editForm.bolNumber}
+                  onChange={handleEditFormChange}
+                  fullWidth
+                  sx={{
+                    '& .MuiInputBase-root': {
+                      borderRadius: '12px',
+                      paddingRight: 3,
+                    },
+                  }}
+                />
+              </Grid>
+
+              {/* Drayage specific fields */}
+              {editForm.loadType === 'Drayage' && (
+                <>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      type="date"
+                      label="Return Date"
+                      name="returnDate"
+                      value={editForm.returnDate || ''}
+                      onChange={handleEditFormChange}
+                      fullWidth
+                      InputLabelProps={{ shrink: true }}
+                      sx={{
+                        '& .MuiInputBase-root': {
+                          borderRadius: '12px',
+                          paddingRight: 3,
+                        },
+                        '& input[type="date"]': {
+                          fontSize: '16px',
+                          height: '1.4375em',
+                          padding: '16.5px 14px',
+                        },
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      label="Drayage Location"
+                      name="drayageLocation"
+                      value={editForm.drayageLocation || ''}
+                      onChange={handleEditFormChange}
+                      fullWidth
+                      sx={{
+                        '& .MuiInputBase-root': {
+                          borderRadius: '12px',
+                          paddingRight: 3,
+                        },
+                      }}
+                    />
+                  </Grid>
+                </>
+              )}
+            </Grid>
+
+            {/* Price */}
+            <TextField
+              label="Expected Price"
+              name="rate"
+              value={editForm.rate}
+              onChange={handleEditFormChange}
+              fullWidth
+              error={!!editErrors.rate}
+              sx={{
+                '& .MuiInputBase-root': {
+                  borderRadius: '12px',
+                  fontSize: '20px',
+                  fontWeight: 600,
+                  paddingY: 1.5,
+                  width: '510px',
+                },
+                '& input': {
+                  textAlign: 'center',
+                },
+              }}
+            />
+
+            {/* Buttons */}
+            <DialogActions sx={{ mt: 4, justifyContent: 'center', gap: 1 }}>
+              <Button
+                onClick={handleCloseEditModal}
+                variant="contained"
+                disabled={editLoading}
+                sx={{
+                  borderRadius: 3,
+                  backgroundColor: '#f0f0f0',
+                  color: '#000',
+                  textTransform: 'none',
+                  px: 4,
+                  '&:hover': { backgroundColor: '#e0e0e0' },
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="contained"
+                color="primary"
+                disabled={editLoading}
+                sx={{
+                  borderRadius: 3,
+                  textTransform: 'none',
+                  px: 4,
+                }}
+              >
+                {editLoading ? 'Updating...' : 'Submit'}
+              </Button>
             </DialogActions>
           </Box>
         </DialogContent>

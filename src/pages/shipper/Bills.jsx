@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -31,16 +32,47 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { format, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import { jsPDF } from 'jspdf';
+import SearchNavigationFeedback from '../../components/SearchNavigationFeedback';
 
 const Bills = () => {
+  const location = useLocation();
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [dateRange, setDateRange] = useState([null, null]);
   const [anchorEl, setAnchorEl] = useState(null);
   const [filteredData, setFilteredData] = useState([]);
+  const [originalBillsData, setOriginalBillsData] = useState([]);
+  const [isFiltered, setIsFiltered] = useState(false);
   const [generateBillOpen, setGenerateBillOpen] = useState(false);
   const [viewBillOpen, setViewBillOpen] = useState(false);
   const [selectedBill, setSelectedBill] = useState(null);
+  
+  // Handle search result from universal search
+  useEffect(() => {
+    if (location.state?.selectedBill) {
+      const bill = location.state.selectedBill;
+      console.log('Navigated from search:', bill);
+      
+      // Filter to show only the searched bill
+      if (originalBillsData.length > 0) {
+        const filteredBill = originalBillsData.find(b => 
+          b.billId === bill.id ||
+          b.billNumber === bill.billNumber
+        );
+        
+        if (filteredBill) {
+          setFilteredData([filteredBill]);
+          setIsFiltered(true);
+        }
+      }
+    }
+  }, [location.state, originalBillsData]);
+
+  // Clear search filter
+  const clearSearchFilter = () => {
+    setFilteredData(originalBillsData);
+    setIsFiltered(false);
+  };
   const [billForm, setBillForm] = useState({
     billNumber: '',
     customerName: '',
@@ -81,6 +113,7 @@ const Bills = () => {
     } else {
       setFilteredData(billingData);
     }
+    setOriginalBillsData(billingData); // Store original data
     setPage(0);
   }, [dateRange]);
 
@@ -313,6 +346,10 @@ const Bills = () => {
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
       <Box sx={{ p: 3 }}>
+        <SearchNavigationFeedback 
+          searchResult={location.state?.selectedBill} 
+          searchQuery={location.state?.searchQuery} 
+        />
         <Box
           sx={{
             display: 'flex',
@@ -323,9 +360,20 @@ const Bills = () => {
             gap: 2,
           }}
         >
-          <Typography variant="h5" fontWeight={700}>
-            Bills Overview
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Typography variant="h5" fontWeight={700}>
+              Bills Overview
+            </Typography>
+            {isFiltered && (
+              <Chip
+                label={`Filtered: ${filteredData.length} result${filteredData.length !== 1 ? 's' : ''}`}
+                color="primary"
+                onDelete={clearSearchFilter}
+                deleteIcon={<Clear />}
+                sx={{ fontWeight: 600 }}
+              />
+            )}
+          </Box>
 
           <Stack direction="row" spacing={1} alignItems="center">
             <Button
@@ -498,12 +546,25 @@ const Bills = () => {
             <TableBody>
               {filteredData
                 .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                .map((bill, i) => (
-                                     <TableRow
-                     key={i}
-                     hover
-                     sx={{ transition: '0.3s', '&:hover': { backgroundColor: '#e3f2fd' } }}
-                   >
+                .map((bill, i) => {
+                  const isSearchedItem = isFiltered && location.state?.selectedBill && 
+                    (bill.billId === location.state.selectedBill.id ||
+                     bill.billId === location.state.selectedBill.billNumber);
+                  
+                  return (
+                    <TableRow
+                      key={i}
+                      hover
+                      sx={{ 
+                        transition: '0.3s', 
+                        '&:hover': { backgroundColor: '#e3f2fd' },
+                        ...(isSearchedItem && {
+                          backgroundColor: '#fff3e0',
+                          borderLeft: '4px solid #ff9800',
+                          '&:hover': { backgroundColor: '#ffe0b2' }
+                        })
+                      }}
+                    >
                      <TableCell>{bill.billId}</TableCell>
                      <TableCell>{bill.date}</TableCell>
                      <TableCell>${bill.amount.toLocaleString()}</TableCell>
@@ -543,7 +604,8 @@ const Bills = () => {
                         </Button>
                       </TableCell>
                    </TableRow>
-                ))}
+                  );
+                })}
             </TableBody>
           </Table>
           <TablePagination

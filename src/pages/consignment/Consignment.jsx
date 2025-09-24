@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -14,46 +15,126 @@ import {
   Chip,
   TextField,
   InputAdornment,
+  CircularProgress,
+  Alert,
 } from '@mui/material';
-import { Receipt, Download, Search } from '@mui/icons-material';
+import { Receipt, Download, Search, Clear } from '@mui/icons-material';
+import { useAuth } from '../../context/AuthContext';
+import { BASE_API_URL } from '../../apiConfig';
+import SearchNavigationFeedback from '../../components/SearchNavigationFeedback';
 
-const Dashboard = () => {
+const Consignment = () => {
+  const location = useLocation();
+  const { user, userType } = useAuth();
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
+  const [loadsData, setLoadsData] = useState([]);
+  const [originalLoadsData, setOriginalLoadsData] = useState([]);
+  const [isFiltered, setIsFiltered] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
+  // Handle search result from universal search
+  useEffect(() => {
+    if (location.state?.selectedShipment) {
+      const shipment = location.state.selectedShipment;
+      setSearchTerm(shipment.shipmentNumber || '');
+      console.log('Navigated from search:', shipment);
+      
+      // Filter to show only the searched shipment
+      if (originalLoadsData.length > 0) {
+        const filteredShipment = originalLoadsData.find(load => 
+          load.shipmentNumber === shipment.shipmentNumber ||
+          load._id === shipment.id
+        );
+        
+        if (filteredShipment) {
+          // Set the filtered data to show only this shipment
+          setLoadsData([filteredShipment]);
+          setIsFiltered(true);
+        }
+      }
+    }
+  }, [location.state, originalLoadsData]);
 
-  const driverData = [
-    {
-      loadId: 'LD-001',
-      consignmentNo: 'CN-1001',
-      weight: '5 Tons',
-      pickup: 'New Yourk',
-      drop: 'New Zersey',
-      returnLoc: 'New Yourk',
-      vehicle: 'FGY-5597',
-      commodity: 'Electronics',
-      loadType: 'FTL',
-      driver: 'Rajesh Kumar',
-      status: 'Pending',
-    },
-    {
-      loadId: 'LD-002',
-      consignmentNo: 'CN-1002',
-      weight: '8 Tons',
-      pickup: 'Houston',
-      drop: 'Dallas',
-      returnLoc: 'Houston',
-      vehicle: 'HHA-239',
-      commodity: 'Furniture',
-      loadType: 'LTL',
-      driver: 'Vikram Iyer',
-      status: 'Completed',
-    },
-  ];
+  // Clear search filter
+  const clearSearchFilter = () => {
+    setLoadsData(originalLoadsData);
+    setIsFiltered(false);
+    setSearchTerm('');
+  };
 
-  const filteredData = driverData.filter((row) =>
+  // Fetch loads data based on user type
+  useEffect(() => {
+    const fetchLoadsData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const token = localStorage.getItem('token');
+        if (!token) {
+          throw new Error('No authentication token found');
+        }
+
+        let apiUrl;
+        if (userType === 'trucker') {
+          apiUrl = `${BASE_API_URL}/api/v1/load/trucker/my-loads-detailed`;
+        } else if (userType === 'shipper') {
+          apiUrl = `${BASE_API_URL}/api/v1/load/shipper/my-loads-detailed`;
+        } else {
+          throw new Error('Invalid user type');
+        }
+
+        const response = await fetch(apiUrl, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        if (data.success && data.data && data.data.loads) {
+          setLoadsData(data.data.loads);
+          setOriginalLoadsData(data.data.loads); // Store original data
+        } else {
+          throw new Error('Invalid response format');
+        }
+      } catch (err) {
+        console.error('Error fetching loads data:', err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user && userType) {
+      fetchLoadsData();
+    }
+  }, [user, userType]);
+
+  // Transform API data to table format
+  const transformedData = loadsData.map((load) => ({
+    loadId: `L-${load._id.slice(-5)}`, // L- followed by last 5 digits
+    consignmentNo: load.shipmentNumber || 'N/A',
+    weight: `${load.weight} lbs`,
+    pickup: `${load.origin.city}, ${load.origin.state}`,
+    drop: `${load.destination.city}, ${load.destination.state}`,
+    vehicle: load.acceptedBid?.vehicleNumber || 'N/A',
+    loadType: load.loadType || 'N/A',
+    driver: load.acceptedBid?.driverName || 'N/A',
+    status: load.status || 'N/A',
+  }));
+
+  const filteredData = transformedData.filter((row) =>
     Object.values(row).some((val) =>
-      val.toLowerCase().includes(searchTerm.toLowerCase())
+      val.toString().toLowerCase().includes(searchTerm.toLowerCase())
     )
   );
 
@@ -67,19 +148,27 @@ const Dashboard = () => {
   };
 
   const exportToCSV = () => {
-    const headers = ['Load ID', 'Consignment No', 'Weight', 'Pick Up', 'Drop', 'Return', 'Vehicle', 'Commodity', 'Load Type', 'Driver', 'Status'];
+    const headers = [
+      'Load ID', 
+      'Consignment No', 
+      'Weight', 
+      'Pick Up', 
+      'Drop', 
+      'Vehicle', 
+      'Load Type', 
+      'Driver', 
+      'Status'
+    ];
     const csvRows = [headers.join(',')];
 
-    driverData.forEach(row => {
+    transformedData.forEach(row => {
       const values = [
         row.loadId,
         row.consignmentNo,
         row.weight,
         row.pickup,
         row.drop,
-        row.returnLoc,
         row.vehicle,
-        row.commodity,
         row.loadType,
         row.driver,
         row.status
@@ -91,13 +180,47 @@ const Dashboard = () => {
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'driver_data.csv';
+    link.download = `${userType}_loads_data.csv`;
     link.click();
     window.URL.revokeObjectURL(url);
   };
 
+  // Show loading state
+  if (loading) {
+    return (
+      <Box sx={{ p: 3, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+        <CircularProgress size={60} />
+        <Typography variant="h6" sx={{ ml: 2 }}>
+          Loading consignment data...
+        </Typography>
+      </Box>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Alert severity="error" sx={{ mb: 2 }}>
+          Error loading consignment data: {error}
+        </Alert>
+        <Button 
+          variant="contained" 
+          onClick={() => window.location.reload()}
+          sx={{ mt: 2 }}
+        >
+          Retry
+        </Button>
+      </Box>
+    );
+  }
+
   return (
     <Box sx={{ p: 3 }}>
+      <SearchNavigationFeedback 
+        searchResult={location.state?.selectedShipment} 
+        searchQuery={location.state?.searchQuery} 
+      />
       <Box
         sx={{
           display: 'flex',
@@ -108,9 +231,20 @@ const Dashboard = () => {
           gap: 2,
         }}
       >
-        <Typography variant="h5" fontWeight={700}>
-          Consignment Table
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Typography variant="h5" fontWeight={700}>
+            Consignment
+          </Typography>
+          {isFiltered && (
+            <Chip
+              label={`Filtered: ${loadsData.length} result${loadsData.length !== 1 ? 's' : ''}`}
+              color="primary"
+              onDelete={clearSearchFilter}
+              deleteIcon={<Clear />}
+              sx={{ fontWeight: 600 }}
+            />
+          )}
+        </Box>
         <Stack direction="row" spacing={1} alignItems="center">
           <TextField
             variant="outlined"
@@ -134,6 +268,7 @@ const Dashboard = () => {
           <Button
             variant="outlined"
             onClick={exportToCSV}
+            disabled={transformedData.length === 0}
             sx={{
               borderRadius: 2,
               fontSize: '0.75rem',
@@ -149,7 +284,7 @@ const Dashboard = () => {
               },
             }}
           >
-            Export CSV
+            Export CSV ({transformedData.length} loads)
           </Button>
         </Stack>
       </Box>
@@ -163,9 +298,7 @@ const Dashboard = () => {
               <TableCell sx={{ fontWeight: 600 }}>Weight</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Pick Up</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Drop</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Return</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Vehicle</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Commodity</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Load Type</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Driver</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
@@ -174,34 +307,48 @@ const Dashboard = () => {
           <TableBody>
             {filteredData
               .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-              .map((row, i) => (
-                <TableRow key={i} hover sx={{ transition: '0.3s', '&:hover': { backgroundColor: '#e3f2fd' } }}>
-                  <TableCell>{row.loadId}</TableCell>
-                  <TableCell>{row.consignmentNo}</TableCell>
-                  <TableCell>{row.weight}</TableCell>
-                  <TableCell>{row.pickup}</TableCell>
-                  <TableCell>{row.drop}</TableCell>
-                  <TableCell>{row.returnLoc}</TableCell>
-                  <TableCell>{row.vehicle}</TableCell>
-                  <TableCell>{row.commodity}</TableCell>
-                  <TableCell>{row.loadType}</TableCell>
-                  <TableCell>{row.driver}</TableCell>
+              .map((row, i) => {
+                const isSearchedItem = isFiltered && location.state?.selectedShipment && 
+                  (row.consignmentNo === location.state.selectedShipment.shipmentNumber ||
+                   row.loadId === location.state.selectedShipment.id);
+                
+                return (
+                  <TableRow 
+                    key={i} 
+                    hover 
+                    sx={{ 
+                      transition: '0.3s', 
+                      '&:hover': { backgroundColor: '#e3f2fd' },
+                      ...(isSearchedItem && {
+                        backgroundColor: '#fff3e0',
+                        borderLeft: '4px solid #ff9800',
+                        '&:hover': { backgroundColor: '#ffe0b2' }
+                      })
+                    }}
+                  >
+                  <TableCell>{row.loadId}</TableCell>       
+                  <TableCell>{row.consignmentNo}</TableCell>                                        
+                  <TableCell>{row.weight}</TableCell>        
+                  <TableCell>{row.pickup}</TableCell>        
+                  <TableCell>{row.drop}</TableCell>         
+                  <TableCell>{row.vehicle}</TableCell>        
+                  <TableCell>{row.loadType}</TableCell>       
+                  <TableCell>{row.driver}</TableCell>         
                   <TableCell>
                     <Chip
-  label={row.status}
-  size="small"
-  // keep green for success, make Pending a bright yellow
-  color={row.status === 'Pending' ? undefined : 'success'}
-  sx={
-    row.status === 'Pending'
-      ? { bgcolor: '#FFEB3B', color: '#000', fontWeight: 700 } // yellow bg, black text
-      : undefined
-  }
-/>
-
+                      label={row.status}
+                      size="small"
+                      color={row.status === 'Pending' ? undefined : 'success'}
+                      sx={
+                        row.status === 'Pending'
+                          ? { bgcolor: '#FFEB3B', color: '#000', fontWeight: 700 }
+                          : undefined
+                      }
+                    />
                   </TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
           </TableBody>
         </Table>
         <TablePagination
@@ -218,4 +365,4 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard;
+export default Consignment;

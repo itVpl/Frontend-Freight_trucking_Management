@@ -16,8 +16,6 @@ import {
   Avatar,
   Menu,
   MenuItem,
-  InputBase,
-  Paper,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -33,13 +31,13 @@ import {
   Person as PersonIcon,
   Logout,
   ArrowBack,
-  Search,
   Notifications,
   KeyboardArrowLeft,
   ChevronLeft,
   ChevronRight,
 } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
+import UniversalSearch from '../UniversalSearch';
 
 const drawerWidth = 280;
 const collapsedDrawerWidth = 70;
@@ -294,26 +292,10 @@ const Layout = () => {
 
 
 
-          {/* Search Bar */}
-          <Paper
-            sx={{
-              p: '2px 4px',
-              display: 'flex',
-              alignItems: 'center',
-              width: 400,
-              backgroundColor: '#f5f5f5',
-              borderRadius: 2,
-            }}
-          >
-            <IconButton sx={{ p: '10px' }} aria-label="search">
-              <Search />
-            </IconButton>
-            <InputBase
-              sx={{ ml: 1, flex: 1 }}
-              placeholder="Search shipments, users, orders...."
-              inputProps={{ 'aria-label': 'search' }}
-            />
-          </Paper>
+          {/* Universal Search Bar */}
+          <Box sx={{ width: 400 }}>
+            <UniversalSearch />
+          </Box>
 
           <Box sx={{ flexGrow: 1 }} />
 
@@ -392,10 +374,80 @@ const Layout = () => {
           backgroundColor: '#f8f9fa',
           minHeight: '100vh',
           transition: 'width 0.3s',
+          position: 'relative',
         }}
       >
         <Toolbar />
         <Outlet />
+        
+        {/* Powered by V Power Footer */}
+        <Box
+          sx={{
+            position: 'fixed',
+            bottom: 16,
+            right: 16,
+            zIndex: 1000,
+            backgroundColor: 'rgba(255, 255, 255, 0.6)',
+            backdropFilter: 'blur(10px)',
+            borderRadius: 2,
+            px: 2,
+            py: 1,
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+            border: '1px solid rgba(0, 0, 0, 0.05)',
+            opacity: 0.9,
+            transition: 'all 0.3s ease-in-out',
+            cursor: 'pointer',
+            '&:hover': {
+              opacity: 1,
+              backgroundColor: 'rgba(255, 255, 255, 0.9)',
+              transform: 'translateY(-2px)',
+              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15)',
+              '& img': {
+                transform: 'scale(1.1)',
+              },
+              '& .MuiTypography-root': {
+                color: '#1976d2',
+              },
+            },
+          }}
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+            }}
+          >
+            <Typography
+              variant="caption"
+              sx={{
+                color: '#666',
+                fontSize: '12px',
+                fontWeight: 500,
+              }}
+            >
+              Powered by
+            </Typography>
+            <img
+              src="/images/logo_vpower.png"
+              alt="V Power"
+              style={{
+                height: '24px',
+                width: 'auto',
+              }}
+            />
+            <Typography
+              component="span"
+              sx={{
+                color: '#1976d2',
+                fontWeight: 600,
+                fontSize: '12px',
+              }}
+            >
+              
+            </Typography>
+          </Box>
+        </Box>
       </Box>
 
       <Menu

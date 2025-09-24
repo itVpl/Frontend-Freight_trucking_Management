@@ -38,7 +38,10 @@ const Dashboard = () => {
     pickupETA: '',
     dropETA: '',
     bidAmount: '',
-    message: ''
+    message: '',
+    driverName: '',
+    vehicleNumber: '',
+    vehicleType: ''
   });
   const [bidErrors, setBidErrors] = useState({});
   const [tab, setTab] = useState(0);
@@ -48,6 +51,14 @@ const Dashboard = () => {
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [assignForm, setAssignForm] = useState({ driverId: '', vehicleNumber: '', vehicleType: '' });
   const [assignBidId, setAssignBidId] = useState(null);
+
+  // Function to format Load ID as "L-last 4 digits"
+  const formatLoadId = (loadId) => {
+    if (!loadId) return '-';
+    const idString = loadId.toString();
+    const last4Digits = idString.slice(-4);
+    return `L-${last4Digits}`;
+  };
 
   const handleAssignDriver = (bid) => {
     setAssignBidId(bid.bidId || bid._id);
@@ -140,7 +151,7 @@ const Dashboard = () => {
   const handleCloseBidModal = () => {
     setBidModalOpen(false);
     setSelectedLoad(null);
-    setBidForm({ pickupETA: '', dropETA: '', bidAmount: '', message: '' });
+    setBidForm({ pickupETA: '', dropETA: '', bidAmount: '', message: '', driverName: '', vehicleNumber: '', vehicleType: '' });
     setBidErrors({});
   };
 
@@ -158,15 +169,60 @@ const Dashboard = () => {
     if (!bidForm.dropETA) newErrors.dropETA = true;
     if (!bidForm.bidAmount) newErrors.bidAmount = true;
     if (!bidForm.message) newErrors.message = true;
+    if (!bidForm.driverName) newErrors.driverName = true;
+    if (!bidForm.vehicleNumber) newErrors.vehicleNumber = true;
+    if (!bidForm.vehicleType) newErrors.vehicleType = true;
     setBidErrors(newErrors);
     if (Object.keys(newErrors).length > 0) {
       alertify.error('Please fill in all required fields');
       return;
     }
-    // TODO: Implement bid submission API
-    console.log('Bid submitted:', { load: selectedLoad, bid: bidForm });
-    alertify.success('Bid submitted successfully!');
-    handleCloseBidModal();
+
+    try {
+      const token = localStorage.getItem('token');
+      const bidData = {
+        loadId: selectedLoad._id || selectedLoad.loadId,
+        rate: parseFloat(bidForm.bidAmount),
+        message: bidForm.message,
+        estimatedPickupDate: bidForm.pickupETA.split('T')[0], // Extract date part only
+        estimatedDeliveryDate: bidForm.dropETA.split('T')[0], // Extract date part only
+        driverName: bidForm.driverName,
+        driverPhone: '', // Always send blank
+        vehicleNumber: bidForm.vehicleNumber,
+        vehicleType: bidForm.vehicleType
+      };
+
+      const response = await axios.post(`${BASE_API_URL}/api/v1/bid/place`, bidData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.status === 200 || response.status === 201) {
+        alertify.success('Bid submitted successfully!');
+        handleCloseBidModal();
+        // Refresh the data after successful bid submission
+        if (tab === 0) {
+          // Refresh pending bids
+          const refreshResponse = await axios.get(`${BASE_API_URL}/api/v1/load/available`, {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          });
+          if (Array.isArray(refreshResponse.data.loads)) {
+            setPendingBids(refreshResponse.data.loads);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error submitting bid:', error);
+      if (error.response?.data?.message) {
+        alertify.error(error.response.data.message);
+      } else {
+        alertify.error('Failed to submit bid. Please try again.');
+      }
+    }
   };
 
   const exportToCSV = () => {
@@ -288,7 +344,7 @@ const Dashboard = () => {
                         hover
                         sx={{ transition: '0.3s', '&:hover': { backgroundColor: '#e3f2fd' } }}
                       >
-                        <TableCell>{row._id || row.loadId || '-'}</TableCell>
+                        <TableCell>{formatLoadId(row._id || row.loadId)}</TableCell>
                         <TableCell>{row.shipper?.compName || row.shipperName || '-'}</TableCell>
                         <TableCell>{row.origin?.city || row.from || '-'}</TableCell>
                         <TableCell>{row.destination?.city || row.to || '-'}</TableCell>
@@ -454,88 +510,238 @@ const Dashboard = () => {
                 </Table>
               </Paper>
 
-              {/* Bid Form */}
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    label="Pickup ETA"
-                    name="pickupETA"
-                    type="datetime-local"
-                    value={bidForm.pickupETA}
-                    onChange={handleBidFormChange}
-                    fullWidth
-                    required
-                    InputLabelProps={{ shrink: true }}
-                    error={!!bidErrors.pickupETA}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: 3,
-                      },
-                    }}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    label="Drop ETA"
-                    name="dropETA"
-                    type="datetime-local"
-                    value={bidForm.dropETA}
-                    onChange={handleBidFormChange}
-                    fullWidth
-                    required
-                    InputLabelProps={{ shrink: true }}
-                    error={!!bidErrors.dropETA}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: 3,
-                      },
-                    }}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    label="Bid Amount"
-                    name="bidAmount"
-                    type="number"
-                    value={bidForm.bidAmount}
-                    onChange={handleBidFormChange}
-                    fullWidth
-                    required
-                    InputProps={{
-                      startAdornment: <InputAdornment position="start">$</InputAdornment>,
-                    }}
-                    error={!!bidErrors.bidAmount}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: 3,
-                      },
-                    }}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    label="Message"
-                    name="message"
-                    value={bidForm.message || ''}
-                    onChange={handleBidFormChange}
-                    fullWidth
-                    multiline
-                    minRows={5}
-                    maxRows={5}
-                    placeholder="Write a message for the shipper..."
-                    error={!!bidErrors.message}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: 3,
-                        height: '80px',
-                        width: '48rem',
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                      },
-                    }}
-                  />
-                </Grid>
-              </Grid>
+                                            {/* Bid Form */}
+               <Box sx={{ mt: 3 }}>
+                 {/* Row 1: Pickup ETA, Drop ETA, Bid Amount */}
+                 <Grid container spacing={3} sx={{ mb: 3 }}>
+                   <Grid item xs={12} md={4}>
+                     <TextField
+                       label="Pickup ETA"
+                       name="pickupETA"
+                       type="datetime-local"
+                       value={bidForm.pickupETA}
+                       onChange={handleBidFormChange}
+                       fullWidth
+                       required
+                       InputLabelProps={{ shrink: true }}
+                       error={!!bidErrors.pickupETA}
+                       sx={{
+                         '& .MuiOutlinedInput-root': {
+                           borderRadius: 2,
+                           backgroundColor: '#fafafa',
+                           '&:hover': {
+                             backgroundColor: '#f5f5f5',
+                           },
+                           '&.Mui-focused': {
+                             backgroundColor: '#fff',
+                           },
+                         },
+                         '& .MuiInputLabel-root': {
+                           fontWeight: 500,
+                           color: '#666',
+                         },
+                       }}
+                     />
+                   </Grid>
+                   <Grid item xs={12} md={4}>
+                     <TextField
+                       label="Drop ETA"
+                       name="dropETA"
+                       type="datetime-local"
+                       value={bidForm.dropETA}
+                       onChange={handleBidFormChange}
+                       fullWidth
+                       required
+                       InputLabelProps={{ shrink: true }}
+                       error={!!bidErrors.dropETA}
+                       sx={{
+                         '& .MuiOutlinedInput-root': {
+                           borderRadius: 2,
+                           backgroundColor: '#fafafa',
+                           '&:hover': {
+                             backgroundColor: '#f5f5f5',
+                           },
+                           '&.Mui-focused': {
+                             backgroundColor: '#fff',
+                           },
+                         },
+                         '& .MuiInputLabel-root': {
+                           fontWeight: 500,
+                           color: '#666',
+                         },
+                       }}
+                     />
+                   </Grid>
+                   <Grid item xs={12} md={4}>
+                     <TextField
+                       label="Bid Amount"
+                       name="bidAmount"
+                       type="number"
+                       value={bidForm.bidAmount}
+                       onChange={handleBidFormChange}
+                       fullWidth
+                       required
+                       InputProps={{
+                         startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                       }}
+                       error={!!bidErrors.bidAmount}
+                       sx={{
+                         '& .MuiOutlinedInput-root': {
+                           borderRadius: 2,
+                           backgroundColor: '#fafafa',
+                           '&:hover': {
+                             backgroundColor: '#f5f5f5',
+                           },
+                           '&.Mui-focused': {
+                             backgroundColor: '#fff',
+                           },
+                         },
+                         '& .MuiInputLabel-root': {
+                           fontWeight: 500,
+                           color: '#666',
+                         },
+                       }}
+                     />
+                   </Grid>
+                 </Grid>
+
+                 {/* Divider */}
+                 <Box sx={{ 
+                   borderBottom: '2px solid #e0e0e0', 
+                   mb: 3,
+                   mx: -2,
+                   opacity: 0.6
+                 }} />
+
+                                   {/* Row 2: Driver Name, Vehicle Number, Vehicle Type */}
+                  <Grid container spacing={3} sx={{ mb: 3 }}>
+                    <Grid item xs={12} md={4}>
+                      <TextField
+                        label="Driver Name"
+                        name="driverName"
+                        value={bidForm.driverName}
+                        onChange={handleBidFormChange}
+                        fullWidth
+                        required
+                        error={!!bidErrors.driverName}
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            borderRadius: 2,
+                            backgroundColor: '#fafafa',
+                            '&:hover': {
+                              backgroundColor: '#f5f5f5',
+                            },
+                            '&.Mui-focused': {
+                              backgroundColor: '#fff',
+                            },
+                          },
+                          '& .MuiInputLabel-root': {
+                            fontWeight: 500,
+                            color: '#666',
+                          },
+                        }}
+                      />
+                    </Grid>
+                                         <Grid item xs={12} md={6}>
+                       <TextField
+                         label="Vehicle Number"
+                         name="vehicleNumber"
+                         value={bidForm.vehicleNumber}
+                         onChange={handleBidFormChange}
+                         fullWidth
+                         required
+                         error={!!bidErrors.vehicleNumber}
+                         sx={{
+                           '& .MuiOutlinedInput-root': {
+                             borderRadius: 2,
+                             backgroundColor: '#fafafa',
+                             '&:hover': {
+                               backgroundColor: '#f5f5f5',
+                             },
+                             '&.Mui-focused': {
+                               backgroundColor: '#fff',
+                             },
+                           },
+                           '& .MuiInputLabel-root': {
+                             fontWeight: 500,
+                             color: '#666',
+                           },
+                         }}
+                       />
+                     </Grid>
+                     <Grid item xs={12} md={6}>
+                       <TextField
+                         label="Vehicle Type"
+                         name="vehicleType"
+                         value={bidForm.vehicleType}
+                         onChange={handleBidFormChange}
+                         fullWidth
+                         required
+                         error={!!bidErrors.vehicleType}
+                         sx={{
+                           '& .MuiOutlinedInput-root': {
+                             borderRadius: 2,
+                             backgroundColor: '#fafafa',
+                             '&:hover': {
+                               backgroundColor: '#f5f5f5',
+                             },
+                             '&.Mui-focused': {
+                               backgroundColor: '#fff',
+                             },
+                           },
+                           '& .MuiInputLabel-root': {
+                             fontWeight: 500,
+                             color: '#666',
+                           },
+                         }}
+                       />
+                     </Grid>
+                  </Grid>
+
+                 {/* Divider */}
+                 <Box sx={{ 
+                   borderBottom: '2px solid #e0e0e0', 
+                   mb: 3,
+                   mx: -2,
+                   opacity: 0.6
+                 }} />
+
+                 {/* Row 3: Message */}
+                 <Grid container spacing={3}>
+                   <Grid item xs={12}>
+                     <TextField
+                       label="Message"
+                       name="message"
+                       value={bidForm.message || ''}
+                       onChange={handleBidFormChange}
+                       fullWidth
+                       multiline
+                       rows={2}
+                       placeholder="Write a message for the shipper..."
+                       error={!!bidErrors.message}
+                       sx={{
+                         '& .MuiOutlinedInput-root': {
+                           borderRadius: 2,
+                           backgroundColor: '#fafafa',
+                           '&:hover': {
+                             backgroundColor: '#f5f5f5',
+                           },
+                           '&.Mui-focused': {
+                             backgroundColor: '#fff',
+                           },
+                         },
+                         '& .MuiInputLabel-root': {
+                           fontWeight: 500,
+                           color: '#666',
+                         },
+                         '& .MuiInputBase-input': {
+                           padding: '16px 14px',
+                         },
+                       }}
+                     />
+                   </Grid>
+                 </Grid>
+               </Box>
             </Box>
           )}
         </DialogContent>
