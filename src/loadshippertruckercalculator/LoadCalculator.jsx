@@ -1123,6 +1123,8 @@ export default function LoadCalculator() {
   // Suggest dialog
   const [openSuggest, setOpenSuggest] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
+// existing state ke paas add karo:
+const [autoSmartPack, setAutoSmartPack] = useState(true);
 
   // Info dialog (for gallery)
   const [infoOpen, setInfoOpen] = useState(false);
@@ -1598,6 +1600,111 @@ const weight = toKg(Number(form.weight) || 0, weightUnit); // always kg
       });
     }
   };
+const repackLargestFirst = useCallback(() => {
+  // Palletized loads ko skip: unke liye alag logic chahiye
+  if (usePallets) return;
+
+  const targetCat = getCategory(mode === "Container" ? selectedSize : selectedTruck);
+
+  // Liquid render nahi hota; skip
+  const boxItems = items.filter(it => it.cargoType !== "Liquid");
+  if (boxItems.length === 0) {
+    setTimeline([]);
+    setPlayhead(0);
+    setIsPlaying(false);
+    setNextPosition({ x:0,y:0,z:0,rowDepth:0,levelHeight:0 });
+    return;
+  }
+
+  // Har piece ko unit-level me expand karo (qty ke hisab se)
+  const unitQueue = [];
+  for (const it of boxItems) {
+    const qty = it.quantity || 1;
+
+    // Orientation choose karo (container type ke hisaab se)
+    let orient;
+    if (targetCat === "OT") {
+      orient = estimateFitsOT(container, { L: it.length, W: it.width, H: it.height });
+    } else if (targetCat === "FR" || targetCat === "Platform") {
+      const o = estimateFitsFRorPlatform(container, { L: it.length, W: it.width, H: it.height });
+      orient = { l: o.l, w: o.w, h: it.height }; // FR/platform me height unchanged
+    } else {
+      orient = estimateFitsDryOrHC(container, { L: it.length, W: it.width, H: it.height });
+    }
+
+    for (let i = 0; i < qty; i++) {
+      unitQueue.push({
+        cargoType: it.cargoType,
+        color: it.color,
+        length: orient.l,
+        width: orient.w,
+        height: orient.h ?? it.height, // OT/Dry/HC ke case me h milta hai
+      });
+    }
+  }
+
+  // Largest-first sorting (volume desc, tie: footprint desc, then height)
+  unitQueue.sort((a, b) => {
+    const va = a.length * a.width * a.height;
+    const vb = b.length * b.width * b.height;
+    if (vb !== va) return vb - va;
+    const fa = a.length * a.width, fb = b.length * b.width;
+    if (fb !== fa) return fb - fa;
+    return b.height - a.height;
+  });
+
+  // Local placer (container ke andar row-by-row stacking)
+  const placeBlockLocal = (tempPos, L, H, W) => {
+    let { x, y, z, rowDepth, levelHeight } = tempPos;
+    if (x + L > container.length) { x = 0; z += rowDepth; rowDepth = 0; }
+    if (z + W > container.width) { z = 0; y += levelHeight; levelHeight = 0; }
+    const maxStackHeight = targetCat === "OT" ? Math.max(container.height, H) : container.height;
+    if (y + H > maxStackHeight) return { ok: false, temp: tempPos, position: null };
+
+    const pos = [
+      x - container.length / 2 + L / 2,
+      y - container.height / 2 + H / 2,
+      z - container.width / 2 + W / 2,
+    ];
+    const next = {
+      x: x + L,
+      y,
+      z,
+      rowDepth: Math.max(rowDepth, W),
+      levelHeight: Math.max(levelHeight, H),
+    };
+    return { ok: true, temp: next, position: pos };
+  };
+
+  // Timeline rebuild
+  let temp = { x: 0, y: 0, z: 0, rowDepth: 0, levelHeight: 0 };
+  const newTimeline = [];
+  const totalVol = container.length * container.width * container.height;
+  let usedVol = 0;
+
+  for (const u of unitQueue) {
+    const deltaVol = (targetCat === "OT")
+      ? (u.length * u.width * Math.min(u.height, container.height))
+      : (u.length * u.width * u.height);
+    if (usedVol + deltaVol > totalVol) break;
+
+    const res = placeBlockLocal(temp, u.length, u.height, u.width);
+    if (!res.ok) break;
+
+    newTimeline.push({
+      ...u,
+      position: res.position,
+      renderGroupId: "repacked",
+    });
+    usedVol += deltaVol;
+    temp = res.temp;
+  }
+
+  setTimeline(newTimeline);
+  setPlayhead(0);
+  setIsPlaying(false);
+  setNextPosition(temp);
+}, [items, container, mode, selectedSize, selectedTruck, usePallets, setTimeline, setPlayhead, setIsPlaying, setNextPosition]);
 
 
   // Suggest (containers OR trucks)
@@ -1744,6 +1851,12 @@ const weight = toKg(Number(form.weight) || 0, weightUnit); // always kg
     return () => clearTimeout(t);
   }, [isPlaying, playhead, timeline.length, stepMs]);
 
+useEffect(() => {
+  if (!autoSmartPack) return;
+  // Pallet mode me auto-skip
+  if (usePallets) return;
+  if (items.length > 0) repackLargestFirst();
+}, [items, autoSmartPack, usePallets, repackLargestFirst]);
 
   // Quick presets (non-liquid only)
   const presets = [
@@ -2800,6 +2913,21 @@ const weight = toKg(Number(form.weight) || 0, weightUnit); // always kg
 
               <Chip label={`${playhead}/${timeline.length} items`} />
             </Stack>
+<Stack direction="row" spacing={1} alignItems="center" sx={{ ml: 1 }}>
+  <Switch
+    checked={autoSmartPack}
+    onChange={(e) => setAutoSmartPack(e.target.checked)}
+    disabled={usePallets}
+  />
+  <Chip label="Auto largest-first" variant="outlined" />
+  <Button
+    variant="outlined"
+    onClick={repackLargestFirst}
+    disabled={timeline.length === 0 || usePallets}
+  >
+    Smart Repack
+  </Button>
+</Stack>
 
             {/* 3D Canvas */}
             <Box height="520px" borderRadius={3} overflow="hidden" boxShadow={4} sx={{ background: "#fff" }}>
