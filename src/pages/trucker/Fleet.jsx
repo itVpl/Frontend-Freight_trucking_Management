@@ -11,25 +11,108 @@ import {
   TablePagination,
   Button,
   Stack,
+  CircularProgress,
+  Alert,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Snackbar,
 } from '@mui/material';
-import { Add } from '@mui/icons-material';
+import { Add, Edit, Delete, Visibility } from '@mui/icons-material';
+import { BASE_API_URL } from '../../apiConfig';
 
 const Dashboard = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [vehicles, setVehicles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [openAddDialog, setOpenAddDialog] = useState(false);
+  const [openEditDialog, setOpenEditDialog] = useState(false);
+  const [openViewDialog, setOpenViewDialog] = useState(false);
+  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
+  const [selectedVehicle, setSelectedVehicle] = useState(null);
+  const [vehicleToDelete, setVehicleToDelete] = useState(null);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
-  const fleetData = [
-    { vehicleNo: 'MH-12-AB-1234', chasisNo: 'CH123456', engineNo: 'EN987654', modelYear: '2020', type: 'Truck' },
-    { vehicleNo: 'DL-01-CD-5678', chasisNo: 'CH654321', engineNo: 'EN123789', modelYear: '2019', type: 'Pickup' },
-    { vehicleNo: 'KA-05-EF-9012', chasisNo: 'CH998877', engineNo: 'EN112233', modelYear: '2021', type: 'Mini Truck' },
-    { vehicleNo: 'GJ-11-ZZ-2233', chasisNo: 'CH556677', engineNo: 'EN445566', modelYear: '2022', type: 'Truck' },
-    { vehicleNo: 'TN-22-XY-7788', chasisNo: 'CH332211', engineNo: 'EN778899', modelYear: '2018', type: 'Van' },
-    { vehicleNo: 'RJ-14-PO-9988', chasisNo: 'CH111222', engineNo: 'EN000111', modelYear: '2020', type: 'Mini Truck' },
-    { vehicleNo: 'WB-19-AZ-8876', chasisNo: 'CH123321', engineNo: 'EN321123', modelYear: '2021', type: 'Van' },
-    { vehicleNo: 'PB-10-QW-1122', chasisNo: 'CH444555', engineNo: 'EN555444', modelYear: '2017', type: 'Pickup' },
-    { vehicleNo: 'UP-32-HH-6677', chasisNo: 'CH667788', engineNo: 'EN887766', modelYear: '2023', type: 'Truck' },
-    { vehicleNo: 'AP-03-XX-5544', chasisNo: 'CH121212', engineNo: 'EN343434', modelYear: '2016', type: 'Truck' },
-  ];
+  // Form state for adding/editing vehicles
+  const [formData, setFormData] = useState({
+    vehicleNo: '',
+    chassisNo: '',
+    engineNo: '',
+    modelYear: '',
+    vehicleType: '',
+    make: '',
+    model: '',
+    capacity: '',
+    fuelType: '',
+  });
+
+  // Vehicle types and fuel types for dropdowns
+  const vehicleTypes = ['Dry Van', 'Flatbed', 'Refrigerated', 'Container', 'Tanker', 'Car Carrier', 'Lowboy'];
+  const fuelTypes = ['Diesel', 'Gasoline', 'Electric', 'Hybrid', 'CNG', 'LPG'];
+
+  // API Helper Functions
+  const getAuthToken = () => {
+    return localStorage.getItem('token');
+  };
+
+  const makeAPICall = async (endpoint, options = {}) => {
+    const token = getAuthToken();
+    const defaultOptions = {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` }),
+        ...options.headers,
+      },
+    };
+
+    try {
+      const response = await fetch(`${BASE_API_URL}${endpoint}`, {
+        ...defaultOptions,
+        ...options,
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error(`API call failed for ${endpoint}:`, error);
+      throw error;
+    }
+  };
+
+  // Load vehicles on component mount
+  useEffect(() => {
+    loadVehicles();
+  }, []);
+
+  const loadVehicles = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await makeAPICall('/api/v1/vehicle/my-vehicles');
+      if (response.success) {
+        setVehicles(response.vehicles || []);
+      } else {
+        setError('Failed to load vehicles');
+      }
+    } catch (err) {
+      setError('Error loading vehicles: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleChangePage = (event, newPage) => {
     setPage(newPage);
@@ -40,12 +123,129 @@ const Dashboard = () => {
     setPage(0);
   };
 
+  const handleAddVehicle = async () => {
+    try {
+      const response = await makeAPICall('/api/v1/vehicle/add', {
+        method: 'POST',
+        body: JSON.stringify(formData),
+      });
+      if (response.success) {
+        setSnackbar({ open: true, message: 'Vehicle added successfully', severity: 'success' });
+        setOpenAddDialog(false);
+        resetForm();
+        loadVehicles();
+      } else {
+        setSnackbar({ open: true, message: 'Failed to add vehicle', severity: 'error' });
+      }
+    } catch (err) {
+      setSnackbar({ open: true, message: 'Error adding vehicle: ' + err.message, severity: 'error' });
+    }
+  };
+
+  const handleEditVehicle = async () => {
+    try {
+      const response = await makeAPICall(`/api/v1/vehicle/update/${selectedVehicle._id}`, {
+        method: 'PUT',
+        body: JSON.stringify(formData),
+      });
+      if (response.success) {
+        setSnackbar({ open: true, message: 'Vehicle updated successfully', severity: 'success' });
+        setOpenEditDialog(false);
+        resetForm();
+        loadVehicles();
+      } else {
+        setSnackbar({ open: true, message: 'Failed to update vehicle', severity: 'error' });
+      }
+    } catch (err) {
+      setSnackbar({ open: true, message: 'Error updating vehicle: ' + err.message, severity: 'error' });
+    }
+  };
+
+  const handleDeleteVehicle = async () => {
+    if (!vehicleToDelete) return;
+    
+    try {
+      const response = await makeAPICall(`/api/v1/vehicle/delete/${vehicleToDelete}`, {
+        method: 'DELETE',
+      });
+      if (response.success) {
+        setSnackbar({ open: true, message: 'Vehicle deleted successfully', severity: 'success' });
+        setOpenDeleteDialog(false);
+        setVehicleToDelete(null);
+        loadVehicles();
+      } else {
+        setSnackbar({ open: true, message: 'Failed to delete vehicle', severity: 'error' });
+      }
+    } catch (err) {
+      setSnackbar({ open: true, message: 'Error deleting vehicle: ' + err.message, severity: 'error' });
+    }
+  };
+
+  const openDeleteDialogHandler = (vehicleId) => {
+    setVehicleToDelete(vehicleId);
+    setOpenDeleteDialog(true);
+  };
+
+  const resetForm = () => {
+    setFormData({
+      vehicleNo: '',
+      chassisNo: '',
+      engineNo: '',
+      modelYear: '',
+      vehicleType: '',
+      make: '',
+      model: '',
+      capacity: '',
+      fuelType: '',
+    });
+    setSelectedVehicle(null);
+  };
+
+  const openEditDialogHandler = (vehicle) => {
+    setSelectedVehicle(vehicle);
+    setFormData({
+      vehicleNo: vehicle.vehicleNo || '',
+      chassisNo: vehicle.chassisNo || '',
+      engineNo: vehicle.engineNo || '',
+      modelYear: vehicle.modelYear || '',
+      vehicleType: vehicle.vehicleType || '',
+      make: vehicle.make || '',
+      model: vehicle.model || '',
+      capacity: vehicle.capacity || '',
+      fuelType: vehicle.fuelType || '',
+    });
+    setOpenEditDialog(true);
+  };
+
+  const openViewDialogHandler = async (vehicle) => {
+    try {
+      const response = await makeAPICall(`/api/v1/vehicle/details/${vehicle._id}`);
+      if (response.success) {
+        setSelectedVehicle(response.vehicle);
+        setOpenViewDialog(true);
+      }
+    } catch (err) {
+      setSnackbar({ open: true, message: 'Error loading vehicle details: ' + err.message, severity: 'error' });
+    }
+  };
+
   const exportToCSV = () => {
-    const headers = ['Vehicle No', 'Chasis No', 'Engine No', 'Model Year', 'Fleet Type'];
+    const headers = ['Vehicle No', 'Chassis No', 'Engine No', 'Model Year', 'Vehicle Type', 'Make', 'Model', 'Capacity', 'Fuel Type', 'Status'];
     const csvRows = [headers.join(',')];
 
-    fleetData.forEach(row => {
-      const values = [row.vehicleNo, row.chasisNo, row.engineNo, row.modelYear, row.type];
+    vehicles.forEach(vehicle => {
+      const values = [
+        vehicle.vehicleNo,
+        vehicle.chassisNo,
+        vehicle.engineNo,
+        vehicle.modelYear,
+        vehicle.vehicleType,
+        vehicle.make,
+        vehicle.model,
+        vehicle.capacity,
+        vehicle.fuelType,
+        vehicle.status
+      ];
       csvRows.push(values.join(','));
     });
 
@@ -57,6 +257,14 @@ const Dashboard = () => {
     link.click();
     window.URL.revokeObjectURL(url);
   };
+
+  if (loading) {
+    return (
+      <Box sx={{ p: 3, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ p: 3 }}>
@@ -75,6 +283,7 @@ const Dashboard = () => {
           <Button
             variant="outlined"
             onClick={exportToCSV}
+            disabled={vehicles.length === 0}
             sx={{
               borderRadius: 2,
               fontSize: '0.75rem',
@@ -92,9 +301,10 @@ const Dashboard = () => {
           >
             Export CSV
           </Button>
-          {/* <Button
+          <Button
             variant="contained"
             startIcon={<Add />}
+            onClick={() => setOpenAddDialog(true)}
             sx={{
               borderRadius: 2,
               fontSize: '0.75rem',
@@ -108,39 +318,99 @@ const Dashboard = () => {
               },
             }}
           >
-            Add Fleet
-          </Button> */}
+            Add Vehicle
+          </Button>
         </Stack>
       </Box>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
 
       <Paper elevation={3} sx={{ borderRadius: 3, overflow: 'hidden' }}>
         <Table>
           <TableHead>
             <TableRow sx={{ backgroundColor: '#f0f4f8' }}>
               <TableCell sx={{ fontWeight: 600 }}>Vehicle No</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Chasis No</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Chassis No</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Engine No</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Model Year</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Fleet Type</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Vehicle Type</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Make</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Model</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Capacity</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {fleetData
-              .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-              .map((fleet, i) => (
-                <TableRow key={i} hover sx={{ transition: '0.3s', '&:hover': { backgroundColor: '#e3f2fd' } }}>
-                  <TableCell>{fleet.vehicleNo}</TableCell>
-                  <TableCell>{fleet.chasisNo}</TableCell>
-                  <TableCell>{fleet.engineNo}</TableCell>
-                  <TableCell>{fleet.modelYear}</TableCell>
-                  <TableCell>{fleet.type}</TableCell>
-                </TableRow>
-              ))}
+            {vehicles.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    No vehicles found. Add your first vehicle to get started.
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            ) : (
+              vehicles
+                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                .map((vehicle) => (
+                  <TableRow key={vehicle._id} hover sx={{ transition: '0.3s', '&:hover': { backgroundColor: '#e3f2fd' } }}>
+                    <TableCell>{vehicle.vehicleNo}</TableCell>
+                    <TableCell>{vehicle.chassisNo}</TableCell>
+                    <TableCell>{vehicle.engineNo}</TableCell>
+                    <TableCell>{vehicle.modelYear}</TableCell>
+                    <TableCell>{vehicle.vehicleType}</TableCell>
+                    <TableCell>{vehicle.make}</TableCell>
+                    <TableCell>{vehicle.model}</TableCell>
+                    <TableCell>{vehicle.capacity} tons</TableCell>
+                    <TableCell>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          color: vehicle.status === 'active' ? 'success.main' : 'warning.main',
+                          fontWeight: 500,
+                        }}
+                      >
+                        {vehicle.status}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Stack direction="row" spacing={1}>
+                        <IconButton
+                          size="small"
+                          onClick={() => openViewDialogHandler(vehicle)}
+                          sx={{ color: 'primary.main' }}
+                        >
+                          <Visibility fontSize="small" />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          onClick={() => openEditDialogHandler(vehicle)}
+                          sx={{ color: 'warning.main' }}
+                        >
+                          <Edit fontSize="small" />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          onClick={() => openDeleteDialogHandler(vehicle._id)}
+                          sx={{ color: 'error.main' }}
+                        >
+                          <Delete fontSize="small" />
+                        </IconButton>
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
+                ))
+            )}
           </TableBody>
         </Table>
         <TablePagination
           component="div"
-          count={fleetData.length}
+          count={vehicles.length}
           page={page}
           onPageChange={handleChangePage}
           rowsPerPage={rowsPerPage}
@@ -148,6 +418,354 @@ const Dashboard = () => {
           rowsPerPageOptions={[5, 10, 15, 20]}
         />
       </Paper>
+
+      {/* Add Vehicle Dialog */}
+      <Dialog open={openAddDialog} onClose={() => setOpenAddDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Add New Vehicle</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <TextField
+              label="Vehicle Number"
+              value={formData.vehicleNo}
+              onChange={(e) => setFormData({ ...formData, vehicleNo: e.target.value })}
+              fullWidth
+              required
+            />
+            <TextField
+              label="Chassis Number"
+              value={formData.chassisNo}
+              onChange={(e) => setFormData({ ...formData, chassisNo: e.target.value })}
+              fullWidth
+              required
+            />
+            <TextField
+              label="Engine Number"
+              value={formData.engineNo}
+              onChange={(e) => setFormData({ ...formData, engineNo: e.target.value })}
+              fullWidth
+              required
+            />
+            <TextField
+              label="Model Year"
+              type="number"
+              value={formData.modelYear}
+              onChange={(e) => setFormData({ ...formData, modelYear: e.target.value })}
+              fullWidth
+              required
+            />
+            <FormControl fullWidth required>
+              <InputLabel>Vehicle Type</InputLabel>
+              <Select
+                value={formData.vehicleType}
+                onChange={(e) => setFormData({ ...formData, vehicleType: e.target.value })}
+                label="Vehicle Type"
+              >
+                {vehicleTypes.map((type) => (
+                  <MenuItem key={type} value={type}>
+                    {type}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <TextField
+              label="Make"
+              value={formData.make}
+              onChange={(e) => setFormData({ ...formData, make: e.target.value })}
+              fullWidth
+              required
+            />
+            <TextField
+              label="Model"
+              value={formData.model}
+              onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+              fullWidth
+              required
+            />
+            <TextField
+              label="Capacity (tons)"
+              type="number"
+              value={formData.capacity}
+              onChange={(e) => setFormData({ ...formData, capacity: e.target.value })}
+              fullWidth
+              required
+            />
+            <FormControl fullWidth required>
+              <InputLabel>Fuel Type</InputLabel>
+              <Select
+                value={formData.fuelType}
+                onChange={(e) => setFormData({ ...formData, fuelType: e.target.value })}
+                label="Fuel Type"
+              >
+                {fuelTypes.map((type) => (
+                  <MenuItem key={type} value={type}>
+                    {type}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenAddDialog(false)}>Cancel</Button>
+          <Button onClick={handleAddVehicle} variant="contained">
+            Add Vehicle
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Vehicle Dialog */}
+      <Dialog open={openEditDialog} onClose={() => setOpenEditDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Edit Vehicle</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <TextField
+              label="Vehicle Number"
+              value={formData.vehicleNo}
+              onChange={(e) => setFormData({ ...formData, vehicleNo: e.target.value })}
+              fullWidth
+              required
+            />
+            <TextField
+              label="Chassis Number"
+              value={formData.chassisNo}
+              onChange={(e) => setFormData({ ...formData, chassisNo: e.target.value })}
+              fullWidth
+              required
+            />
+            <TextField
+              label="Engine Number"
+              value={formData.engineNo}
+              onChange={(e) => setFormData({ ...formData, engineNo: e.target.value })}
+              fullWidth
+              required
+            />
+            <TextField
+              label="Model Year"
+              type="number"
+              value={formData.modelYear}
+              onChange={(e) => setFormData({ ...formData, modelYear: e.target.value })}
+              fullWidth
+              required
+            />
+            <FormControl fullWidth required>
+              <InputLabel>Vehicle Type</InputLabel>
+              <Select
+                value={formData.vehicleType}
+                onChange={(e) => setFormData({ ...formData, vehicleType: e.target.value })}
+                label="Vehicle Type"
+              >
+                {vehicleTypes.map((type) => (
+                  <MenuItem key={type} value={type}>
+                    {type}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <TextField
+              label="Make"
+              value={formData.make}
+              onChange={(e) => setFormData({ ...formData, make: e.target.value })}
+              fullWidth
+              required
+            />
+            <TextField
+              label="Model"
+              value={formData.model}
+              onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+              fullWidth
+              required
+            />
+            <TextField
+              label="Capacity (tons)"
+              type="number"
+              value={formData.capacity}
+              onChange={(e) => setFormData({ ...formData, capacity: e.target.value })}
+              fullWidth
+              required
+            />
+            <FormControl fullWidth required>
+              <InputLabel>Fuel Type</InputLabel>
+              <Select
+                value={formData.fuelType}
+                onChange={(e) => setFormData({ ...formData, fuelType: e.target.value })}
+                label="Fuel Type"
+              >
+                {fuelTypes.map((type) => (
+                  <MenuItem key={type} value={type}>
+                    {type}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenEditDialog(false)}>Cancel</Button>
+          <Button onClick={handleEditVehicle} variant="contained">
+            Update Vehicle
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* View Vehicle Details Dialog */}
+      <Dialog open={openViewDialog} onClose={() => setOpenViewDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Vehicle Details</DialogTitle>
+        <DialogContent>
+          {selectedVehicle && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                <TextField
+                  label="Vehicle Number"
+                  value={selectedVehicle.vehicleNo}
+                  InputProps={{ readOnly: true }}
+                  fullWidth
+                />
+                <TextField
+                  label="Chassis Number"
+                  value={selectedVehicle.chassisNo}
+                  InputProps={{ readOnly: true }}
+                  fullWidth
+                />
+                <TextField
+                  label="Engine Number"
+                  value={selectedVehicle.engineNo}
+                  InputProps={{ readOnly: true }}
+                  fullWidth
+                />
+                <TextField
+                  label="Model Year"
+                  value={selectedVehicle.modelYear}
+                  InputProps={{ readOnly: true }}
+                  fullWidth
+                />
+                <TextField
+                  label="Vehicle Type"
+                  value={selectedVehicle.vehicleType}
+                  InputProps={{ readOnly: true }}
+                  fullWidth
+                />
+                <TextField
+                  label="Make"
+                  value={selectedVehicle.make}
+                  InputProps={{ readOnly: true }}
+                  fullWidth
+                />
+                <TextField
+                  label="Model"
+                  value={selectedVehicle.model}
+                  InputProps={{ readOnly: true }}
+                  fullWidth
+                />
+                <TextField
+                  label="Capacity"
+                  value={`${selectedVehicle.capacity} tons`}
+                  InputProps={{ readOnly: true }}
+                  fullWidth
+                />
+                <TextField
+                  label="Fuel Type"
+                  value={selectedVehicle.fuelType}
+                  InputProps={{ readOnly: true }}
+                  fullWidth
+                />
+                <TextField
+                  label="Status"
+                  value={selectedVehicle.status}
+                  InputProps={{ readOnly: true }}
+                  fullWidth
+                />
+              </Box>
+              {selectedVehicle.truckerId && (
+                <Box sx={{ mt: 2, p: 2, backgroundColor: '#f5f5f5', borderRadius: 1 }}>
+                  <Typography variant="h6" gutterBottom>
+                    Trucker Information
+                  </Typography>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                    <TextField
+                      label="Company Name"
+                      value={selectedVehicle.truckerId.compName}
+                      InputProps={{ readOnly: true }}
+                      fullWidth
+                    />
+                    <TextField
+                      label="MC/DOT Number"
+                      value={selectedVehicle.truckerId.mc_dot_no}
+                      InputProps={{ readOnly: true }}
+                      fullWidth
+                    />
+                    <TextField
+                      label="Phone Number"
+                      value={selectedVehicle.truckerId.phoneNo}
+                      InputProps={{ readOnly: true }}
+                      fullWidth
+                    />
+                    <TextField
+                      label="Email"
+                      value={selectedVehicle.truckerId.email}
+                      InputProps={{ readOnly: true }}
+                      fullWidth
+                    />
+                  </Box>
+                </Box>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenViewDialog(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={openDeleteDialog} onClose={() => setOpenDeleteDialog(false)}>
+        <DialogTitle sx={{ color: 'error.main', fontWeight: 600 }}>
+          Confirm Delete
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body1">
+            Are you sure you want to delete this vehicle? This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => {
+              setOpenDeleteDialog(false);
+              setVehicleToDelete(null);
+            }}
+            variant="outlined"
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleDeleteVehicle} 
+            variant="contained" 
+            color="error"
+            sx={{
+              backgroundColor: '#d32f2f',
+              '&:hover': {
+                backgroundColor: '#b71c1c',
+              },
+            }}
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

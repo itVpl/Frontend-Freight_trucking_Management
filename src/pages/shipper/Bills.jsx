@@ -26,13 +26,103 @@ import {
   MenuItem,
   Grid,
   Divider,
+  Card,
+  CardContent,
+  InputAdornment,
+  CircularProgress,
+  Alert,
 } from '@mui/material';
-import { Receipt, Download, DateRange, Clear, Close, Add } from '@mui/icons-material';
+import { 
+  Receipt, 
+  Download, 
+  DateRange, 
+  Clear, 
+  Close, 
+  Add, 
+  Search,
+  ArrowForward,
+  ArrowDownward,
+  TrendingUp,
+  TrendingDown,
+  AttachMoney
+} from '@mui/icons-material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
-import { format, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
+import { format, isWithinInterval, startOfDay, endOfDay, differenceInDays } from 'date-fns';
 import { jsPDF } from 'jspdf';
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  Legend, 
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  LineChart,
+  Line
+} from 'recharts';
 import SearchNavigationFeedback from '../../components/SearchNavigationFeedback';
+import { BASE_API_URL } from '../../apiConfig';
+
+// API service function to fetch unverified loads
+const fetchUnverifiedLoads = async (shipperId, loadId = null) => {
+  try {
+    let url = `${BASE_API_URL}/api/v1/accountant/shipper/all-unverified-loads?shipperId=${shipperId}`;
+    if (loadId) {
+      url += `&loadId=${loadId}`;
+    }
+    
+    // Get token from various possible storage locations
+    const token = sessionStorage.getItem('token') || 
+                  localStorage.getItem('token') ||
+                  sessionStorage.getItem('authToken') ||
+                  localStorage.getItem('authToken') ||
+                  sessionStorage.getItem('accessToken') ||
+                  localStorage.getItem('accessToken');
+    
+    console.log('Token found:', token ? 'Yes' : 'No');
+    console.log('Available storage keys:', {
+      sessionStorage: Object.keys(sessionStorage),
+      localStorage: Object.keys(localStorage)
+    });
+    console.log('Making API request to:', url);
+    
+    const headers = {
+      'Content-Type': 'application/json',
+    };
+    
+    // Add authorization header if token exists
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    } else {
+      console.warn('No authentication token found. API call may fail.');
+    }
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: headers,
+    });
+    
+    console.log('API Response status:', response.status);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('API Error Response:', errorText);
+      throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+    }
+    
+    const data = await response.json();
+    console.log('API Response data:', data);
+    return data;
+  } catch (error) {
+    console.error('Error fetching unverified loads:', error);
+    throw error;
+  }
+};
 
 const Bills = () => {
   const location = useLocation();
@@ -46,7 +136,88 @@ const Bills = () => {
   const [generateBillOpen, setGenerateBillOpen] = useState(false);
   const [viewBillOpen, setViewBillOpen] = useState(false);
   const [selectedBill, setSelectedBill] = useState(null);
-  
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [apiData, setApiData] = useState(null);
+
+  // Fetch API data on component mount
+  useEffect(() => {
+    const loadApiData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        // Using the shipperId from the API example
+        const shipperId = '68cd6ee176b6c23c1d2a87b3';
+        
+        // Try different API call approaches
+        let response;
+        try {
+          // First try without loadId
+          response = await fetchUnverifiedLoads(shipperId);
+        } catch (firstError) {
+          console.log('First attempt failed, trying with loadId...');
+          // If that fails, try with loadId
+          const loadId = '68e7eecea78740db1d29848e';
+          response = await fetchUnverifiedLoads(shipperId, loadId);
+        }
+        setApiData(response);
+        
+        // Transform API data to match existing structure
+        if (response.success && response.data.allLoads) {
+          const transformedData = response.data.allLoads.map(load => ({
+            billId: load.shipmentNumber || load._id,
+            chargeSetId: load.poNumber || load._id,
+            containerId: load.containerNo || 'N/A',
+            secondaryRef: load.bolNumber || load._id,
+            date: format(new Date(load.pickupDate), 'yyyy-MM-dd'),
+            dueDate: format(new Date(load.deliveryDate), 'yyyy-MM-dd'),
+            amount: load.rate || 0,
+            status: load.status || 'Pending',
+            amount0_30: load.status === 'Delivered' ? load.rate || 0 : 0,
+            amount30_60: 0,
+            amount60_90: 0,
+            // Additional load-specific data
+            loadData: {
+              origin: load.origin,
+              destination: load.destination,
+              weight: load.weight,
+              commodity: load.commodity,
+              vehicleType: load.vehicleType,
+              carrier: load.carrier,
+              shipper: load.shipper,
+              acceptedBid: load.acceptedBid,
+              deliveryOrder: load.deliveryOrder,
+              verificationStatus: load.verificationStatus
+            }
+          }));
+          
+          setOriginalBillsData(transformedData);
+          setFilteredData(transformedData);
+        }
+      } catch (err) {
+        let errorMessage = `API Error: ${err.message}`;
+        
+        // Check if it's an authentication error
+        if (err.message.includes('Please login to access this resource')) {
+          errorMessage = 'Authentication required. Please login to access load data.';
+        }
+        
+        setError(errorMessage);
+        console.error('Failed to load API data:', err);
+        
+        // No fallback data - show empty state
+        setOriginalBillsData([]);
+        setFilteredData([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadApiData();
+  }, []);
+
   // Handle search result from universal search
   useEffect(() => {
     if (location.state?.selectedBill) {
@@ -87,22 +258,74 @@ const Bills = () => {
     notes: '',
   });
 
-  const billingData = [
-    { billId: 'INV-001', date: '2024-03-20', amount: 25000, status: 'Pending' },
-    { billId: 'INV-002', date: '2024-03-21', amount: 18000, status: 'Paid' },
-    { billId: 'INV-003', date: '2024-03-22', amount: 32000, status: 'Overdue' },
-    { billId: 'INV-004', date: '2024-03-23', amount: 20000, status: 'Pending' },
-    { billId: 'INV-005', date: '2024-03-24', amount: 15000, status: 'Paid' },
-    { billId: 'INV-006', date: '2024-03-25', amount: 28000, status: 'Pending' },
-    { billId: 'INV-007', date: '2024-03-26', amount: 21000, status: 'Overdue' },
-    { billId: 'INV-008', date: '2024-03-27', amount: 19000, status: 'Pending' },
-    { billId: 'INV-009', date: '2024-03-28', amount: 22000, status: 'Paid' },
-    { billId: 'INV-010', date: '2024-03-29', amount: 30000, status: 'Overdue' },
+
+  // Calculate summary data from API data
+  const calculateSummary = () => {
+    const totalOutstanding = originalBillsData.reduce((sum, bill) => sum + bill.amount, 0);
+    const amount0_30 = originalBillsData.reduce((sum, bill) => sum + bill.amount0_30, 0);
+    const amount30_60 = originalBillsData.reduce((sum, bill) => sum + bill.amount30_60, 0);
+    const amount60_90 = originalBillsData.reduce((sum, bill) => sum + bill.amount60_90, 0);
+    
+    return {
+      totalOutstanding,
+      amount0_30,
+      amount30_60,
+      amount60_90
+    };
+  };
+
+  const summary = calculateSummary();
+
+  // Chart data
+  const chartData = [
+    { name: '0-30 Days', amount: summary.amount0_30, color: '#1976d2' },
+    { name: '30-60 Days', amount: summary.amount30_60, color: '#ff9800' },
+    { name: '60-90 Days', amount: summary.amount60_90, color: '#f44336' }
   ];
+
+  const pieData = [
+    { name: '0-30 Days', value: summary.amount0_30, color: '#1976d2' },
+    { name: '30-60 Days', value: summary.amount30_60, color: '#ff9800' },
+    { name: '60-90 Days', value: summary.amount60_90, color: '#f44336' }
+  ];
+
+  // Filter data based on search and category
+  const getFilteredData = () => {
+    let filtered = originalBillsData;
+
+    // Filter by search term
+    if (searchTerm) {
+      filtered = filtered.filter(bill => 
+        bill.billId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        bill.containerId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        bill.secondaryRef.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Filter by category
+    if (selectedCategory !== 'all') {
+      filtered = filtered.filter(bill => {
+        switch (selectedCategory) {
+          case '0-30':
+            return bill.amount0_30 > 0;
+          case '30-60':
+            return bill.amount30_60 > 0;
+          case '60-90':
+            return bill.amount60_90 > 0;
+          default:
+            return true;
+        }
+      });
+    }
+
+    return filtered;
+  };
+
+  const displayData = getFilteredData();
 
   useEffect(() => {
     if (dateRange[0] && dateRange[1]) {
-      const filtered = billingData.filter((bill) => {
+      const filtered = originalBillsData.filter((bill) => {
         const billDate = new Date(bill.date);
         return isWithinInterval(billDate, {
           start: startOfDay(dateRange[0]),
@@ -111,11 +334,10 @@ const Bills = () => {
       });
       setFilteredData(filtered);
     } else {
-      setFilteredData(billingData);
+      setFilteredData(originalBillsData);
     }
-    setOriginalBillsData(billingData); // Store original data
     setPage(0);
-  }, [dateRange]);
+  }, [dateRange, originalBillsData]);
 
   const handleChangePage = (event, newPage) => {
     setPage(newPage);
@@ -153,11 +375,19 @@ const Bills = () => {
   };
 
   const exportToCSV = () => {
-    const headers = ['Bill Id', 'Date', 'Amt', 'Status'];
+    const headers = ['Shipment #', 'PO Number', 'Container #', 'BOL Number', 'Rate ($)', 'Status', 'Verification Status'];
     const csvRows = [headers.join(',')];
 
-    filteredData.forEach((row) => {
-      const values = [row.billId, row.date, row.amount, row.status];
+    displayData.forEach((row) => {
+      const values = [
+        row.billId, 
+        row.chargeSetId, 
+        row.containerId, 
+        row.secondaryRef,
+        row.amount,
+        row.status,
+        row.loadData?.verificationStatus || 'N/A'
+      ];
       csvRows.push(values.join(','));
     });
 
@@ -165,9 +395,116 @@ const Bills = () => {
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'bills_data.csv';
+    link.download = 'loads_data.csv';
     link.click();
     window.URL.revokeObjectURL(url);
+  };
+
+  const handlePrint = () => {
+    // Create a new window for printing
+    const printWindow = window.open('', '_blank');
+    
+    // Get the current filtered data
+    const dataToPrint = displayData;
+    
+    // Create HTML content for printing
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Bills Report</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            h1 { color: #1976d2; text-align: center; margin-bottom: 30px; }
+            .summary { margin-bottom: 30px; }
+            .summary-card { 
+              display: inline-block; 
+              margin: 10px; 
+              padding: 15px; 
+              border: 1px solid #ddd; 
+              border-radius: 8px; 
+              text-align: center;
+              min-width: 150px;
+            }
+            .summary-label { font-size: 12px; color: #666; margin-bottom: 5px; }
+            .summary-value { font-size: 18px; font-weight: bold; color: #1976d2; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f5f5f5; font-weight: bold; }
+            .amount-0-30 { color: #1976d2; }
+            .amount-30-60 { color: #ff9800; }
+            .amount-60-90 { color: #f44336; }
+            @media print {
+              body { margin: 0; }
+              .no-print { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <h1>Bills Report</h1>
+          <p><strong>Generated on:</strong> ${new Date().toLocaleDateString()}</p>
+          
+          <div class="summary">
+            <div class="summary-card">
+              <div class="summary-label">Total Outstanding</div>
+              <div class="summary-value">$${summary.totalOutstanding.toLocaleString()}</div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-label">0-30 Days</div>
+              <div class="summary-value">$${summary.amount0_30.toLocaleString()}</div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-label">30-60 Days</div>
+              <div class="summary-value">$${summary.amount30_60.toLocaleString()}</div>
+            </div>
+            <div class="summary-card">
+              <div class="summary-label">60-90 Days</div>
+              <div class="summary-value">$${summary.amount60_90.toLocaleString()}</div>
+            </div>
+          </div>
+          
+          <table>
+            <thead>
+              <tr>
+                <th>Shipment #</th>
+                <th>PO Number</th>
+                <th>Container #</th>
+                <th>BOL Number</th>
+                <th>Rate ($)</th>
+                <th>Status</th>
+                <th>Verification</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${dataToPrint.map(bill => `
+                <tr>
+                  <td>${bill.billId}</td>
+                  <td>${bill.chargeSetId}</td>
+                  <td>${bill.containerId}</td>
+                  <td>${bill.secondaryRef}</td>
+                  <td class="amount-0-30">$${bill.amount.toLocaleString()}</td>
+                  <td>${bill.status}</td>
+                  <td>${bill.loadData?.verificationStatus || 'N/A'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          
+          <p style="margin-top: 30px; font-size: 12px; color: #666;">
+            Total Records: ${dataToPrint.length}
+          </p>
+        </body>
+      </html>
+    `;
+    
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    
+    // Wait for content to load, then print
+    printWindow.onload = () => {
+      printWindow.print();
+      printWindow.close();
+    };
   };
 
   const getStatusColor = (status) => {
@@ -350,153 +687,188 @@ const Bills = () => {
           searchResult={location.state?.selectedBill} 
           searchQuery={location.state?.searchQuery} 
         />
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            mb: 3,
-            flexWrap: 'wrap',
-            gap: 2,
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Typography variant="h5" fontWeight={700}>
-              Bills Overview
+        
+        {/* Loading State */}
+        {loading && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
+            <CircularProgress size={40} />
+            <Typography variant="body1" sx={{ ml: 2 }}>
+              Loading bills data...
             </Typography>
-            {isFiltered && (
-              <Chip
-                label={`Filtered: ${filteredData.length} result${filteredData.length !== 1 ? 's' : ''}`}
-                color="primary"
-                onDelete={clearSearchFilter}
-                deleteIcon={<Clear />}
-                sx={{ fontWeight: 600 }}
-              />
-            )}
+          </Box>
+        )}
+
+        {/* Error State */}
+        {error && (
+          <Alert 
+            severity="warning" 
+            sx={{ mb: 3 }}
+            action={
+              <Button 
+                color="inherit" 
+                size="small" 
+                onClick={() => window.location.reload()}
+              >
+                Retry
+              </Button>
+            }
+          >
+            {error}
+          </Alert>
+        )}
+
+        {/* Summary Cards */}
+        <Box sx={{ 
+          display: 'flex', 
+          gap: 2, 
+          mb: 3, 
+          width: '100%',
+          flexWrap: 'nowrap'
+        }}>
+          <Card 
+            sx={{ 
+              flex: 1,
+              cursor: 'pointer',
+              transition: 'all 0.3s',
+              '&:hover': { transform: 'translateY(-2px)', boxShadow: 3 }
+            }}
+            onClick={() => setSelectedCategory('all')}
+          >
+            <CardContent sx={{ textAlign: 'center', py: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
+                  Total Outstanding
+                </Typography>
+                <ArrowForward sx={{ fontSize: 16, color: 'text.secondary' }} />
+              </Box>
+              <Typography variant="h5" fontWeight={700} color="primary">
+                ${summary.totalOutstanding.toLocaleString()}
+              </Typography>
+            </CardContent>
+          </Card>
+          
+          <Card 
+            sx={{ 
+              flex: 1,
+              cursor: 'pointer',
+              transition: 'all 0.3s',
+              backgroundColor: selectedCategory === '0-30' ? '#e3f2fd' : 'white',
+              '&:hover': { transform: 'translateY(-2px)', boxShadow: 3 }
+            }}
+            onClick={() => setSelectedCategory('0-30')}
+          >
+            <CardContent sx={{ textAlign: 'center', py: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
+                  0-30 Days
+                </Typography>
+                {selectedCategory === '0-30' ? 
+                  <ArrowDownward sx={{ fontSize: 16, color: 'primary' }} /> :
+                  <ArrowForward sx={{ fontSize: 16, color: 'text.secondary' }} />
+                }
+              </Box>
+              <Typography variant="h5" fontWeight={700} color="primary">
+                ${summary.amount0_30.toLocaleString()}
+              </Typography>
+            </CardContent>
+          </Card>
+          
+          <Card 
+            sx={{ 
+              flex: 1,
+              cursor: 'pointer',
+              transition: 'all 0.3s',
+              backgroundColor: selectedCategory === '30-60' ? '#fff3e0' : 'white',
+              '&:hover': { transform: 'translateY(-2px)', boxShadow: 3 }
+            }}
+            onClick={() => setSelectedCategory('30-60')}
+          >
+            <CardContent sx={{ textAlign: 'center', py: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
+                  30-60 Days
+                </Typography>
+                {selectedCategory === '30-60' ? 
+                  <ArrowDownward sx={{ fontSize: 16, color: 'warning.main' }} /> :
+                  <ArrowForward sx={{ fontSize: 16, color: 'text.secondary' }} />
+                }
+              </Box>
+              <Typography variant="h5" fontWeight={700} color="warning.main">
+                ${summary.amount30_60.toLocaleString()}
+              </Typography>
+            </CardContent>
+          </Card>
+          
+          <Card 
+            sx={{ 
+              flex: 1,
+              cursor: 'pointer',
+              transition: 'all 0.3s',
+              backgroundColor: selectedCategory === '60-90' ? '#ffebee' : 'white',
+              '&:hover': { transform: 'translateY(-2px)', boxShadow: 3 }
+            }}
+            onClick={() => setSelectedCategory('60-90')}
+          >
+            <CardContent sx={{ textAlign: 'center', py: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
+                  60-90 Days
+                </Typography>
+                {selectedCategory === '60-90' ? 
+                  <ArrowDownward sx={{ fontSize: 16, color: 'error.main' }} /> :
+                  <ArrowForward sx={{ fontSize: 16, color: 'text.secondary' }} />
+                }
+              </Box>
+              <Typography variant="h5" fontWeight={700} color="error.main">
+                ${summary.amount60_90.toLocaleString()}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Box>
+
+        {/* Header with Search and Action Buttons */}
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          mb: 3,
+          flexWrap: 'wrap',
+          gap: 2
+        }}>
+          {/* Search Bar */}
+          <Box sx={{ flexGrow: 1, minWidth: 300 }}>
+            <TextField
+              fullWidth
+              placeholder="Search..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                  backgroundColor: 'white',
+                }
+              }}
+            />
           </Box>
 
-          <Stack direction="row" spacing={1} alignItems="center">
+          {/* Action Buttons */}
+          <Stack direction="row" spacing={2} alignItems="center">
             <Button
               variant="outlined"
-              onClick={handleDateRangeClick}
-              startIcon={<DateRange />}
-              sx={{
-                borderRadius: 2,
-                fontSize: '0.75rem',
-                px: 2,
-                py: 0.8,
-                fontWeight: 500,
-                textTransform: 'none',
-                color: '#1976d2',
-                borderColor: '#1976d2',
-                minWidth: 200,
-                justifyContent: 'space-between',
-                '&:hover': {
-                  borderColor: '#0d47a1',
-                  color: '#0d47a1',
-                },
-              }}
-            >
-              {getDateRangeText()}
-            </Button>
-
-            <Popover
-              open={open}
-              anchorEl={anchorEl}
-              onClose={handleDateRangeClose}
-              anchorOrigin={{
-                vertical: 'bottom',
-                horizontal: 'left',
-              }}
-              transformOrigin={{
-                vertical: 'top',
-                horizontal: 'left',
-              }}
-              PaperProps={{
-                sx: {
-                  p: 2,
-                  borderRadius: 2,
-                  boxShadow: 3,
-                },
-              }}
-            >
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 300 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Typography variant="subtitle1" fontWeight={600}>
-                    Select Date Range
-                  </Typography>
-                  <IconButton size="small" onClick={clearDateRange}>
-                    <Clear />
-                  </IconButton>
-                </Box>
-
-                <Box sx={{ display: 'flex', gap: 2 }}>
-                  <DatePicker
-                    label="From Date"
-                    value={dateRange[0]}
-                    onChange={handleDateChange(0)}
-                    slotProps={{
-                      textField: {
-                        size: 'small',
-                        sx: { minWidth: 140 },
-                      },
-                    }}
-                  />
-                  <DatePicker
-                    label="To Date"
-                    value={dateRange[1]}
-                    onChange={handleDateChange(1)}
-                    slotProps={{
-                      textField: {
-                        size: 'small',
-                        sx: { minWidth: 140 },
-                      },
-                    }}
-                  />
-                </Box>
-
-                <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                  <Button
-                    size="small"
-                    onClick={handleDateRangeClose}
-                    sx={{
-                      fontSize: '0.75rem',
-                      px: 2,
-                      py: 0.5,
-                      textTransform: 'none',
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    size="small"
-                    variant="contained"
-                    onClick={handleDateRangeClose}
-                    sx={{
-                      fontSize: '0.75rem',
-                      px: 2,
-                      py: 0.5,
-                      textTransform: 'none',
-                      backgroundColor: '#1976d2',
-                      '&:hover': {
-                        backgroundColor: '#1565c0',
-                      },
-                    }}
-                  >
-                    Apply
-                  </Button>
-                </Box>
-              </Box>
-            </Popover>
-
-            <Button
-              variant="outlined"
+              startIcon={<Download />}
               onClick={exportToCSV}
               sx={{
                 borderRadius: 2,
-                fontSize: '0.75rem',
-                px: 2,
-                py: 0.8,
+                fontSize: '0.875rem',
+                px: 3,
+                py: 1,
                 fontWeight: 500,
                 textTransform: 'none',
                 color: '#1976d2',
@@ -504,47 +876,286 @@ const Bills = () => {
                 '&:hover': {
                   borderColor: '#0d47a1',
                   color: '#0d47a1',
+                  backgroundColor: '#e3f2fd',
                 },
               }}
             >
-              Export CSV
+              Download CSV
             </Button>
+            
             <Button
-              variant="contained"
+              variant="outlined"
               startIcon={<Receipt />}
-              onClick={handleGenerateBillClick}
+              onClick={handlePrint}
               sx={{
                 borderRadius: 2,
-                fontSize: '0.75rem',
-                px: 2,
-                py: 0.8,
+                fontSize: '0.875rem',
+                px: 3,
+                py: 1,
                 fontWeight: 500,
                 textTransform: 'none',
-                backgroundColor: '#1976d2',
+                color: '#1976d2',
+                borderColor: '#1976d2',
                 '&:hover': {
-                  backgroundColor: '#1565c0',
+                  borderColor: '#0d47a1',
+                  color: '#0d47a1',
+                  backgroundColor: '#e3f2fd',
                 },
               }}
             >
-              Generate Bill
+              Print
             </Button>
           </Stack>
         </Box>
 
-        <Paper elevation={3} sx={{ borderRadius: 3, overflow: 'hidden' }}>
+        {/* Results Count */}
+        <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
+          {displayData.length} Results
+        </Typography>
+
+        {/* Empty State */}
+        {!loading && !error && displayData.length === 0 && (
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            py: 8,
+            textAlign: 'center'
+          }}>
+            <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
+              No load data available
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Please check your authentication or try refreshing the page
+            </Typography>
+          </Box>
+        )}
+
+        {/* Charts Section */}
+        {displayData.length > 0 && (
+          <Box sx={{ 
+            display: 'flex', 
+            gap: 3, 
+            mb: 3, 
+            width: '100%',
+            flexWrap: 'nowrap'
+          }}>
+          <Paper 
+            elevation={3} 
+            sx={{ 
+              flex: 1,
+              p: 3, 
+              borderRadius: 3,
+              background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+              border: '1px solid #e3f2fd',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                transform: 'translateY(-2px)',
+                boxShadow: '0 8px 25px rgba(25, 118, 210, 0.15)',
+              }
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+              <Box sx={{ 
+                width: 8, 
+                height: 8, 
+                borderRadius: '50%', 
+                background: 'linear-gradient(45deg, #1976d2, #42a5f5)',
+                mr: 2,
+                boxShadow: '0 2px 8px rgba(25, 118, 210, 0.3)'
+              }} />
+              <Typography variant="h6" fontWeight={700} sx={{ 
+                color: '#1976d2',
+                fontSize: '1.1rem'
+              }}>
+                Outstanding Amount by Category
+              </Typography>
+            </Box>
+            <ResponsiveContainer width="100%" height={400}>
+              <BarChart 
+                data={chartData}
+                margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+              >
+                <defs>
+                  <linearGradient id="barGradient0" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#1976d2" stopOpacity={0.8}/>
+                    <stop offset="100%" stopColor="#42a5f5" stopOpacity={0.6}/>
+                  </linearGradient>
+                  <linearGradient id="barGradient1" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#ff9800" stopOpacity={0.8}/>
+                    <stop offset="100%" stopColor="#ffb74d" stopOpacity={0.6}/>
+                  </linearGradient>
+                  <linearGradient id="barGradient2" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#f44336" stopOpacity={0.8}/>
+                    <stop offset="100%" stopColor="#ef5350" stopOpacity={0.6}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid 
+                  strokeDasharray="3 3" 
+                  stroke="#e0e0e0" 
+                  strokeOpacity={0.6}
+                />
+                <XAxis 
+                  dataKey="name" 
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 12, fill: '#666' }}
+                  tickMargin={10}
+                />
+                <YAxis 
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 12, fill: '#666' }}
+                  tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                />
+                <Tooltip 
+                  contentStyle={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                    border: 'none',
+                    borderRadius: '12px',
+                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                    backdropFilter: 'blur(10px)',
+                    fontSize: '14px',
+                    fontWeight: '500'
+                  }}
+                  formatter={(value) => [`$${value.toLocaleString()}`, 'Amount']}
+                  labelStyle={{ color: '#1976d2', fontWeight: '600' }}
+                />
+                <Bar 
+                  dataKey="amount" 
+                  radius={[8, 8, 0, 0]}
+                  animationBegin={0}
+                  animationDuration={1500}
+                  animationEasing="ease-out"
+                >
+                  {chartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={`url(#barGradient${index})`} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </Paper>
+          
+          <Paper 
+            elevation={3} 
+            sx={{ 
+              flex: 1,
+              p: 3, 
+              borderRadius: 3,
+              background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+              border: '1px solid #e3f2fd',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                transform: 'translateY(-2px)',
+                boxShadow: '0 8px 25px rgba(25, 118, 210, 0.15)',
+              }
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+              <Box sx={{ 
+                width: 8, 
+                height: 8, 
+                borderRadius: '50%', 
+                background: 'linear-gradient(45deg, #ff9800, #ffb74d)',
+                mr: 2,
+                boxShadow: '0 2px 8px rgba(255, 152, 0, 0.3)'
+              }} />
+              <Typography variant="h6" fontWeight={700} sx={{ 
+                color: '#ff9800',
+                fontSize: '1.1rem'
+              }}>
+                Distribution Overview
+              </Typography>
+            </Box>
+            <ResponsiveContainer width="100%" height={400}>
+              <PieChart>
+                <defs>
+                  <linearGradient id="pieGradient0" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stopColor="#1976d2" stopOpacity={0.9}/>
+                    <stop offset="100%" stopColor="#42a5f5" stopOpacity={0.7}/>
+                  </linearGradient>
+                  <linearGradient id="pieGradient1" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stopColor="#ff9800" stopOpacity={0.9}/>
+                    <stop offset="100%" stopColor="#ffb74d" stopOpacity={0.7}/>
+                  </linearGradient>
+                  <linearGradient id="pieGradient2" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stopColor="#f44336" stopOpacity={0.9}/>
+                    <stop offset="100%" stopColor="#ef5350" stopOpacity={0.7}/>
+                  </linearGradient>
+                </defs>
+                <Pie
+                  data={pieData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, percent }) => `${name}\n${(percent * 100).toFixed(1)}%`}
+                  outerRadius={100}
+                  innerRadius={40}
+                  fill="#8884d8"
+                  dataKey="value"
+                  animationBegin={0}
+                  animationDuration={1500}
+                  animationEasing="ease-out"
+                  stroke="#ffffff"
+                  strokeWidth={3}
+                >
+                  {pieData.map((entry, index) => (
+                    <Cell 
+                      key={`cell-${index}`} 
+                      fill={`url(#pieGradient${index})`}
+                      stroke="#ffffff"
+                      strokeWidth={3}
+                    />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  contentStyle={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                    border: 'none',
+                    borderRadius: '12px',
+                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                    backdropFilter: 'blur(10px)',
+                    fontSize: '14px',
+                    fontWeight: '500'
+                  }}
+                  formatter={(value) => [`$${value.toLocaleString()}`, 'Amount']}
+                  labelStyle={{ color: '#1976d2', fontWeight: '600' }}
+                />
+                <Legend 
+                  verticalAlign="bottom" 
+                  height={36}
+                  iconType="circle"
+                  wrapperStyle={{
+                    paddingTop: '20px',
+                    fontSize: '14px',
+                    fontWeight: '500'
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </Paper>
+        </Box>
+        )}
+
+        {/* Data Table */}
+        {displayData.length > 0 && (
+          <Paper elevation={3} sx={{ borderRadius: 3, overflow: 'hidden' }}>
           <Table>
             <TableHead>
               <TableRow sx={{ backgroundColor: '#f0f4f8' }}>
-                <TableCell sx={{ fontWeight: 600 }}>Bill Id</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Date</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Amt</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Shipment #</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>PO Number</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Container #</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>BOL Number</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Rate ($)</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>View Detail</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Download</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Verification</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredData
+              {displayData
                 .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                 .map((bill, i) => {
                   const isSearchedItem = isFiltered && location.state?.selectedBill && 
@@ -565,52 +1176,58 @@ const Bills = () => {
                         })
                       }}
                     >
-                     <TableCell>{bill.billId}</TableCell>
-                     <TableCell>{bill.date}</TableCell>
-                     <TableCell>${bill.amount.toLocaleString()}</TableCell>
-                                           <TableCell>
+                      <TableCell>{bill.billId}</TableCell>
+                      <TableCell>{bill.chargeSetId}</TableCell>
+                      <TableCell>{bill.containerId}</TableCell>
+                      <TableCell>{bill.secondaryRef}</TableCell>
+                      <TableCell sx={{ color: 'primary.main', fontWeight: 600 }}>
+                        ${bill.amount.toLocaleString()}
+                      </TableCell>
+                      <TableCell>
                         <Chip 
                           label={bill.status} 
                           color={getStatusColor(bill.status)} 
                           size="small"
-                          sx={{
-                            ...(bill.status.toLowerCase() === 'pending' && {
-                              backgroundColor: '#ffeb3b',
-                              color: '#000',
-                              '&:hover': {
-                                backgroundColor: '#fdd835'
-                              }
-                            })
-                          }}
+                          sx={{ fontWeight: 600 }}
                         />
                       </TableCell>
-                                           <TableCell>
-                        <Button 
-                          size="small" 
-                          variant="text"
-                          onClick={() => handleViewBill(bill)}
-                        >
-                          View
-                        </Button>
+                      <TableCell>
+                        {bill.loadData?.verificationStatus && (
+                          <Chip 
+                            label={bill.loadData.verificationStatus.replace('_', ' ').toUpperCase()} 
+                            color={bill.loadData.verificationStatus === 'accountant_approved' ? 'success' : 'warning'} 
+                            size="small"
+                            sx={{ fontWeight: 600 }}
+                          />
+                        )}
                       </TableCell>
-                                           <TableCell>
-                        <Button 
-                          size="small" 
-                          variant="text" 
-                          startIcon={<Download />}
-                          onClick={() => handleDownloadPDF(bill)}
-                        >
-                          Download
-                        </Button>
+                      <TableCell>
+                        <Stack direction="row" spacing={1}>
+                          <Button 
+                            size="small" 
+                            variant="text"
+                            onClick={() => handleViewBill(bill)}
+                          >
+                            View
+                          </Button>
+                          <Button 
+                            size="small" 
+                            variant="text" 
+                            startIcon={<Download />}
+                            onClick={() => handleDownloadPDF(bill)}
+                          >
+                            Download
+                          </Button>
+                        </Stack>
                       </TableCell>
-                   </TableRow>
+                    </TableRow>
                   );
                 })}
             </TableBody>
           </Table>
           <TablePagination
             component="div"
-            count={filteredData.length}
+            count={displayData.length}
             page={page}
             onPageChange={handleChangePage}
             rowsPerPage={rowsPerPage}
@@ -618,6 +1235,7 @@ const Bills = () => {
             rowsPerPageOptions={[5, 10, 15, 20]}
           />
         </Paper>
+        )}
       </Box>
 
              {/* Generate Bill Dialog */}

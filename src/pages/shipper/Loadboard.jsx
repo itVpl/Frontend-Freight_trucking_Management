@@ -26,7 +26,9 @@ import {
   Select,
   MenuItem,
   FormControl,
-  InputLabel
+  InputLabel,
+  Tabs,
+  Tab
 } from '@mui/material';
 import { Add, Refresh, Clear } from '@mui/icons-material';
 import { Download, Search } from '@mui/icons-material';
@@ -208,6 +210,20 @@ const LoadBoard = () => {
   const [acceptBidId, setAcceptBidId] = useState(null);
   const [acceptErrors, setAcceptErrors] = useState({});
 
+  // Negotiation modal state
+  const [negotiationModalOpen, setNegotiationModalOpen] = useState(false);
+  const [negotiationForm, setNegotiationForm] = useState({
+    shipperCounterRate: '',
+    shipperNegotiationMessage: ''
+  });
+  const [negotiationErrors, setNegotiationErrors] = useState({});
+  const [negotiationBidId, setNegotiationBidId] = useState(null);
+
+  // Reject confirmation modal state
+  const [rejectModalOpen, setRejectModalOpen] = useState(false);
+  const [rejectBidId, setRejectBidId] = useState(null);
+  const [rejectBidData, setRejectBidData] = useState(null);
+
   // Edit modal state
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedLoad, setSelectedLoad] = useState(null);
@@ -233,6 +249,69 @@ const LoadBoard = () => {
   });
   const [editErrors, setEditErrors] = useState({});
   const [editLoading, setEditLoading] = useState(false);
+
+  // CMT Agent Details modal state
+  const [cmtModalOpen, setCmtModalOpen] = useState(false);
+  const [cmtLoading, setCmtLoading] = useState(false);
+  const [cmtData, setCmtData] = useState(null);
+  const [selectedLoadForCmt, setSelectedLoadForCmt] = useState(null);
+
+  // Rate suggestion state
+  const [rateSuggestions, setRateSuggestions] = useState(null);
+  const [rateSuggestionsLoading, setRateSuggestionsLoading] = useState(false);
+  const [showRateSuggestions, setShowRateSuggestions] = useState(false);
+  const [suggestionDetailsModalOpen, setSuggestionDetailsModalOpen] = useState(false);
+  const [selectedSuggestion, setSelectedSuggestion] = useState(null);
+  const [smartRateModalOpen, setSmartRateModalOpen] = useState(false);
+
+  // Tab state management
+  const [activeTab, setActiveTab] = useState(0);
+
+  // Tab change handler
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
+    setPage(0); // Reset to first page when changing tabs
+  };
+
+  // Filter loads based on active tab
+  const getFilteredLoads = () => {
+    if (!loadData || loadData.length === 0) return [];
+    
+    switch (activeTab) {
+      case 0: // Pending Approval
+        return loadData.filter(load => 
+          ['Pending', 'Approval'].includes(load.status)
+        );
+      case 1: // Bidding
+        return loadData.filter(load => 
+          ['Bidding', 'Bid Received', 'Posted'].includes(load.status)
+        );
+      case 2: // Transit
+        return loadData.filter(load => 
+          ['Assigned', 'In Transit', 'Picked Up'].includes(load.status)
+        );
+      case 3: // Delivered
+        return loadData.filter(load => 
+          ['Delivered', 'Completed'].includes(load.status)
+        );
+      default:
+        return loadData;
+    }
+  };
+
+  // Get counts for each tab
+  const getTabCounts = () => {
+    if (!loadData || loadData.length === 0) return [0, 0, 0, 0];
+    
+    return [
+      loadData.filter(load => ['Pending', 'Approval'].includes(load.status)).length,
+      loadData.filter(load => ['Bidding', 'Bid Received', 'Posted'].includes(load.status)).length,
+      loadData.filter(load => ['Assigned', 'In Transit', 'Picked Up'].includes(load.status)).length,
+      loadData.filter(load => ['Delivered', 'Completed'].includes(load.status)).length
+    ];
+  };
+
+  const tabCounts = getTabCounts();
 
   // Handle search result from universal search
   useEffect(() => {
@@ -321,10 +400,27 @@ const LoadBoard = () => {
     setModalOpen(true);
     setForm({ ...form, loadType: loadType, rateType: 'Flat Rate' });
   };
-  const handleCloseModal = () => setModalOpen(false);
+  const handleCloseModal = () => {
+    setModalOpen(false);
+    setRateSuggestions(null);
+    setShowRateSuggestions(false);
+    setSuggestionDetailsModalOpen(false);
+    setSelectedSuggestion(null);
+    setSmartRateModalOpen(false);
+  };
 
   const handleFormChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const newForm = { ...form, [e.target.name]: e.target.value };
+    setForm(newForm);
+    
+    // Trigger rate suggestions when both pickup and delivery locations are filled
+    if ((e.target.name === 'fromCity' || e.target.name === 'toCity') && 
+        newForm.fromCity && newForm.toCity) {
+      // Add a small delay to avoid too many API calls
+      setTimeout(() => {
+        fetchRateSuggestions(newForm.fromCity, newForm.toCity);
+      }, 500);
+    }
   };
 
   const handleLoadTypeChange = (type) => {
@@ -459,6 +555,121 @@ const LoadBoard = () => {
   const handleCloseBidDetailsModal = () => {
     setBidDetailsModalOpen(false);
     setSelectedBid(null);
+  };
+
+  // Negotiation handlers
+  const handleStartNegotiation = (bid) => {
+    setNegotiationBidId(bid._id);
+    setNegotiationForm({
+      shipperCounterRate: bid.intermediateRate || '',
+      shipperNegotiationMessage: ''
+    });
+    setNegotiationErrors({});
+    setNegotiationModalOpen(true);
+  };
+
+  const handleCloseNegotiationModal = () => {
+    setNegotiationModalOpen(false);
+    setNegotiationForm({
+      shipperCounterRate: '',
+      shipperNegotiationMessage: ''
+    });
+    setNegotiationErrors({});
+    setNegotiationBidId(null);
+  };
+
+  const handleNegotiationFormChange = (e) => {
+    const { name, value } = e.target;
+    setNegotiationForm(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    // Clear error when user starts typing
+    if (negotiationErrors[name]) {
+      setNegotiationErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }));
+    }
+  };
+
+  const handleNegotiationSubmit = async (e) => {
+    e.preventDefault();
+    
+    // Validation
+    const errors = {};
+    if (!negotiationForm.shipperCounterRate || negotiationForm.shipperCounterRate <= 0) {
+      errors.shipperCounterRate = 'Please enter a valid counter rate';
+    }
+    if (!negotiationForm.shipperNegotiationMessage.trim()) {
+      errors.shipperNegotiationMessage = 'Please enter a negotiation message';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setNegotiationErrors(errors);
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.put(`${BASE_API_URL}/api/v1/bid/${negotiationBidId}/status`, {
+        status: 'Negotiating',
+        shipperCounterRate: parseFloat(negotiationForm.shipperCounterRate),
+        shipperNegotiationMessage: negotiationForm.shipperNegotiationMessage
+      }, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      if (response.data.success) {
+        alertify.success('Negotiation started successfully');
+        handleCloseNegotiationModal();
+        handleCloseBidDetailsModal();
+        // Refresh bids to show updated status
+        if (selectedLoadId) {
+          handleViewBids(selectedLoadId);
+        }
+      }
+    } catch (err) {
+      alertify.error(err.response?.data?.message || 'Failed to start negotiation');
+    }
+  };
+
+  const handleRejectBid = (bid) => {
+    setRejectBidId(bid._id);
+    setRejectBidData(bid);
+    setRejectModalOpen(true);
+  };
+
+  const handleCloseRejectModal = () => {
+    setRejectModalOpen(false);
+    setRejectBidId(null);
+    setRejectBidData(null);
+  };
+
+  const handleConfirmReject = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.put(`${BASE_API_URL}/api/v1/bid/${rejectBidId}/status`, {
+        status: 'Rejected'
+      }, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      if (response.data.success) {
+        alertify.success('Bid rejected successfully');
+        handleCloseRejectModal();
+        // Refresh bids to show updated status
+        if (selectedLoadId) {
+          handleViewBids(selectedLoadId);
+        }
+      }
+    } catch (err) {
+      alertify.error(err.response?.data?.message || 'Failed to reject bid');
+    }
   };
 
   const handleAcceptBid = (bid) => {
@@ -637,6 +848,118 @@ const LoadBoard = () => {
     }
   };
 
+  // Handle CMT Agent Details
+  const handleCmtAgentDetails = async (loadId) => {
+    setSelectedLoadForCmt(loadId);
+    setCmtModalOpen(true);
+    setCmtLoading(true);
+    setCmtData(null);
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${BASE_API_URL}/api/v1/load/shipper/load/${loadId}/cmt-assignment`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      
+      if (response.data.success) {
+        setCmtData(response.data.data);
+      } else {
+        setCmtData(null);
+        if (window.alertify) {
+          window.alertify.error(response.data.message || 'Failed to fetch CMT assignment details');
+        } else {
+          alert(response.data.message || 'Failed to fetch CMT assignment details');
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching CMT assignment details:', err);
+      setCmtData(null);
+      if (window.alertify) {
+        window.alertify.error(err.response?.data?.message || 'Failed to fetch CMT assignment details');
+      } else {
+        alert(err.response?.data?.message || 'Failed to fetch CMT assignment details');
+      }
+    } finally {
+      setCmtLoading(false);
+    }
+  };
+
+  const handleCloseCmtModal = () => {
+    setCmtModalOpen(false);
+    setCmtData(null);
+    setSelectedLoadForCmt(null);
+  };
+
+  // Rate suggestion API call
+  const fetchRateSuggestions = async (pickupLocation, deliveryLocation) => {
+    if (!pickupLocation || !deliveryLocation) {
+      setRateSuggestions(null);
+      setShowRateSuggestions(false);
+      return;
+    }
+
+    setRateSuggestionsLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(
+        `${BASE_API_URL}/api/v1/load/rate-suggestion?pickupLocation=${encodeURIComponent(pickupLocation)}&deliveryLocation=${encodeURIComponent(deliveryLocation)}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      if (response.data.success) {
+        setRateSuggestions(response.data.data);
+        setShowRateSuggestions(true);
+      } else {
+        setRateSuggestions(null);
+        setShowRateSuggestions(false);
+      }
+    } catch (err) {
+      console.error('Error fetching rate suggestions:', err);
+      setRateSuggestions(null);
+      setShowRateSuggestions(false);
+    } finally {
+      setRateSuggestionsLoading(false);
+    }
+  };
+
+  // Apply suggested rate to form
+  const applySuggestedRate = (rate) => {
+    setForm({ ...form, price: rate });
+    setShowRateSuggestions(false);
+  };
+
+  // Handle suggestion details modal
+  const handleSuggestionDetails = (suggestion) => {
+    setSelectedSuggestion(suggestion);
+    setSuggestionDetailsModalOpen(true);
+  };
+
+  const handleCloseSuggestionDetails = () => {
+    setSuggestionDetailsModalOpen(false);
+    setSelectedSuggestion(null);
+  };
+
+  // Handle smart rate suggestion button
+  const handleSmartRateSuggestion = async () => {
+    if (!form.fromCity || !form.toCity) {
+      alert('Please fill in both pickup and delivery locations first');
+      return;
+    }
+    
+    setSmartRateModalOpen(true);
+    await fetchRateSuggestions(form.fromCity, form.toCity);
+  };
+
+  const handleCloseSmartRateModal = () => {
+    setSmartRateModalOpen(false);
+  };
+
   // Handle refresh load created-at
   const handleRefreshLoad = async (loadId) => {
     try {
@@ -740,7 +1063,16 @@ const LoadBoard = () => {
   };
 
   // Search and filter logic
-  const filteredData = loadData.filter((row) =>
+  const getSearchFilteredData = () => {
+    return loadData.filter((row) =>
+      Object.values(row).some((val) =>
+        String(val).toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    );
+  };
+
+  // Combined filtering: tab filter + search filter
+  const filteredData = getFilteredLoads().filter((row) =>
     Object.values(row).some((val) =>
       String(val).toLowerCase().includes(searchTerm.toLowerCase())
     )
@@ -845,6 +1177,115 @@ const LoadBoard = () => {
         </Stack>
       </Box>
 
+      {/* Beautiful Gradient Tabs Section */}
+      <Paper elevation={2} sx={{ borderRadius: 3, mb: 3, overflow: 'hidden' }}>
+        <Tabs
+          value={activeTab}
+          onChange={handleTabChange}
+          variant="fullWidth"
+          sx={{
+            '& .MuiTabs-indicator': {
+              height: 4,
+              borderRadius: '2px 2px 0 0',
+              background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
+            },
+            '& .MuiTab-root': {
+              textTransform: 'none',
+              fontWeight: 600,
+              fontSize: '0.95rem',
+              py: 2,
+              px: 3,
+              minHeight: 60,
+              background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+              color: '#495057',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%)',
+                color: '#212529',
+                transform: 'translateY(-2px)',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+              },
+              '&.Mui-selected': {
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                color: '#ffffff',
+                fontWeight: 700,
+                boxShadow: '0 4px 15px rgba(102, 126, 234, 0.3)',
+                transform: 'translateY(-2px)',
+              },
+            },
+          }}
+        >
+          <Tab 
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <Box sx={{ 
+                  width: 10, 
+                  height: 10, 
+                  borderRadius: '50%', 
+                  background: activeTab === 0 ? '#ffffff' : '#ffc107',
+                  boxShadow: activeTab === 0 ? '0 0 10px rgba(255,255,255,0.6)' : '0 0 10px rgba(255,193,7,0.6)',
+                  border: '2px solid rgba(255,255,255,0.3)'
+                }} />
+                <Typography variant="body2" sx={{ fontWeight: 'inherit' }}>
+                  Pending Approval ({tabCounts[0]})
+                </Typography>
+              </Box>
+            }
+          />
+          <Tab 
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <Box sx={{ 
+                  width: 10, 
+                  height: 10, 
+                  borderRadius: '50%', 
+                  background: activeTab === 1 ? '#ffffff' : '#17a2b8',
+                  boxShadow: activeTab === 1 ? '0 0 10px rgba(255,255,255,0.6)' : '0 0 10px rgba(23,162,184,0.6)',
+                  border: '2px solid rgba(255,255,255,0.3)'
+                }} />
+                <Typography variant="body2" sx={{ fontWeight: 'inherit' }}>
+                  Bidding ({tabCounts[1]})
+                </Typography>
+              </Box>
+            }
+          />
+          <Tab 
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <Box sx={{ 
+                  width: 10, 
+                  height: 10, 
+                  borderRadius: '50%', 
+                  background: activeTab === 2 ? '#ffffff' : '#28a745',
+                  boxShadow: activeTab === 2 ? '0 0 10px rgba(255,255,255,0.6)' : '0 0 10px rgba(40,167,69,0.6)',
+                  border: '2px solid rgba(255,255,255,0.3)'
+                }} />
+                <Typography variant="body2" sx={{ fontWeight: 'inherit' }}>
+                  Transit ({tabCounts[2]})
+                </Typography>
+              </Box>
+            }
+          />
+          <Tab 
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <Box sx={{ 
+                  width: 10, 
+                  height: 10, 
+                  borderRadius: '50%', 
+                  background: activeTab === 3 ? '#ffffff' : '#6f42c1',
+                  boxShadow: activeTab === 3 ? '0 0 10px rgba(255,255,255,0.6)' : '0 0 10px rgba(111,66,193,0.6)',
+                  border: '2px solid rgba(255,255,255,0.3)'
+                }} />
+                <Typography variant="body2" sx={{ fontWeight: 'inherit' }}>
+                  Delivered ({tabCounts[3]})
+                </Typography>
+              </Box>
+            }
+          />
+        </Tabs>
+      </Paper>
+
       <Paper elevation={3} sx={{ borderRadius: 3, overflow: 'hidden' }}>
         <Table>
                      <TableHead>
@@ -918,10 +1359,10 @@ const LoadBoard = () => {
                             size="small" 
                             variant="outlined" 
                             onClick={() => handleEditLoad(load)}
-                            disabled={load.status !== 'Posted'}
+                            disabled={!['Pending', 'Approval', 'Posted'].includes(load.status)}
                             sx={{
-                              opacity: load.status !== 'Posted' ? 0.5 : 1,
-                              cursor: load.status !== 'Posted' ? 'not-allowed' : 'pointer'
+                              opacity: !['Pending', 'Approval', 'Posted'].includes(load.status) ? 0.5 : 1,
+                              cursor: !['Pending', 'Approval', 'Posted'].includes(load.status) ? 'not-allowed' : 'pointer'
                             }}
                           >
                             Edit
@@ -929,18 +1370,33 @@ const LoadBoard = () => {
                           <Button 
                             size="small" 
                             variant="outlined" 
-                            onClick={() => handleRefreshLoad(load._id)}
-                            disabled={load.status !== 'Posted'}
+                            onClick={() => handleCmtAgentDetails(load._id)}
                             sx={{
-                              minWidth: 'auto',
+                              fontSize: '0.7rem',
                               px: 1,
-                              opacity: load.status !== 'Posted' ? 0.5 : 1,
-                              cursor: load.status !== 'Posted' ? 'not-allowed' : 'pointer'
+                              py: 0.5,
+                              textTransform: 'none',
+                              fontWeight: 500
                             }}
-                            title="Refresh Load Timestamp"
                           >
-                            <Refresh fontSize="small" />
+                            CMT Agent Details
                           </Button>
+                            <Button 
+                              size="small" 
+                              variant="outlined" 
+                              onClick={() => handleRefreshLoad(load._id)}
+                              disabled={!['Posted', 'Pending', 'Approval'].includes(load.status)}
+                              sx={{
+                                minWidth: 'auto',
+                                px: 1,
+                                opacity: !['Posted', 'Pending', 'Approval'].includes(load.status) ? 0.5 : 1,
+                                cursor: !['Posted', 'Pending', 'Approval'].includes(load.status) ? 'not-allowed' : 'pointer'
+                              }}
+                              title="Refresh Load Timestamp"
+                            >
+                              <Refresh fontSize="small" />
+                            </Button>
+                          
                         </Stack>
                       </TableCell>
                    </TableRow>
@@ -951,7 +1407,7 @@ const LoadBoard = () => {
         </Table>
         <TablePagination
           component="div"
-          count={loadData.length}
+          count={filteredData.length}
           page={page}
           onPageChange={handleChangePage}
           rowsPerPage={rowsPerPage}
@@ -1247,7 +1703,7 @@ const LoadBoard = () => {
 
             {/* Price */}
             <TextField
-              label="Expected Price"
+              label="Target Rate ($)"
               name="price"
               value={form.price}
               onChange={handleFormChange}
@@ -1268,6 +1724,83 @@ const LoadBoard = () => {
                 },
               }}
             />
+
+            {/* Smart Rate Suggestion Button */}
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+              <Button
+                variant="outlined"
+                onClick={handleSmartRateSuggestion}
+                disabled={!form.fromCity || !form.toCity}
+                sx={{
+                  borderRadius: 3,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  px: 4,
+                  py: 1.5,
+                  fontSize: '1rem',
+                  borderColor: '#1976d2',
+                  color: '#1976d2',
+                  background: 'linear-gradient(135deg, #f8f9fa 0%, #e3f2fd 100%)',
+                  border: '2px solid #1976d2',
+                  '&:hover': {
+                    borderColor: '#0d47a1',
+                    color: '#0d47a1',
+                    backgroundColor: 'rgba(25, 118, 210, 0.04)',
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 4px 12px rgba(25, 118, 210, 0.2)'
+                  },
+                  '&:disabled': {
+                    borderColor: '#e0e0e0',
+                    color: '#9e9e9e',
+                    backgroundColor: '#f5f5f5'
+                  },
+                  transition: 'all 0.3s ease'
+                }}
+              >
+                💡 Smart Rate Suggestion
+              </Button>
+            </Box>
+
+            {/* Rate Suggestions */}
+            {rateSuggestionsLoading && (
+              <Box sx={{ 
+                textAlign: 'center', 
+                mt: 3, 
+                p: 3, 
+                backgroundColor: '#f8f9fa', 
+                borderRadius: 3,
+                border: '2px dashed #e0e0e0'
+              }}>
+                <Box sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  gap: 2,
+                  mb: 1
+                }}>
+                  <Box sx={{
+                    width: 20,
+                    height: 20,
+                    border: '2px solid #1976d2',
+                    borderTop: '2px solid transparent',
+                    borderRadius: '50%',
+                    animation: 'spin 1s linear infinite',
+                    '@keyframes spin': {
+                      '0%': { transform: 'rotate(0deg)' },
+                      '100%': { transform: 'rotate(360deg)' }
+                    }
+                  }} />
+                  <Typography variant="body1" sx={{ fontWeight: 600, color: '#1976d2' }}>
+                    Analyzing Market Data...
+                  </Typography>
+                </Box>
+                <Typography variant="body2" sx={{ color: '#666' }}>
+                  Fetching rate suggestions for your route
+                </Typography>
+              </Box>
+            )}
+
+            
 
             {/* Buttons */}
             <DialogActions sx={{ mt: 4, justifyContent: 'center', gap: 1 }}>
@@ -1303,180 +1836,635 @@ const LoadBoard = () => {
       </Dialog>
 
       {/* Bids Modal */}
-      <Dialog open={bidsModalOpen} onClose={handleCloseBidsModal} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700, color: '#1976d2', fontSize: 22, borderBottom: '1px solid #e0e0e0' }}>
+      <Dialog 
+        open={bidsModalOpen} 
+        onClose={handleCloseBidsModal} 
+        maxWidth="lg" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: { xs: 2, sm: 4 },
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15)',
+            overflow: 'hidden',
+            margin: { xs: 2, sm: 4 },
+            maxHeight: { xs: '90vh', sm: '80vh' }
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)',
+          color: '#fff',
+          fontWeight: 700, 
+          fontSize: { xs: 18, sm: 24 }, 
+          py: { xs: 2, sm: 3 },
+          px: { xs: 2, sm: 4 },
+          display: 'flex',
+          alignItems: 'center',
+          gap: 2
+        }}>
+          <Box sx={{
+            background: 'rgba(255, 255, 255, 0.2)',
+            borderRadius: '50%',
+            width: 40,
+            height: 40,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            📋
+          </Box>
           Bids for Load
         </DialogTitle>
-        <DialogContent sx={{ px: 4, py: 3, background: '#fff' }}>
+        <DialogContent sx={{ 
+          px: { xs: 2, sm: 4 }, 
+          py: { xs: 2, sm: 4 }, 
+          background: '#f8fafc', 
+          minHeight: { xs: 300, sm: 400 },
+          overflow: 'auto'
+        }}>
           {bidsLoading ? (
-            <Typography align="center" sx={{ my: 4 }}>Loading...</Typography>
+            <Box sx={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              py: 8,
+              gap: 2
+            }}>
+              <Box sx={{
+                width: 60,
+                height: 60,
+                borderRadius: '50%',
+                background: 'linear-gradient(45deg, #1976d2, #42a5f5)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                animation: 'pulse 2s infinite',
+                '@keyframes pulse': {
+                  '0%': { transform: 'scale(1)', opacity: 1 },
+                  '50%': { transform: 'scale(1.1)', opacity: 0.7 },
+                  '100%': { transform: 'scale(1)', opacity: 1 }
+                }
+              }}>
+                ⏳
+              </Box>
+              <Typography sx={{ 
+                fontSize: 18, 
+                fontWeight: 600, 
+                color: '#1976d2',
+                mt: 2
+              }}>
+                Loading bids...
+              </Typography>
+            </Box>
           ) : bids.length === 0 ? (
-            <Typography align="center" sx={{ my: 4 }}>No bids found for this load.</Typography>
+            <Box sx={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              py: 8,
+              gap: 2
+            }}>
+              <Box sx={{
+                width: 80,
+                height: 80,
+                borderRadius: '50%',
+                background: 'linear-gradient(45deg, #e3f2fd, #bbdefb)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 40
+              }}>
+                📭
+              </Box>
+              <Typography sx={{ 
+                fontSize: 20, 
+                fontWeight: 600, 
+                color: '#666',
+                textAlign: 'center'
+              }}>
+                No bids found for this load
+              </Typography>
+              <Typography sx={{ 
+                fontSize: 14, 
+                color: '#999',
+                textAlign: 'center',
+                maxWidth: 300
+              }}>
+                Bids will appear here once truckers start bidding on your load
+              </Typography>
+            </Box>
           ) : (
-                         <Grid container spacing={2} sx={{ minHeight: 300, mt: 2 }}>
-               {bids.map((bid, i) => (
-                 <Grid item xs={12} sm={6} md={4} key={bid._id || i}>
-                   <Box sx={{
-                     background: '#fff',
-                     borderRadius: 3,
-                     boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
-                     p: 2.5,
-                     display: 'flex',
-                     flexDirection: 'column',
-                     alignItems: 'center',
-                     minHeight: 200,
-                     border: '2px solid #e3f2fd',
-                     transition: 'all 0.3s ease',
-                     '&:hover': {
-                       transform: 'translateY(-4px)',
-                       boxShadow: '0 8px 25px rgba(25, 118, 210, 0.15)',
-                       borderColor: '#1976d2'
-                     }
-                   }}>
-                     {/* Bid Number */}
-                     <Box sx={{
-                       position: 'absolute',
-                       top: 8,
-                       right: 8,
-                       background: '#1976d2',
-                       color: '#fff',
-                       borderRadius: '50%',
-                       width: 28,
-                       height: 28,
-                       display: 'flex',
-                       alignItems: 'center',
-                       justifyContent: 'center',
-                       fontSize: 12,
-                       fontWeight: 600
-                     }}>
-                       {i + 1}
-                     </Box>
+            <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ minHeight: 300, mt: 1 }}>
+              {bids.map((bid, i) => (
+                <Grid item xs={12} sm={6} lg={4} key={bid._id || i}>
+                  <Box sx={{
+                    background: '#fff',
+                    borderRadius: { xs: 3, sm: 4 },
+                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08)',
+                    p: { xs: 2, sm: 3 },
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    minHeight: { xs: 250, sm: 280 },
+                    border: '1px solid #e8f4fd',
+                    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    '&:hover': {
+                      transform: { xs: 'translateY(-4px)', sm: 'translateY(-8px)' },
+                      boxShadow: '0 16px 48px rgba(25, 118, 210, 0.2)',
+                      borderColor: '#1976d2',
+                      '&::before': {
+                        opacity: 1
+                      }
+                    },
+                    '&::before': {
+                      content: '""',
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      height: 4,
+                      background: 'linear-gradient(90deg, #1976d2, #42a5f5)',
+                      opacity: 0,
+                      transition: 'opacity 0.3s ease'
+                    }
+                  }}>
+                    {/* Bid Number Badge */}
+                    <Box sx={{
+                      position: 'absolute',
+                      top: 12,
+                      right: 12,
+                      background: 'linear-gradient(135deg, #1976d2, #42a5f5)',
+                      color: '#fff',
+                      borderRadius: '50%',
+                      width: 32,
+                      height: 32,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 14,
+                      fontWeight: 700,
+                      boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
+                      zIndex: 1
+                    }}>
+                      #{i + 1}
+                    </Box>
 
-                                           {/* Avatar */}
+                    {/* Driver Section */}
+                    <Box sx={{ textAlign: 'center', mb: 3, mt: 2 }}>
                       <Avatar
                         src={bid.bidder?.avatar || ''}
                         alt="Driver"
                         sx={{ 
-                          width: 50, 
-                          height: 50, 
-                          mb: 1.5,
-                          bgcolor: '#e3f2fd',
+                          width: 70, 
+                          height: 70, 
+                          mb: 2,
+                          bgcolor: 'linear-gradient(135deg, #e3f2fd, #bbdefb)',
                           color: '#1976d2',
-                          border: '2px solid #1976d2'
+                          border: '3px solid #1976d2',
+                          fontSize: 28,
+                          fontWeight: 700,
+                          mx: 'auto',
+                          boxShadow: '0 8px 24px rgba(25, 118, 210, 0.2)'
                         }}
                       >
                         {bid.driver?.name ?
                           (bid.driver.name.split(' ').map(w => w[0]).join('').toUpperCase()) :
-                          <PersonIcon sx={{ fontSize: 24, color: '#1976d2' }} />
+                          <PersonIcon sx={{ fontSize: 32, color: '#1976d2' }} />
                         }
                       </Avatar>
+                      <Typography sx={{ 
+                        fontWeight: 700, 
+                        fontSize: 20, 
+                        color: '#1976d2',
+                        mb: 0.5,
+                        textShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                      }}>
+                        {bid.driver?.name || bid.driverName || 'Driver Name'}
+                      </Typography>
+                      <Typography sx={{ 
+                        fontSize: 12, 
+                        color: '#666',
+                        fontWeight: 500
+                      }}>
+                        Professional Driver
+                      </Typography>
+                    </Box>
 
-                     {/* Driver Name */}
-                     <Typography sx={{ 
-                       fontWeight: 600, 
-                       fontSize: 15, 
-                       mb: 0.5, 
-                       textAlign: 'center',
-                       color: '#333'
-                     }}>
-                       {bid.driver?.name || bid.driverName || 'Driver'}
-                     </Typography>
-                     
-                     {/* Vehicle Number */}
-                     <Typography sx={{ 
-                       fontWeight: 500, 
-                       fontSize: 12, 
-                       mb: 1.5, 
-                       textAlign: 'center', 
-                       color: '#666'
-                     }}>
-                       🚛 {bid.vehicle?.number || bid.vehicleNumber || 'N/A'}
-                     </Typography>
+                    {/* Information Cards Grid */}
+                    <Box sx={{ 
+                      display: 'grid', 
+                      gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                      gap: { xs: 1.5, sm: 2 },
+                      mb: { xs: 2, sm: 3 },
+                      width: '100%'
+                    }}>
+                      {/* Vehicle Info */}
+                      <Box sx={{
+                        background: 'linear-gradient(135deg, #f8f9fa, #e9ecef)',
+                        borderRadius: 3,
+                        p: 2,
+                        border: '1px solid #dee2e6',
+                        textAlign: 'center',
+                        transition: 'all 0.3s ease',
+                        '&:hover': {
+                          transform: 'translateY(-2px)',
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                        }
+                      }}>
+                        <Typography sx={{ 
+                          fontWeight: 600, 
+                          fontSize: 11, 
+                          color: '#666',
+                          mb: 1,
+                          textTransform: 'uppercase',
+                          letterSpacing: 0.5
+                        }}>
+                          🚛 Vehicle
+                        </Typography>
+                        <Typography sx={{ 
+                          fontWeight: 700, 
+                          fontSize: 14, 
+                          color: '#333'
+                        }}>
+                          {bid.vehicle?.number || bid.vehicleNumber || 'N/A'}
+                        </Typography>
+                      </Box>
 
-                     {/* Price */}
-                     <Box sx={{
-                       background: '#f8f9fa',
-                       borderRadius: 2,
-                       p: 1.5,
-                       mb: 2,
-                       width: '100%',
-                       textAlign: 'center',
-                       border: '1px solid #e9ecef'
-                     }}>
-                       <Typography sx={{ 
-                         fontWeight: 600, 
-                         fontSize: 11, 
-                         color: '#666',
-                         mb: 0.5,
-                         textTransform: 'uppercase'
+                      {/* Bid Amount */}
+                      <Box sx={{
+                        background: 'linear-gradient(135deg, #e8f5e8, #c8e6c9)',
+                        borderRadius: 3,
+                        p: 2,
+                        border: '1px solid #4caf50',
+                        textAlign: 'center',
+                        transition: 'all 0.3s ease',
+                        '&:hover': {
+                          transform: 'translateY(-2px)',
+                          boxShadow: '0 4px 12px rgba(76, 175, 80, 0.2)'
+                        }
+                      }}>
+                        <Typography sx={{ 
+                          fontWeight: 600, 
+                          fontSize: 11, 
+                          color: '#2e7d32',
+                          mb: 1,
+                          textTransform: 'uppercase',
+                          letterSpacing: 0.5
+                        }}>
+                          💰 Bid Amount
+                        </Typography>
+                        <Typography sx={{ 
+                          fontWeight: 700, 
+                          fontSize: 16, 
+                          color: '#1b5e20'
+                        }}>
+                          ${bid.intermediateRate?.toLocaleString() || '-'}
+                        </Typography>
+                      </Box>
+
+                      {/* Pickup ETA */}
+                      <Box sx={{
+                        background: 'linear-gradient(135deg, #fff3e0, #ffe0b2)',
+                        borderRadius: 3,
+                        p: 2,
+                        border: '1px solid #ff9800',
+                        textAlign: 'center',
+                        transition: 'all 0.3s ease',
+                        '&:hover': {
+                          transform: 'translateY(-2px)',
+                          boxShadow: '0 4px 12px rgba(255, 152, 0, 0.2)'
+                        }
+                      }}>
+                        <Typography sx={{ 
+                          fontWeight: 600, 
+                          fontSize: 11, 
+                          color: '#e65100',
+                          mb: 1,
+                          textTransform: 'uppercase',
+                          letterSpacing: 0.5
+                        }}>
+                          📅 Pickup
+                        </Typography>
+                        <Typography sx={{ 
+                          fontWeight: 600, 
+                          fontSize: 12, 
+                          color: '#bf360c'
+                        }}>
+                          {bid.estimatedPickupDate ? 
+                            new Date(bid.estimatedPickupDate).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            }) : 'Not specified'}
+                        </Typography>
+                      </Box>
+
+                      {/* Drop ETA */}
+                      <Box sx={{
+                        background: 'linear-gradient(135deg, #e3f2fd, #bbdefb)',
+                        borderRadius: 3,
+                        p: 2,
+                        border: '1px solid #2196f3',
+                        textAlign: 'center',
+                        transition: 'all 0.3s ease',
+                        '&:hover': {
+                          transform: 'translateY(-2px)',
+                          boxShadow: '0 4px 12px rgba(33, 150, 243, 0.2)'
+                        }
+                      }}>
+                        <Typography sx={{ 
+                          fontWeight: 600, 
+                          fontSize: 11, 
+                          color: '#1565c0',
+                          mb: 1,
+                          textTransform: 'uppercase',
+                          letterSpacing: 0.5
+                        }}>
+                          🎯 Delivery
+                        </Typography>
+                        <Typography sx={{ 
+                          fontWeight: 600, 
+                          fontSize: 12, 
+                          color: '#0d47a1'
+                        }}>
+                          {bid.estimatedDeliveryDate ? 
+                            new Date(bid.estimatedDeliveryDate).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            }) : 'Not specified'}
+                        </Typography>
+                      </Box>
+                    </Box>
+
+                    {/* Message Section */}
+                    <Box sx={{
+                      background: 'linear-gradient(135deg, #f8f9fa, #e9ecef)',
+                      borderRadius: 3,
+                      p: 2.5,
+                      border: '1px solid #dee2e6',
+                      width: '100%',
+                      mb: 2
+                    }}>
+                      <Typography sx={{ 
+                        fontWeight: 700, 
+                        color: '#1976d2', 
+                        fontSize: 13,
+                        mb: 1.5,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1
+                      }}>
+                        💬 Driver Message
+                      </Typography>
+                      <Typography sx={{ 
+                        fontWeight: 500, 
+                        fontSize: 14, 
+                        color: '#333',
+                        fontStyle: 'italic',
+                        textAlign: 'center',
+                        lineHeight: 1.5,
+                        background: '#fff',
+                        borderRadius: 2,
+                        p: 2,
+                        border: '1px solid #e0e0e0'
+                      }}>
+                        "{bid.message || 'No message provided'}"
+                      </Typography>
+                    </Box>
+
+                     {/* Negotiation Details - Show if bid is in negotiation */}
+                     {bid.status === 'Negotiating' && bid.negotiationDetails && (
+                       <Box sx={{
+                         background: '#fff3e0',
+                         borderRadius: 2,
+                         p: 2,
+                         border: '2px solid #ff9800',
+                         mt: 2
                        }}>
-                         Bid Amount
-                       </Typography>
-                       <Typography sx={{ 
-                         fontWeight: 700, 
-                         fontSize: 20, 
-                         color: '#1976d2'
-                       }}>
-                         ${bid.intermediateRate?.toLocaleString() || '-'}
-                       </Typography>
-                     </Box>
+                         <Typography sx={{ 
+                           fontWeight: 700, 
+                           fontSize: 14, 
+                           color: '#ff9800',
+                           mb: 1,
+                           textAlign: 'center'
+                         }}>
+                           🤝 Negotiation in Progress
+                         </Typography>
+                         
+                         {bid.negotiationDetails.shipperCounterRate && (
+                           <Box sx={{ mb: 1 }}>
+                             <Typography sx={{ 
+                               fontWeight: 600, 
+                               fontSize: 12, 
+                               color: '#333',
+                               mb: 0.5
+                             }}>
+                               Your Counter Offer:
+                             </Typography>
+                             <Typography sx={{ 
+                               fontWeight: 700, 
+                               fontSize: 16, 
+                               color: '#ff9800'
+                             }}>
+                               ${bid.negotiationDetails.shipperCounterRate.toLocaleString()}
+                             </Typography>
+                           </Box>
+                         )}
 
-                     {/* Action Buttons */}
-                     <Box sx={{ 
-                       display: 'flex', 
-                       gap: 1, 
-                       width: '100%', 
-                       justifyContent: 'center'
-                     }}>
-                       <Button
-                         variant="contained"
-                         size="small"
-                         sx={{ 
-                           borderRadius: 2, 
-                           fontWeight: 600, 
-                           px: 2, 
-                           py: 0.5,
-                           textTransform: 'none', 
-                           fontSize: 12,
-                           bgcolor: '#4caf50',
-                           '&:hover': {
-                             bgcolor: '#388e3c'
-                           }
-                         }}
-                         onClick={() => handleAcceptBid(bid)}
-                       >
-                         Accept
-                       </Button>
-                       <Button
-                         variant="outlined"
-                         size="small"
-                         sx={{ 
-                           borderRadius: 2, 
-                           fontWeight: 600, 
-                           px: 2, 
-                           py: 0.5,
-                           textTransform: 'none', 
-                           fontSize: 12,
-                           borderColor: '#1976d2',
-                           color: '#1976d2',
-                           '&:hover': { 
-                             borderColor: '#0d47a1', 
-                             color: '#0d47a1'
-                           }
-                         }}
-                         onClick={() => handleViewBidDetails(bid)}
-                       >
-                         Details
-                       </Button>
-                     </Box>
+                         {bid.negotiationDetails.shipperNegotiationMessage && (
+                           <Box sx={{ mb: 1 }}>
+                             <Typography sx={{ 
+                               fontWeight: 600, 
+                               fontSize: 12, 
+                               color: '#333',
+                               mb: 0.5
+                             }}>
+                               Your Message:
+                             </Typography>
+                             <Typography sx={{ 
+                               fontWeight: 500, 
+                               fontSize: 13, 
+                               color: '#333',
+                               fontStyle: 'italic'
+                             }}>
+                               "{bid.negotiationDetails.shipperNegotiationMessage}"
+                             </Typography>
+                           </Box>
+                         )}
+
+                         {bid.negotiationDetails.truckerResponse && bid.negotiationDetails.truckerResponse !== 'Pending' && (
+                           <Box sx={{ mb: 1 }}>
+                             <Typography sx={{ 
+                               fontWeight: 600, 
+                               fontSize: 12, 
+                               color: '#333',
+                               mb: 0.5
+                             }}>
+                               Trucker Response:
+                             </Typography>
+                             <Typography sx={{ 
+                               fontWeight: 600, 
+                               fontSize: 13, 
+                               color: bid.negotiationDetails.truckerResponse === 'Accepted' ? '#4caf50' : 
+                                      bid.negotiationDetails.truckerResponse === 'Rejected' ? '#f44336' : '#ff9800'
+                             }}>
+                               {bid.negotiationDetails.truckerResponse}
+                             </Typography>
+                             {bid.negotiationDetails.truckerNegotiationMessage && (
+                               <Typography sx={{ 
+                                 fontWeight: 500, 
+                                 fontSize: 12, 
+                                 color: '#333',
+                                 fontStyle: 'italic',
+                                 mt: 0.5
+                               }}>
+                                 "{bid.negotiationDetails.truckerNegotiationMessage}"
+                               </Typography>
+                             )}
+                           </Box>
+                         )}
+
+                         {bid.negotiationDetails.truckerCounterRate && (
+                           <Box>
+                             <Typography sx={{ 
+                               fontWeight: 600, 
+                               fontSize: 12, 
+                               color: '#333',
+                               mb: 0.5
+                             }}>
+                               Trucker Counter Offer:
+                             </Typography>
+                             <Typography sx={{ 
+                               fontWeight: 700, 
+                               fontSize: 16, 
+                               color: '#ff9800'
+                             }}>
+                               ${bid.negotiationDetails.truckerCounterRate.toLocaleString()}
+                             </Typography>
+                           </Box>
+                         )}
+                       </Box>
+                     )}
+
+                    {/* Action Buttons */}
+                    <Box sx={{ 
+                      display: 'flex', 
+                      gap: { xs: 1, sm: 1.5 }, 
+                      width: '100%', 
+                      justifyContent: 'center',
+                      mt: 'auto',
+                      flexDirection: { xs: 'column', sm: 'row' }
+                    }}>
+                      <Button
+                        variant="contained"
+                        size="small"
+                        sx={{ 
+                          borderRadius: 3, 
+                          fontWeight: 700, 
+                          px: 3, 
+                          py: 1,
+                          textTransform: 'none', 
+                          fontSize: 13,
+                          background: 'linear-gradient(135deg, #4caf50, #388e3c)',
+                          boxShadow: '0 4px 12px rgba(76, 175, 80, 0.3)',
+                          '&:hover': {
+                            background: 'linear-gradient(135deg, #388e3c, #2e7d32)',
+                            transform: 'translateY(-2px)',
+                            boxShadow: '0 6px 16px rgba(76, 175, 80, 0.4)'
+                          },
+                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                        }}
+                        onClick={() => handleAcceptBid(bid)}
+                      >
+                        ✅ Accept
+                      </Button>
+                      <Button
+                        variant="contained"
+                        size="small"
+                        sx={{ 
+                          borderRadius: 3, 
+                          fontWeight: 700, 
+                          px: 3, 
+                          py: 1,
+                          textTransform: 'none', 
+                          fontSize: 13,
+                          background: 'linear-gradient(135deg, #ff9800, #f57c00)',
+                          boxShadow: '0 4px 12px rgba(255, 152, 0, 0.3)',
+                          '&:hover': {
+                            background: 'linear-gradient(135deg, #f57c00, #ef6c00)',
+                            transform: 'translateY(-2px)',
+                            boxShadow: '0 6px 16px rgba(255, 152, 0, 0.4)'
+                          },
+                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                        }}
+                        onClick={() => handleStartNegotiation(bid)}
+                      >
+                        🤝 Negotiate
+                      </Button>
+                      <Button
+                        variant="contained"
+                        size="small"
+                        sx={{ 
+                          borderRadius: 3, 
+                          fontWeight: 700, 
+                          px: 3, 
+                          py: 1,
+                          textTransform: 'none', 
+                          fontSize: 13,
+                          background: 'linear-gradient(135deg, #f44336, #d32f2f)',
+                          boxShadow: '0 4px 12px rgba(244, 67, 54, 0.3)',
+                          '&:hover': {
+                            background: 'linear-gradient(135deg, #d32f2f, #c62828)',
+                            transform: 'translateY(-2px)',
+                            boxShadow: '0 6px 16px rgba(244, 67, 54, 0.4)'
+                          },
+                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                        }}
+                        onClick={() => handleRejectBid(bid)}
+                      >
+                        ❌ Reject
+                      </Button>
+                    </Box>
                    </Box>
                  </Grid>
                ))}
              </Grid>
           )}
         </DialogContent>
-        <DialogActions sx={{ p: 2, background: '#fff' }}>
-          <Button onClick={handleCloseBidsModal} variant="outlined" sx={{ borderRadius: 2, fontWeight: 600, color: '#1976d2', borderColor: '#1976d2' }}>Close</Button>
+        <DialogActions sx={{ 
+          p: { xs: 2, sm: 3 }, 
+          background: 'linear-gradient(135deg, #f8fafc, #e2e8f0)',
+          borderTop: '1px solid #e2e8f0',
+          justifyContent: 'center'
+        }}>
+          <Button 
+            onClick={handleCloseBidsModal} 
+            variant="contained"
+            sx={{ 
+              borderRadius: 3, 
+              fontWeight: 700, 
+              px: { xs: 3, sm: 4 },
+              py: { xs: 1, sm: 1.5 },
+              fontSize: { xs: 13, sm: 14 },
+              background: 'linear-gradient(135deg, #1976d2, #1565c0)',
+              boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #1565c0, #0d47a1)',
+                transform: 'translateY(-2px)',
+                boxShadow: '0 6px 16px rgba(25, 118, 210, 0.4)'
+              },
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+            }}
+          >
+            ✨ Close Modal
+          </Button>
         </DialogActions>
       </Dialog>
 
@@ -1501,6 +2489,19 @@ const LoadBoard = () => {
             textAlign: 'center'
           }}>
             🚛 Bid Details
+            {selectedBid && (
+              <Chip 
+                label={selectedBid.status} 
+                color={
+                  selectedBid.status === 'Pending' ? 'default' :
+                  selectedBid.status === 'Negotiating' ? 'warning' :
+                  selectedBid.status === 'Accepted' ? 'success' :
+                  selectedBid.status === 'Rejected' ? 'error' : 'default'
+                } 
+                size="small" 
+                sx={{ ml: 2, fontWeight: 600 }}
+              />
+            )}
           </DialogTitle>
                                            <DialogContent sx={{ px: 3, py: 2 }}>
               {selectedBid && (
@@ -1682,21 +2683,137 @@ const LoadBoard = () => {
                      "{selectedBid.message || 'No message provided'}"
                    </Typography>
                  </Box>
+
+                 {/* Negotiation Details - Show if bid is in negotiation */}
+                 {selectedBid.status === 'Negotiating' && selectedBid.negotiationDetails && (
+                   <Box sx={{
+                     background: '#fff3e0',
+                     borderRadius: 2,
+                     p: 2,
+                     border: '2px solid #ff9800',
+                     mt: 2
+                   }}>
+                     <Typography sx={{ 
+                       fontWeight: 700, 
+                       fontSize: 14, 
+                       color: '#ff9800',
+                       mb: 1,
+                       textAlign: 'center'
+                     }}>
+                       🤝 Negotiation in Progress
+                     </Typography>
+                     
+                     {selectedBid.negotiationDetails.shipperCounterRate && (
+                       <Box sx={{ mb: 1 }}>
+                         <Typography sx={{ 
+                           fontWeight: 600, 
+                           fontSize: 12, 
+                           color: '#333',
+                           mb: 0.5
+                         }}>
+                           Your Counter Offer:
+                         </Typography>
+                         <Typography sx={{ 
+                           fontWeight: 700, 
+                           fontSize: 16, 
+                           color: '#ff9800'
+                         }}>
+                           ${selectedBid.negotiationDetails.shipperCounterRate.toLocaleString()}
+                         </Typography>
+                       </Box>
+                     )}
+
+                     {selectedBid.negotiationDetails.shipperNegotiationMessage && (
+                       <Box sx={{ mb: 1 }}>
+                         <Typography sx={{ 
+                           fontWeight: 600, 
+                           fontSize: 12, 
+                           color: '#333',
+                           mb: 0.5
+                         }}>
+                           Your Message:
+                         </Typography>
+                         <Typography sx={{ 
+                           fontWeight: 500, 
+                           fontSize: 13, 
+                           color: '#333',
+                           fontStyle: 'italic'
+                         }}>
+                           "{selectedBid.negotiationDetails.shipperNegotiationMessage}"
+                         </Typography>
+                       </Box>
+                     )}
+
+                     {selectedBid.negotiationDetails.truckerResponse && selectedBid.negotiationDetails.truckerResponse !== 'Pending' && (
+                       <Box sx={{ mb: 1 }}>
+                         <Typography sx={{ 
+                           fontWeight: 600, 
+                           fontSize: 12, 
+                           color: '#333',
+                           mb: 0.5
+                         }}>
+                           Trucker Response:
+                         </Typography>
+                         <Typography sx={{ 
+                           fontWeight: 600, 
+                           fontSize: 13, 
+                           color: selectedBid.negotiationDetails.truckerResponse === 'Accepted' ? '#4caf50' : 
+                                  selectedBid.negotiationDetails.truckerResponse === 'Rejected' ? '#f44336' : '#ff9800'
+                         }}>
+                           {selectedBid.negotiationDetails.truckerResponse}
+                         </Typography>
+                         {selectedBid.negotiationDetails.truckerNegotiationMessage && (
+                           <Typography sx={{ 
+                             fontWeight: 500, 
+                             fontSize: 12, 
+                             color: '#333',
+                             fontStyle: 'italic',
+                             mt: 0.5
+                           }}>
+                             "{selectedBid.negotiationDetails.truckerNegotiationMessage}"
+                           </Typography>
+                         )}
+                       </Box>
+                     )}
+
+                     {selectedBid.negotiationDetails.truckerCounterRate && (
+                       <Box>
+                         <Typography sx={{ 
+                           fontWeight: 600, 
+                           fontSize: 12, 
+                           color: '#333',
+                           mb: 0.5
+                         }}>
+                           Trucker Counter Offer:
+                         </Typography>
+                         <Typography sx={{ 
+                           fontWeight: 700, 
+                           fontSize: 16, 
+                           color: '#ff9800'
+                         }}>
+                           ${selectedBid.negotiationDetails.truckerCounterRate.toLocaleString()}
+                         </Typography>
+                       </Box>
+                     )}
+                   </Box>
+                 )}
                </Box>
              )}
            </DialogContent>
           <DialogActions sx={{ p: 2, background: '#f8fafc', justifyContent: 'center' }}>
             <Button 
               onClick={handleCloseBidDetailsModal} 
-              variant="contained" 
+              variant="outlined" 
               sx={{ 
                 borderRadius: 2, 
                 fontWeight: 600, 
                 px: 3,
                 py: 1,
-                bgcolor: '#1976d2',
+                borderColor: '#1976d2',
+                color: '#1976d2',
                 '&:hover': {
-                  bgcolor: '#1565c0'
+                  borderColor: '#1565c0',
+                  color: '#1565c0'
                 }
               }}
             >
@@ -1820,6 +2937,161 @@ const LoadBoard = () => {
             </DialogActions>
           </Box>
         </DialogContent>
+      </Dialog>
+
+      {/* Negotiation Modal */}
+      <Dialog open={negotiationModalOpen} onClose={handleCloseNegotiationModal} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700, color: '#1976d2', fontSize: 22, borderBottom: '1px solid #e0e0e0' }}>
+          🤝 Start Negotiation
+        </DialogTitle>
+        <DialogContent sx={{ px: 4, py: 3, background: '#f8fafc' }}>
+          <Box component="form" onSubmit={handleNegotiationSubmit}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 2 }}>
+              <TextField
+                label="Your Counter Rate ($)"
+                name="shipperCounterRate"
+                type="number"
+                value={negotiationForm.shipperCounterRate}
+                onChange={handleNegotiationFormChange}
+                fullWidth
+                required
+                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
+                error={!!negotiationErrors.shipperCounterRate}
+                helperText={negotiationErrors.shipperCounterRate}
+                inputProps={{ min: 0, step: 0.01 }}
+              />
+              
+              <TextField
+                label="Negotiation Message"
+                name="shipperNegotiationMessage"
+                value={negotiationForm.shipperNegotiationMessage}
+                onChange={handleNegotiationFormChange}
+                fullWidth
+                multiline
+                rows={4}
+                required
+                placeholder="Explain your counter offer and any terms..."
+                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
+                error={!!negotiationErrors.shipperNegotiationMessage}
+                helperText={negotiationErrors.shipperNegotiationMessage}
+              />
+            </Box>
+            <DialogActions sx={{ mt: 3, p: 0 }}>
+              <Button 
+                onClick={handleCloseNegotiationModal} 
+                variant="outlined" 
+                sx={{ borderRadius: 2, fontWeight: 600, color: '#1976d2', borderColor: '#1976d2' }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="submit" 
+                variant="contained" 
+                sx={{ borderRadius: 2, fontWeight: 700, bgcolor: '#ff9800', '&:hover': { bgcolor: '#f57c00' } }}
+              >
+                Start Negotiation
+              </Button>
+            </DialogActions>
+          </Box>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reject Confirmation Modal */}
+      <Dialog open={rejectModalOpen} onClose={handleCloseRejectModal} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700, color: '#f44336', fontSize: 22, borderBottom: '1px solid #e0e0e0' }}>
+          ❌ Reject Bid
+        </DialogTitle>
+        <DialogContent sx={{ px: 4, py: 3, background: '#f8fafc' }}>
+          {rejectBidData && (
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography sx={{ 
+                fontWeight: 600, 
+                fontSize: 16, 
+                color: '#333',
+                mb: 2
+              }}>
+                Are you sure you want to reject this bid?
+              </Typography>
+              
+              <Box sx={{
+                background: '#fff',
+                borderRadius: 2,
+                p: 2,
+                border: '1px solid #e0e0e0',
+                mb: 2
+              }}>
+                <Typography sx={{ 
+                  fontWeight: 600, 
+                  fontSize: 14, 
+                  color: '#1976d2',
+                  mb: 1
+                }}>
+                  Driver: {rejectBidData.driver?.name || rejectBidData.driverName || 'N/A'}
+                </Typography>
+                <Typography sx={{ 
+                  fontWeight: 600, 
+                  fontSize: 14, 
+                  color: '#333',
+                  mb: 1
+                }}>
+                  Vehicle: {rejectBidData.vehicle?.number || rejectBidData.vehicleNumber || 'N/A'}
+                </Typography>
+                <Typography sx={{ 
+                  fontWeight: 700, 
+                  fontSize: 16, 
+                  color: '#4caf50'
+                }}>
+                  Bid Amount: ${rejectBidData.intermediateRate?.toLocaleString() || '-'}
+                </Typography>
+              </Box>
+
+              <Typography sx={{ 
+                fontWeight: 500, 
+                fontSize: 14, 
+                color: '#666',
+                fontStyle: 'italic'
+              }}>
+                This action cannot be undone.
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 3, background: '#f8fafc', justifyContent: 'center', gap: 2 }}>
+          <Button 
+            onClick={handleCloseRejectModal} 
+            variant="outlined" 
+            sx={{ 
+              borderRadius: 2, 
+              fontWeight: 600, 
+              px: 3,
+              py: 1,
+              borderColor: '#666',
+              color: '#666',
+              '&:hover': {
+                borderColor: '#333',
+                color: '#333'
+              }
+            }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleConfirmReject} 
+            variant="contained" 
+            sx={{ 
+              borderRadius: 2, 
+              fontWeight: 600, 
+              px: 3,
+              py: 1,
+              bgcolor: '#f44336',
+              '&:hover': {
+                bgcolor: '#d32f2f'
+              }
+            }}
+          >
+            Yes, Reject Bid
+          </Button>
+        </DialogActions>
       </Dialog>
 
       {/* Edit Load Modal */}
@@ -2112,7 +3384,7 @@ const LoadBoard = () => {
 
             {/* Price */}
             <TextField
-              label="Expected Price"
+              label="Target Rate ($)"
               name="rate"
               value={editForm.rate}
               onChange={handleEditFormChange}
@@ -2165,6 +3437,790 @@ const LoadBoard = () => {
             </DialogActions>
           </Box>
         </DialogContent>
+      </Dialog>
+
+      {/* CMT Agent Details Modal */}
+      <Dialog open={cmtModalOpen} onClose={handleCloseCmtModal} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700, color: '#1976d2', fontSize: 22, borderBottom: '1px solid #e0e0e0' }}>
+          CMT Agent Details
+        </DialogTitle>
+        <DialogContent sx={{ px: 4, py: 3, background: '#fff' }}>
+          {cmtLoading ? (
+            <Typography align="center" sx={{ my: 4 }}>Loading CMT assignment details...</Typography>
+          ) : cmtData ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {/* Load Information Table */}
+              <Paper elevation={2} sx={{ borderRadius: 2, overflow: 'hidden' }}>
+                <Box sx={{ background: '#1976d2', p: 2 }}>
+                  <Typography sx={{ fontWeight: 700, color: '#fff', fontSize: 18 }}>
+                    📋 Load Information
+                  </Typography>
+                </Box>
+                <Table>
+                  <TableBody>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 600, width: '25%', background: '#f8f9fa' }}>Load ID</TableCell>
+                      <TableCell sx={{ fontWeight: 500, width: '25%' }}>{cmtData.loadId}</TableCell>
+                      <TableCell sx={{ fontWeight: 600, width: '25%', background: '#f8f9fa' }}>Status</TableCell>
+                      <TableCell sx={{ width: '25%' }}>
+                        <Chip label={cmtData.loadDetails?.status || 'N/A'} color={getStatusColor(cmtData.loadDetails?.status || '')} size="small" />
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 600, background: '#f8f9fa' }}>Origin</TableCell>
+                      <TableCell sx={{ fontWeight: 500 }}>
+                        {cmtData.loadDetails?.origin?.city}, {cmtData.loadDetails?.origin?.state}
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 600, background: '#f8f9fa' }}>Destination</TableCell>
+                      <TableCell sx={{ fontWeight: 500 }}>
+                        {cmtData.loadDetails?.destination?.city}, {cmtData.loadDetails?.destination?.state}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 600, background: '#f8f9fa' }}>Weight</TableCell>
+                      <TableCell sx={{ fontWeight: 500 }}>{cmtData.loadDetails?.weight} Kg</TableCell>
+                      <TableCell sx={{ fontWeight: 600, background: '#f8f9fa' }}>Commodity</TableCell>
+                      <TableCell sx={{ fontWeight: 500 }}>{cmtData.loadDetails?.commodity}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 600, background: '#f8f9fa' }}>Vehicle Type</TableCell>
+                      <TableCell sx={{ fontWeight: 500 }}>{cmtData.loadDetails?.vehicleType}</TableCell>
+                      <TableCell sx={{ fontWeight: 600, background: '#f8f9fa' }}>Rate</TableCell>
+                      <TableCell sx={{ fontWeight: 500, color: '#2e7d32', fontSize: 16 }}>${cmtData.loadDetails?.rate}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 600, background: '#f8f9fa' }}>Rate Type</TableCell>
+                      <TableCell sx={{ fontWeight: 500 }}>{cmtData.loadDetails?.rateType}</TableCell>
+                      <TableCell sx={{ fontWeight: 600, background: '#f8f9fa' }}>Load Type</TableCell>
+                      <TableCell sx={{ fontWeight: 500 }}>{cmtData.loadDetails?.loadType}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 600, background: '#f8f9fa' }}>Pickup Date</TableCell>
+                      <TableCell sx={{ fontWeight: 500 }}>
+                        {cmtData.loadDetails?.pickupDate ? new Date(cmtData.loadDetails.pickupDate).toLocaleDateString() : 'N/A'}
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 600, background: '#f8f9fa' }}>Delivery Date</TableCell>
+                      <TableCell sx={{ fontWeight: 500 }}>
+                        {cmtData.loadDetails?.deliveryDate ? new Date(cmtData.loadDetails.deliveryDate).toLocaleDateString() : 'N/A'}
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </Paper>
+
+              {/* CMT Assignment Information Table */}
+              {cmtData.cmtAssignment && (
+                <Paper elevation={2} sx={{ borderRadius: 2, overflow: 'hidden' }}>
+                  <Box sx={{ background: '#2e7d32', p: 2 }}>
+                    <Typography sx={{ fontWeight: 700, color: '#fff', fontSize: 18 }}>
+                      👤 CMT Assignment Details
+                    </Typography>
+                  </Box>
+                  <Table>
+                    <TableBody>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 600, width: '25%', background: '#e8f5e8' }}>Alias Name</TableCell>
+                        <TableCell sx={{ fontWeight: 500, fontSize: 16, color: '#2e7d32', width: '25%' }}>
+                          {cmtData.cmtAssignment.assignedCMTUser?.displayName || cmtData.cmtAssignment.assignedCMTUser?.aliasName || 'N/A'}
+                        </TableCell>
+                        
+                        
+                      </TableRow>
+                     
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 600, background: '#e8f5e8' }}>Email</TableCell>
+                        <TableCell sx={{ fontWeight: 500 }}>{cmtData.cmtAssignment.assignedCMTUser?.email || 'N/A'}</TableCell>
+                        
+                      </TableRow>
+                      
+                     
+                    </TableBody>
+                  </Table>
+                </Paper>
+              )}
+
+             
+              {/* Message */}
+              {cmtData.message && (
+                <Paper elevation={2} sx={{ borderRadius: 2, overflow: 'hidden' }}>
+                  <Box sx={{ background: '#1976d2', p: 2 }}>
+                    <Typography sx={{ fontWeight: 700, color: '#fff', fontSize: 18 }}>
+                      💬 Message
+                    </Typography>
+                  </Box>
+                  <Box sx={{ p: 2, background: '#e3f2fd' }}>
+                    <Typography sx={{ fontWeight: 500, fontStyle: 'italic', fontSize: 16 }}>
+                      {cmtData.message}
+                    </Typography>
+                  </Box>
+                </Paper>
+              )}
+            </Box>
+          ) : (
+            <Typography align="center" sx={{ my: 4 }}>No CMT assignment details found.</Typography>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2, background: '#fff' }}>
+          <Button onClick={handleCloseCmtModal} variant="outlined" sx={{ borderRadius: 2, fontWeight: 600, color: '#1976d2', borderColor: '#1976d2' }}>
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Rate Suggestion Details Modal */}
+      <Dialog 
+        open={suggestionDetailsModalOpen} 
+        onClose={handleCloseSuggestionDetails} 
+        maxWidth="lg" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 4,
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
+            background: 'linear-gradient(135deg, #fff 0%, #f8f9fa 100%)'
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          fontWeight: 700, 
+          color: '#1976d2', 
+          fontSize: 24, 
+          borderBottom: '2px solid #e0e0e0',
+          background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 2
+        }}>
+          💡 Rate Suggestion Details
+        </DialogTitle>
+        <DialogContent sx={{ px: 4, py: 3 }}>
+          {selectedSuggestion && rateSuggestions && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {/* Selected Suggestion Card */}
+              <Paper elevation={3} sx={{ 
+                p: 4, 
+                borderRadius: 3,
+                background: 'linear-gradient(135deg, #fff 0%, #f8f9fa 100%)',
+                border: '2px solid #e0e0e0'
+              }}>
+                <Box sx={{ textAlign: 'center', mb: 3 }}>
+                  <Typography variant="h4" sx={{ 
+                    fontWeight: 800, 
+                    color: '#1976d2', 
+                    mb: 1
+                  }}>
+                    {selectedSuggestion.type}
+                  </Typography>
+                  <Typography variant="h2" sx={{ 
+                    fontWeight: 900, 
+                    color: '#2e7d32', 
+                    mb: 2,
+                    textShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                  }}>
+                    ${selectedSuggestion.rate.toLocaleString()}
+                  </Typography>
+                  <Typography variant="body1" sx={{ 
+                    color: '#666', 
+                    mb: 2,
+                    fontSize: '1.1rem'
+                  }}>
+                    {selectedSuggestion.description}
+                  </Typography>
+                  <Chip 
+                    label={`${selectedSuggestion.confidence} Confidence`}
+                    color={selectedSuggestion.confidence === 'High' ? 'success' : 
+                           selectedSuggestion.confidence === 'Medium' ? 'warning' : 'default'}
+                    sx={{ 
+                      fontSize: '0.9rem', 
+                      fontWeight: 600,
+                      px: 2,
+                      py: 1
+                    }}
+                  />
+                </Box>
+                
+                <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2 }}>
+                  <Button
+                    variant="contained"
+                    size="large"
+                    onClick={() => {
+                      applySuggestedRate(selectedSuggestion.rate);
+                      handleCloseSuggestionDetails();
+                    }}
+                    sx={{
+                      borderRadius: 3,
+                      textTransform: 'none',
+                      fontWeight: 700,
+                      px: 4,
+                      py: 1.5,
+                      fontSize: '1.1rem',
+                      background: 'linear-gradient(45deg, #4caf50, #8bc34a)',
+                      '&:hover': {
+                        background: 'linear-gradient(45deg, #388e3c, #689f38)'
+                      }
+                    }}
+                  >
+                    Apply This Rate
+                  </Button>
+                </Box>
+              </Paper>
+
+              {/* Route Information */}
+              <Paper elevation={2} sx={{ p: 3, borderRadius: 3 }}>
+                <Typography variant="h6" sx={{ 
+                  fontWeight: 700, 
+                  color: '#1976d2', 
+                  mb: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1
+                }}>
+                  🗺️ Route Information
+                </Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <Box sx={{ p: 2, backgroundColor: '#e3f2fd', borderRadius: 2 }}>
+                      <Typography variant="subtitle2" sx={{ color: '#1976d2', fontWeight: 600 }}>
+                        Pickup Location
+                      </Typography>
+                      <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                        {rateSuggestions.route.pickup}
+                      </Typography>
+                    </Box>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Box sx={{ p: 2, backgroundColor: '#e8f5e8', borderRadius: 2 }}>
+                      <Typography variant="subtitle2" sx={{ color: '#2e7d32', fontWeight: 600 }}>
+                        Delivery Location
+                      </Typography>
+                      <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                        {rateSuggestions.route.delivery}
+                      </Typography>
+                    </Box>
+                  </Grid>
+                </Grid>
+              </Paper>
+
+              {/* Detailed Statistics */}
+              {rateSuggestions.statistics && (
+                <Paper elevation={2} sx={{ p: 3, borderRadius: 3 }}>
+                  <Typography variant="h6" sx={{ 
+                    fontWeight: 700, 
+                    color: '#1976d2', 
+                    mb: 3,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1
+                  }}>
+                    📊 Detailed Market Statistics
+                  </Typography>
+                  
+                  <Grid container spacing={3}>
+                    {/* Overall Statistics */}
+                    <Grid item xs={12} md={6}>
+                      <Box sx={{ p: 3, backgroundColor: '#f8f9fa', borderRadius: 2, border: '1px solid #e0e0e0' }}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#1976d2', mb: 2 }}>
+                          Overall Statistics
+                        </Typography>
+                        <Grid container spacing={2}>
+                          <Grid item xs={6}>
+                            <Typography variant="body2" sx={{ color: '#666' }}>Total Loads</Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 700, color: '#1976d2' }}>
+                              {rateSuggestions.statistics.overall.totalLoads}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="body2" sx={{ color: '#666' }}>Average Rate</Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 700, color: '#2e7d32' }}>
+                              ${rateSuggestions.statistics.overall.averageRate.toLocaleString()}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="body2" sx={{ color: '#666' }}>Min Rate</Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 700, color: '#f57c00' }}>
+                              ${rateSuggestions.statistics.overall.minRate.toLocaleString()}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="body2" sx={{ color: '#666' }}>Max Rate</Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 700, color: '#d32f2f' }}>
+                              ${rateSuggestions.statistics.overall.maxRate.toLocaleString()}
+                            </Typography>
+                          </Grid>
+                        </Grid>
+                      </Box>
+                    </Grid>
+
+                    {/* Recent Statistics */}
+                    <Grid item xs={12} md={6}>
+                      <Box sx={{ p: 3, backgroundColor: '#fff3e0', borderRadius: 2, border: '1px solid #ffcc02' }}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#f57c00', mb: 2 }}>
+                          Recent (Last 30 Days)
+                        </Typography>
+                        <Grid container spacing={2}>
+                          <Grid item xs={6}>
+                            <Typography variant="body2" sx={{ color: '#666' }}>Recent Loads</Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 700, color: '#f57c00' }}>
+                              {rateSuggestions.statistics.recent.totalLoads}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="body2" sx={{ color: '#666' }}>Recent Average</Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 700, color: '#f57c00' }}>
+                              ${rateSuggestions.statistics.recent.averageRate.toLocaleString()}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="body2" sx={{ color: '#666' }}>Recent Min</Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 700, color: '#f57c00' }}>
+                              ${rateSuggestions.statistics.recent.minRate.toLocaleString()}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="body2" sx={{ color: '#666' }}>Recent Max</Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 700, color: '#f57c00' }}>
+                              ${rateSuggestions.statistics.recent.maxRate.toLocaleString()}
+                            </Typography>
+                          </Grid>
+                        </Grid>
+                      </Box>
+                    </Grid>
+                  </Grid>
+                </Paper>
+              )}
+
+             
+              {/* Market Insights */}
+              {rateSuggestions.marketInsights && rateSuggestions.marketInsights.length > 0 && (
+                <Paper elevation={2} sx={{ p: 3, borderRadius: 3 }}>
+                  <Typography variant="h6" sx={{ 
+                    fontWeight: 700, 
+                    color: '#1976d2', 
+                    mb: 3,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1
+                  }}>
+                    📊 Market Insights & Analysis
+                  </Typography>
+                  <Grid container spacing={2}>
+                    {rateSuggestions.marketInsights.map((insight, index) => (
+                      <Grid item xs={12} sm={6} md={4} key={index}>
+                        <Box sx={{ 
+                          p: 2, 
+                          backgroundColor: '#e3f2fd', 
+                          borderRadius: 2,
+                          border: '1px solid #90caf9',
+                          textAlign: 'center'
+                        }}>
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                            {insight}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Paper>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 3, background: '#f8f9fa' }}>
+          <Button 
+            onClick={handleCloseSuggestionDetails} 
+            variant="contained" 
+            sx={{ 
+              borderRadius: 2, 
+              fontWeight: 600, 
+              px: 3,
+              py: 1,
+              textTransform: 'none'
+            }}
+          >
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Smart Rate Suggestion Modal */}
+      <Dialog 
+        open={smartRateModalOpen} 
+        onClose={handleCloseSmartRateModal} 
+        maxWidth="lg" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
+            background: '#fff'
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          fontWeight: 600, 
+          color: '#1976d2', 
+          fontSize: 18, 
+          borderBottom: '2px solid #e0e0e0',
+          background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 2,
+          py: 2
+        }}>
+          💡 Smart Rate Suggestions
+        </DialogTitle>
+        <DialogContent sx={{ 
+          px: 3, 
+          py: 2,
+          background: '#fff'
+        }}>
+          {rateSuggestionsLoading ? (
+            <Box sx={{ 
+              textAlign: 'center', 
+              py: 4,
+              background: '#f8f9fa',
+              borderRadius: 2,
+              border: '1px solid #e0e0e0'
+            }}>
+              <Box sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                gap: 2,
+                mb: 2
+              }}>
+                <Box sx={{
+                  width: 24,
+                  height: 24,
+                  border: '2px solid #e0e0e0',
+                  borderTop: '2px solid #1976d2',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                  '@keyframes spin': {
+                    '0%': { transform: 'rotate(0deg)' },
+                    '100%': { transform: 'rotate(360deg)' }
+                  }
+                }} />
+                <Typography variant="h6" sx={{ fontWeight: 600, color: '#1976d2', fontSize: '1.1rem' }}>
+                  Analyzing Market Data...
+                </Typography>
+              </Box>
+              <Typography variant="body2" sx={{ color: '#666' }}>
+                Fetching intelligent rate suggestions for your route
+              </Typography>
+            </Box>
+          ) : rateSuggestions ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {/* Route Header */}
+              <Paper elevation={1} sx={{ 
+                p: 2, 
+                borderRadius: 2, 
+                background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
+                border: '1px solid #e0e0e0'
+              }}>
+                <Typography variant="h6" sx={{ 
+                  fontWeight: 600, 
+                  color: '#1976d2', 
+                  mb: 0.5,
+                  textAlign: 'center',
+                  fontSize: '1.1rem'
+                }}>
+                  🚛 {rateSuggestions.route.pickup} → {rateSuggestions.route.delivery}
+                </Typography>
+                <Typography variant="body2" sx={{ 
+                  color: '#666', 
+                  textAlign: 'center',
+                  fontSize: '0.9rem'
+                }}>
+                  🚚 {rateSuggestions.route.vehicleType}
+                </Typography>
+              </Paper>
+
+              {/* Rate Suggestions Grid */}
+              <Grid container spacing={2}>
+                {rateSuggestions.suggestions.map((suggestion, index) => (
+                  <Grid item xs={12} md={4} key={index}>
+                    <Paper elevation={0} sx={{
+                      p: 2,
+                      borderRadius: 2,
+                      background: suggestion.confidence === 'High' ? 
+                        'linear-gradient(135deg, #e8f5e8 0%, #f1f8e9 100%)' :
+                        suggestion.confidence === 'Medium' ? 
+                        'linear-gradient(135deg, #fff3e0 0%, #fff8e1 100%)' :
+                        'linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%)',
+                      border: 'none',
+                      textAlign: 'center',
+                      position: 'relative',
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        transform: 'translateY(-2px)',
+                        boxShadow: '0 8px 25px rgba(0, 0, 0, 0.15)'
+                      }
+                    }}>
+                      {/* Confidence Badge */}
+                      <Box sx={{
+                        position: 'absolute',
+                        top: 6,
+                        right: 6,
+                        background: 'rgba(255,255,255,0.9)',
+                        color: suggestion.confidence === 'High' ? '#4caf50' : 
+                               suggestion.confidence === 'Medium' ? '#ff9800' : '#9e9e9e',
+                        borderRadius: '50%',
+                        width: 24,
+                        height: 24,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '0.7rem',
+                        fontWeight: 600
+                      }}>
+                        {suggestion.confidence === 'High' ? '✓' : 
+                         suggestion.confidence === 'Medium' ? '~' : '?'}
+                      </Box>
+
+                      {/* Suggestion Type */}
+                      <Typography variant="subtitle1" sx={{ 
+                        fontWeight: 600, 
+                        color: '#1976d2', 
+                        mb: 1,
+                        fontSize: '1rem'
+                      }}>
+                        {suggestion.type}
+                      </Typography>
+
+                      {/* Rate */}
+                      <Typography variant="h4" sx={{ 
+                        fontWeight: 700, 
+                        color: '#2e7d32', 
+                        mb: 1,
+                        fontSize: '1.8rem'
+                      }}>
+                        ${suggestion.rate.toLocaleString()}
+                      </Typography>
+
+                      {/* Description */}
+                      <Typography variant="body2" sx={{ 
+                        color: '#666', 
+                        mb: 2,
+                        lineHeight: 1.3,
+                        minHeight: '2.5em',
+                        fontSize: '0.85rem'
+                      }}>
+                        {suggestion.description}
+                      </Typography>
+
+                      {/* Action Buttons */}
+                      <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+                        <Button
+                          variant="contained"
+                          size="small"
+                          onClick={() => {
+                            applySuggestedRate(suggestion.rate);
+                            handleCloseSmartRateModal();
+                          }}
+                          sx={{
+                            borderRadius: 2,
+                            textTransform: 'none',
+                            fontWeight: 600,
+                            px: 2,
+                            py: 0.5,
+                            fontSize: '0.8rem',
+                            background: '#4caf50',
+                            color: '#fff',
+                            '&:hover': {
+                              background: '#388e3c',
+                              transform: 'scale(1.05)'
+                            }
+                          }}
+                        >
+                          Apply
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          onClick={() => handleSuggestionDetails(suggestion)}
+                          sx={{
+                            borderRadius: 2,
+                            textTransform: 'none',
+                            fontWeight: 600,
+                            px: 2,
+                            py: 0.5,
+                            fontSize: '0.8rem',
+                            borderColor: '#1976d2',
+                            color: '#1976d2',
+                            '&:hover': {
+                              borderColor: '#0d47a1',
+                              backgroundColor: 'rgba(25, 118, 210, 0.04)'
+                            }
+                          }}
+                        >
+                          Details
+                        </Button>
+                      </Box>
+                    </Paper>
+                  </Grid>
+                ))}
+              </Grid>
+
+              {/* Market Statistics */}
+              {rateSuggestions.statistics && (
+                <Paper elevation={2} sx={{ p: 3, borderRadius: 3 }}>
+                  <Typography variant="h6" sx={{ 
+                    fontWeight: 700, 
+                    color: '#1976d2', 
+                    mb: 3,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1
+                  }}>
+                    📊 Market Statistics
+                  </Typography>
+                  
+                  <Grid container spacing={3}>
+                    {/* Overall Statistics */}
+                    <Grid item xs={12} md={6}>
+                      <Box sx={{ p: 3, backgroundColor: '#f8f9fa', borderRadius: 2, border: '1px solid #e0e0e0' }}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#1976d2', mb: 2 }}>
+                          Overall Statistics
+                        </Typography>
+                        <Grid container spacing={2}>
+                          <Grid item xs={6}>
+                            <Typography variant="body2" sx={{ color: '#666' }}>Total Loads</Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 700, color: '#1976d2' }}>
+                              {rateSuggestions.statistics.overall.totalLoads}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="body2" sx={{ color: '#666' }}>Average Rate</Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 700, color: '#2e7d32' }}>
+                              ${rateSuggestions.statistics.overall.averageRate.toLocaleString()}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="body2" sx={{ color: '#666' }}>Min Rate</Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 700, color: '#f57c00' }}>
+                              ${rateSuggestions.statistics.overall.minRate.toLocaleString()}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="body2" sx={{ color: '#666' }}>Max Rate</Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 700, color: '#d32f2f' }}>
+                              ${rateSuggestions.statistics.overall.maxRate.toLocaleString()}
+                            </Typography>
+                          </Grid>
+                        </Grid>
+                      </Box>
+                    </Grid>
+
+                    {/* Recent Statistics */}
+                    <Grid item xs={12} md={6}>
+                      <Box sx={{ p: 3, backgroundColor: '#fff3e0', borderRadius: 2, border: '1px solid #ffcc02' }}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#f57c00', mb: 2 }}>
+                          Recent (Last 30 Days)
+                        </Typography>
+                        <Grid container spacing={2}>
+                          <Grid item xs={6}>
+                            <Typography variant="body2" sx={{ color: '#666' }}>Recent Loads</Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 700, color: '#f57c00' }}>
+                              {rateSuggestions.statistics.recent.totalLoads}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="body2" sx={{ color: '#666' }}>Recent Average</Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 700, color: '#f57c00' }}>
+                              ${rateSuggestions.statistics.recent.averageRate.toLocaleString()}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="body2" sx={{ color: '#666' }}>Recent Min</Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 700, color: '#f57c00' }}>
+                              ${rateSuggestions.statistics.recent.minRate.toLocaleString()}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="body2" sx={{ color: '#666' }}>Recent Max</Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 700, color: '#f57c00' }}>
+                              ${rateSuggestions.statistics.recent.maxRate.toLocaleString()}
+                            </Typography>
+                          </Grid>
+                        </Grid>
+                      </Box>
+                    </Grid>
+                  </Grid>
+                </Paper>
+              )}
+
+              
+
+              {/* Market Insights */}
+              {rateSuggestions.marketInsights && rateSuggestions.marketInsights.length > 0 && (
+                <Paper elevation={2} sx={{ p: 3, borderRadius: 3 }}>
+                  <Typography variant="h6" sx={{ 
+                    fontWeight: 700, 
+                    color: '#1976d2', 
+                    mb: 3,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1
+                  }}>
+                    📊 Market Insights & Analysis
+                  </Typography>
+                  <Grid container spacing={2}>
+                    {rateSuggestions.marketInsights.map((insight, index) => (
+                      <Grid item xs={12} sm={6} md={4} key={index}>
+                        <Box sx={{ 
+                          p: 2, 
+                          backgroundColor: '#e3f2fd', 
+                          borderRadius: 2,
+                          border: '1px solid #90caf9',
+                          textAlign: 'center'
+                        }}>
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                            {insight}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Paper>
+              )}
+            </Box>
+          ) : (
+            <Box sx={{ textAlign: 'center', py: 8 }}>
+              <Typography variant="h6" sx={{ color: '#666', mb: 2 }}>
+                No rate suggestions available
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#999' }}>
+                Please ensure both pickup and delivery locations are filled correctly
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ 
+          p: 2, 
+          background: '#f8f9fa',
+          borderTop: '1px solid #e0e0e0'
+        }}>
+          <Button 
+            onClick={handleCloseSmartRateModal} 
+            variant="contained" 
+            sx={{ 
+              borderRadius: 2, 
+              fontWeight: 600, 
+              px: 3,
+              py: 1,
+              textTransform: 'none',
+              background: '#1976d2',
+              color: '#fff',
+              '&:hover': {
+                background: '#0d47a1',
+                transform: 'scale(1.05)'
+              }
+            }}
+          >
+            Close
+          </Button>
+        </DialogActions>
       </Dialog>
     </Box>
   );
