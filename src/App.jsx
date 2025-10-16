@@ -14,6 +14,7 @@ import Loadboard from './pages/shipper/Loadboard';
 import Profile from './pages/profile/Profile';
 import Layout from './components/layout/Layout';
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import ErrorBoundary from './components/ErrorBoundary';
 import Completed from './pages/reports/Completed';
 import LoadCalculator from './loadshippertruckercalculator/LoadCalculator';
 import LandingPage from './pages/auth/LandingPage';
@@ -42,7 +43,7 @@ function App() {
               {/* Keep absolute paths as-is so URLs don't change */}
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/live-tracker" element={<LiveTracker />} />
-              <Route path="/consignment" element={<Consignment />} />
+              <Route path="/consignment" element={<ErrorBoundary><Consignment /></ErrorBoundary>} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/reports/complete" element={<Completed />} />
               <Route path="/profile" element={<Profile />} />
@@ -50,7 +51,7 @@ function App() {
 
               {/* Trucker Only Routes */}
               <Route path="/fleet" element={<ProtectedRoute userType="trucker"><Fleet /></ProtectedRoute>} />
-              <Route path="/billing" element={<ProtectedRoute userType="trucker"><Billing /></ProtectedRoute>} />
+              {/* <Route path="/billing" element={<ProtectedRoute userType="trucker"><Billing /></ProtectedRoute>} /> */}
               <Route path="/driver" element={<ProtectedRoute userType="trucker"><Driver /></ProtectedRoute>} />
               <Route path="/bid-management" element={<ProtectedRoute userType="trucker"><BidManagement /></ProtectedRoute>} />
 

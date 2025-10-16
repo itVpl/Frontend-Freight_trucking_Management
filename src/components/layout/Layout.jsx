@@ -78,7 +78,7 @@ const Layout = () => {
       { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
       { text: 'Live Tracker', icon: <LocationOn />, path: '/live-tracker' },
       { text: 'Fleet', icon: <LocalShipping />, path: '/fleet' },
-      { text: 'Billing', icon: <Receipt />, path: '/billing' },
+      // { text: 'Billing', icon: <Receipt />, path: '/billing' },
       { text: 'Driver', icon: <Person />, path: '/driver' },
       { text: 'Consignment', icon: <Assignment />, path: '/consignment' },
       { text: 'Bid Management', icon: <ListAlt />, path: '/bid-management' },

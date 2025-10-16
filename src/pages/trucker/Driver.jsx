@@ -24,7 +24,7 @@ import {
   Snackbar,
   Alert,
 } from '@mui/material';
-import { Receipt, Download } from '@mui/icons-material';
+import { Receipt, Download, Edit } from '@mui/icons-material';
 import axios from 'axios';
 import { BASE_API_URL } from '../../apiConfig';
 
@@ -80,6 +80,8 @@ const Dashboard = () => {
   };
 
   const [modalOpen, setModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingDriver, setEditingDriver] = useState(null);
   const [form, setForm] = useState({
     fullName: '',
     mcDot: '',
@@ -104,6 +106,44 @@ const Dashboard = () => {
 
   const handleOpenModal = () => setModalOpen(true);
   const handleCloseModal = () => setModalOpen(false);
+  
+  const handleOpenEditModal = (driver) => {
+    setEditingDriver(driver);
+    setForm({
+      fullName: driver.fullName || driver.name || '',
+      mcDot: driver.mcDot || '',
+      phone: driver.phone || '',
+      email: driver.email || '',
+      license: driver.driverLicense || '',
+      gender: driver.gender || '',
+      country: driver.country || '',
+      state: driver.state || '',
+      city: driver.city || '',
+      zipCode: driver.zipCode || '',
+      address: driver.fullAddress || '',
+      password: '',
+    });
+    setEditModalOpen(true);
+  };
+  
+  const handleCloseEditModal = () => {
+    setEditModalOpen(false);
+    setEditingDriver(null);
+    setForm({
+      fullName: '',
+      mcDot: '',
+      phone: '',
+      email: '',
+      license: '',
+      gender: '',
+      country: '',
+      state: '',
+      city: '',
+      zipCode: '',
+      address: '',
+      password: '',
+    });
+  };
 
   const handleFormChange = (e) => {
     const { name, value, files } = e.target;
@@ -198,6 +238,62 @@ const Dashboard = () => {
     }
   };
 
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    const newErrors = {};
+    // Required fields except photo and cdl
+    const requiredFields = [
+      'fullName', 'mcDot', 'phone', 'email', 'license', 'gender', 'country', 'state', 'city', 'zipCode', 'address'
+    ];
+    requiredFields.forEach(field => {
+      if (!form[field]) newErrors[field] = true;
+    });
+    setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const editData = {
+        fullName: form.fullName,
+        mcDot: form.mcDot,
+        phone: form.phone,
+        email: form.email,
+        driverLicense: form.license,
+        gender: form.gender,
+        country: form.country,
+        state: form.state,
+        city: form.city,
+        zipCode: form.zipCode,
+        fullAddress: form.address
+      };
+      
+      await axios.put(`${BASE_API_URL}/api/v1/driver/${editingDriver._id}`, editData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+      });
+      
+      setAlert({ open: true, type: 'success', message: 'Driver updated successfully!' });
+      handleCloseEditModal();
+      
+      // Refresh driver list
+      setLoading(true);
+      try {
+        const response = await axios.get(`${BASE_API_URL}/api/v1/driver/my-drivers`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setDriverData(Array.isArray(response.data) ? response.data : (response.data.drivers || []));
+      } catch (err) {
+        setDriverData([]);
+      } finally {
+        setLoading(false);
+      }
+    } catch (err) {
+      setAlert({ open: true, type: 'error', message: err.response?.data?.message || 'Failed to update driver' });
+    }
+  };
+
   return (
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
@@ -223,17 +319,18 @@ const Dashboard = () => {
               <TableCell sx={{ fontWeight: 600 }}>City</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Zip Code</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Address</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Action</TableCell>
 
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={6} align="center">Loading...</TableCell>
+                <TableCell colSpan={12} align="center">Loading...</TableCell>
               </TableRow>
             ) : driverData.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} align="center">No drivers found</TableCell>
+                <TableCell colSpan={12} align="center">No drivers found</TableCell>
               </TableRow>
             ) : (
               driverData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((driver, i) => (
@@ -249,6 +346,31 @@ const Dashboard = () => {
                   <TableCell>{driver.city || '-'}</TableCell>
                   <TableCell>{driver.zipCode || '-'}</TableCell>
                   <TableCell>{driver.fullAddress || '-'}</TableCell>
+                  <TableCell>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<Edit />}
+                      onClick={() => handleOpenEditModal(driver)}
+                      sx={{
+                        borderRadius: 2,
+                        fontSize: '0.75rem',
+                        px: 1.5,
+                        py: 0.5,
+                        fontWeight: 500,
+                        textTransform: 'none',
+                        color: '#1976d2',
+                        borderColor: '#1976d2',
+                        '&:hover': {
+                          borderColor: '#0d47a1',
+                          color: '#0d47a1',
+                          backgroundColor: '#e3f2fd'
+                        }
+                      }}
+                    >
+                      Edit
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))
             )}
@@ -442,6 +564,456 @@ const Dashboard = () => {
             <DialogActions sx={{ mt: 4, justifyContent: 'center', gap: 1 }}>
                <Button onClick={handleCloseModal} variant="contained" sx={{ borderRadius: 3, backgroundColor: '#f0f0f0', color: '#000', textTransform: 'none', px: 4, '&:hover': { backgroundColor: '#e0e0e0' } }}>Cancel</Button>
                <Button type="submit" variant="contained" color="primary" sx={{ borderRadius: 3, textTransform: 'none', px: 4 }}>Submit</Button>
+            </DialogActions>
+          </Box>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Driver Modal */}
+      <Dialog 
+        open={editModalOpen} 
+        onClose={handleCloseEditModal} 
+        maxWidth="lg" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            boxShadow: '0 20px 40px rgba(0,0,0,0.1)',
+            maxHeight: '90vh'
+          }
+        }}
+      >
+         <DialogTitle sx={{ 
+           textAlign: 'center', 
+           pb: 2, 
+           pt: 3,
+           background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)',
+           color: 'white',
+           position: 'relative'
+         }}>
+           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+             <Edit sx={{ fontSize: 28 }} />
+             <Typography variant="h4" fontWeight={700} sx={{ textAlign: 'center' }}>
+               Edit Driver Information
+             </Typography>
+           </Box>
+           <Typography variant="body2" sx={{ mt: 1, opacity: 0.9, textAlign: 'center' }}>
+             Update driver details below
+           </Typography>
+         </DialogTitle>
+         
+         <DialogContent sx={{ 
+           pb: 4, 
+           pt: 3,
+           maxHeight: '70vh', 
+           overflowY: 'auto', 
+           background: '#fafafa',
+           '&::-webkit-scrollbar': {
+             width: '8px',
+           },
+           '&::-webkit-scrollbar-track': {
+             background: '#f1f1f1',
+             borderRadius: '4px',
+           },
+           '&::-webkit-scrollbar-thumb': {
+             background: '#c1c1c1',
+             borderRadius: '4px',
+             '&:hover': {
+               background: '#a8a8a8',
+             },
+           },
+         }}>
+          <Box component="form" onSubmit={handleEditSubmit} sx={{ mt: 2, px: 3 }}>
+            <Paper elevation={1} sx={{ p: 3, borderRadius: 2, background: 'white', mb: 3 }}>
+              <Typography variant="h6" sx={{ mb: 2, color: '#1976d2', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ width: 4, height: 20, background: '#1976d2', borderRadius: 1 }}></Box>
+                Personal Information
+              </Typography>
+              <Grid container spacing={3}>
+                <Grid item xs={12} sm={6}>
+                  <TextField 
+                    label="Full Name" 
+                    name="fullName" 
+                    value={form.fullName || ''} 
+                    onChange={handleFormChange} 
+                    fullWidth
+                    error={!!errors.fullName}
+                    variant="outlined"
+                    sx={{ 
+                      '& .MuiInputBase-root': { 
+                        borderRadius: '12px',
+                        backgroundColor: '#f8f9fa',
+                        '&:hover': {
+                          backgroundColor: '#f1f3f4',
+                        },
+                        '&.Mui-focused': {
+                          backgroundColor: 'white',
+                        }
+                      },
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#e0e0e0',
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#1976d2',
+                      }
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField 
+                    label="MC-DOT No" 
+                    name="mcDot" 
+                    value={form.mcDot || ''} 
+                    onChange={handleFormChange} 
+                    fullWidth
+                    error={!!errors.mcDot}
+                    variant="outlined"
+                    sx={{ 
+                      '& .MuiInputBase-root': { 
+                        borderRadius: '12px',
+                        backgroundColor: '#f8f9fa',
+                        '&:hover': {
+                          backgroundColor: '#f1f3f4',
+                        },
+                        '&.Mui-focused': {
+                          backgroundColor: 'white',
+                        }
+                      },
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#e0e0e0',
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#1976d2',
+                      }
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField 
+                    label="Phone Number" 
+                    name="phone" 
+                    value={form.phone || ''} 
+                    onChange={handleFormChange} 
+                    fullWidth
+                    error={!!errors.phone}
+                    variant="outlined"
+                    sx={{ 
+                      '& .MuiInputBase-root': { 
+                        borderRadius: '12px',
+                        backgroundColor: '#f8f9fa',
+                        '&:hover': {
+                          backgroundColor: '#f1f3f4',
+                        },
+                        '&.Mui-focused': {
+                          backgroundColor: 'white',
+                        }
+                      },
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#e0e0e0',
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#1976d2',
+                      }
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField 
+                    label="Email Address" 
+                    name="email" 
+                    value={form.email || ''} 
+                    onChange={handleFormChange} 
+                    fullWidth
+                    error={!!errors.email}
+                    variant="outlined"
+                    sx={{ 
+                      '& .MuiInputBase-root': { 
+                        borderRadius: '12px',
+                        backgroundColor: '#f8f9fa',
+                        '&:hover': {
+                          backgroundColor: '#f1f3f4',
+                        },
+                        '&.Mui-focused': {
+                          backgroundColor: 'white',
+                        }
+                      },
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#e0e0e0',
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#1976d2',
+                      }
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={8}>
+                  <TextField 
+                    label="Driver License No" 
+                    name="license" 
+                    value={form.license || ''} 
+                    onChange={handleFormChange} 
+                    fullWidth
+                    error={!!errors.license}
+                    variant="outlined"
+                    sx={{ 
+                      '& .MuiInputBase-root': { 
+                        borderRadius: '12px',
+                        backgroundColor: '#f8f9fa',
+                        '&:hover': {
+                          backgroundColor: '#f1f3f4',
+                        },
+                        '&.Mui-focused': {
+                          backgroundColor: 'white',
+                        }
+                      },
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#e0e0e0',
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#1976d2',
+                      }
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField 
+                    select 
+                    label="Gender" 
+                    name="gender" 
+                    value={form.gender || ''} 
+                    onChange={handleFormChange}
+                    error={!!errors.gender}
+                    variant="outlined"
+                    sx={{ 
+                      '& .MuiInputBase-root': { 
+                        borderRadius: '12px',
+                        backgroundColor: '#f8f9fa',
+                        '&:hover': {
+                          backgroundColor: '#f1f3f4',
+                        },
+                        '&.Mui-focused': {
+                          backgroundColor: 'white',
+                        }
+                      },
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#e0e0e0',
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#1976d2',
+                      }
+                    }}
+                  >
+                    <MenuItem value="Male">Male</MenuItem>
+                    <MenuItem value="Female">Female</MenuItem>
+                    <MenuItem value="Other">Other</MenuItem>
+                  </TextField>
+                </Grid>
+              </Grid>
+            </Paper>
+
+            <Paper elevation={1} sx={{ p: 3, borderRadius: 2, background: 'white' }}>
+              <Typography variant="h6" sx={{ mb: 2, color: '#1976d2', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ width: 4, height: 20, background: '#1976d2', borderRadius: 1 }}></Box>
+                Address Information
+              </Typography>
+              <Grid container spacing={3}>
+                <Grid item xs={12} sm={6}>
+                  <TextField 
+                    label="Country" 
+                    name="country" 
+                    value={form.country || ''} 
+                    onChange={handleFormChange} 
+                    fullWidth
+                    error={!!errors.country}
+                    variant="outlined"
+                    sx={{ 
+                      '& .MuiInputBase-root': { 
+                        borderRadius: '12px',
+                        backgroundColor: '#f8f9fa',
+                        '&:hover': {
+                          backgroundColor: '#f1f3f4',
+                        },
+                        '&.Mui-focused': {
+                          backgroundColor: 'white',
+                        }
+                      },
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#e0e0e0',
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#1976d2',
+                      }
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField 
+                    label="State" 
+                    name="state" 
+                    value={form.state || ''} 
+                    onChange={handleFormChange} 
+                    fullWidth
+                    error={!!errors.state}
+                    variant="outlined"
+                    sx={{ 
+                      '& .MuiInputBase-root': { 
+                        borderRadius: '12px',
+                        backgroundColor: '#f8f9fa',
+                        '&:hover': {
+                          backgroundColor: '#f1f3f4',
+                        },
+                        '&.Mui-focused': {
+                          backgroundColor: 'white',
+                        }
+                      },
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#e0e0e0',
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#1976d2',
+                      }
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField 
+                    label="City" 
+                    name="city" 
+                    value={form.city || ''} 
+                    onChange={handleFormChange} 
+                    fullWidth
+                    error={!!errors.city}
+                    variant="outlined"
+                    sx={{ 
+                      '& .MuiInputBase-root': { 
+                        borderRadius: '12px',
+                        backgroundColor: '#f8f9fa',
+                        '&:hover': {
+                          backgroundColor: '#f1f3f4',
+                        },
+                        '&.Mui-focused': {
+                          backgroundColor: 'white',
+                        }
+                      },
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#e0e0e0',
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#1976d2',
+                      }
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField 
+                    label="Zip Code" 
+                    name="zipCode" 
+                    value={form.zipCode || ''} 
+                    onChange={handleFormChange} 
+                    fullWidth
+                    error={!!errors.zipCode}
+                    variant="outlined"
+                    sx={{ 
+                      '& .MuiInputBase-root': { 
+                        borderRadius: '12px',
+                        backgroundColor: '#f8f9fa',
+                        '&:hover': {
+                          backgroundColor: '#f1f3f4',
+                        },
+                        '&.Mui-focused': {
+                          backgroundColor: 'white',
+                        }
+                      },
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#e0e0e0',
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#1976d2',
+                      }
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField 
+                    label="Full Address" 
+                    name="address" 
+                    value={form.address || ''} 
+                    onChange={handleFormChange} 
+                    fullWidth
+                    multiline
+                    rows={3}
+                    error={!!errors.address}
+                    variant="outlined"
+                    sx={{ 
+                      '& .MuiInputBase-root': { 
+                        borderRadius: '12px',
+                        backgroundColor: '#f8f9fa',
+                        '&:hover': {
+                          backgroundColor: '#f1f3f4',
+                        },
+                        '&.Mui-focused': {
+                          backgroundColor: 'white',
+                        }
+                      },
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#e0e0e0',
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#1976d2',
+                      }
+                    }}
+                  />
+                </Grid>
+              </Grid>
+            </Paper>
+            
+            <DialogActions sx={{ 
+              mt: 4, 
+              justifyContent: 'center', 
+              gap: 2,
+              px: 0
+            }}>
+               <Button 
+                 onClick={handleCloseEditModal} 
+                 variant="outlined" 
+                 size="large"
+                 sx={{ 
+                   borderRadius: 3, 
+                   borderColor: '#e0e0e0',
+                   color: '#666',
+                   textTransform: 'none', 
+                   px: 4,
+                   py: 1.5,
+                   fontWeight: 600,
+                   '&:hover': { 
+                     borderColor: '#d32f2f',
+                     color: '#d32f2f',
+                     backgroundColor: '#ffebee'
+                   } 
+                 }}
+               >
+                 Cancel
+               </Button>
+               <Button 
+                 type="submit" 
+                 variant="contained" 
+                 size="large"
+                 sx={{ 
+                   borderRadius: 3, 
+                   textTransform: 'none', 
+                   px: 4,
+                   py: 1.5,
+                   fontWeight: 600,
+                   background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)',
+                   boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
+                   '&:hover': {
+                     background: 'linear-gradient(135deg, #1565c0 0%, #0d47a1 100%)',
+                     boxShadow: '0 6px 16px rgba(25, 118, 210, 0.4)',
+                   }
+                 }}
+               >
+                 Update Driver
+               </Button>
             </DialogActions>
           </Box>
         </DialogContent>

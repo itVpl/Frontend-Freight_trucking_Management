@@ -6,7 +6,11 @@ import {
   Grid,
   Paper,
   CircularProgress,
-  Alert
+  Alert,
+  Card,
+  CardContent,
+  Chip,
+  Divider
 } from '@mui/material';
 import {
   LocationOn,
@@ -18,7 +22,10 @@ import {
   Email,
   Business,
   LocalShipping,
-  Assignment
+  Assignment,
+  CheckCircle,
+  Pending,
+  Cancel
 } from '@mui/icons-material';
 import { BASE_API_URL } from '../../apiConfig';
 import { useAuth } from '../../context/AuthContext';
@@ -84,20 +91,33 @@ const Profile = () => {
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
       case 'approved':
-        return 'green';
+        return '#4caf50';
       case 'pending':
-        return 'orange';
+        return '#ff9800';
       case 'rejected':
-        return 'red';
+        return '#f44336';
       default:
-        return 'gray';
+        return '#9e9e9e';
+    }
+  };
+
+  const getStatusIcon = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'approved':
+        return <CheckCircle sx={{ fontSize: 16 }} />;
+      case 'pending':
+        return <Pending sx={{ fontSize: 16 }} />;
+      case 'rejected':
+        return <Cancel sx={{ fontSize: 16 }} />;
+      default:
+        return <Person sx={{ fontSize: 16 }} />;
     }
   };
 
   const getStatusText = (status) => {
     switch (status?.toLowerCase()) {
       case 'approved':
-        return 'Active';
+        return 'Verified';
       case 'pending':
         return 'Pending';
       case 'rejected':
@@ -136,165 +156,480 @@ const Profile = () => {
   }
 
   return (
-    <Box p={2}>
-      {/* Cover Photo + Basic Info */}
-      <Box
-        sx={{
-          background: 'linear-gradient(135deg, #3f51b5, #2196f3)',
-          height: 150,
-          borderRadius: '8px 8px 0 0',
-          position: 'relative',
+    <Box sx={{ 
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+      p: 3
+    }}>
+      {/* Hero Section */}
+      <Card 
+        sx={{ 
+          mb: 4,
+          borderRadius: 3,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+          overflow: 'hidden',
+          background: 'white'
         }}
       >
-        <Avatar
-          src={userData.docUpload || '/avatar.png'}
-          alt={userData.compName}
+        {/* Cover Section */}
+        <Box
           sx={{
-            width: 80,
-            height: 80,
-            position: 'absolute',
-            bottom: -40,
-            left: 24,
-            border: '4px solid white',
+            height: 200,
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            position: 'relative',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
           }}
-        />
-      </Box>
-
-      <Box mt={6} px={3}>
-        <Box display="flex" justifyContent="space-between" alignItems="center">
-          <Box>
-            <Typography variant="h6" fontWeight={600}>
-              {userData.compName || 'Company Name'}
-            </Typography>
-            <Box display="flex" alignItems="center" gap={2} color="gray" mt={0.5}>
-              <Typography variant="body2">
-                <Person sx={{ fontSize: 16, mr: 0.5 }} /> 
-                {userData.userType === 'trucker' ? 'Trucker' : 'Shipper'}
-              </Typography>
-              <Typography variant="body2">
-                <CalendarMonth sx={{ fontSize: 16, mr: 0.5 }} /> 
-                {formatDate(userData.createdAt)}
-              </Typography>
-              <Typography variant="body2">
-                <LocationOn sx={{ fontSize: 16, mr: 0.5 }} /> 
-                {userData.city}, {userData.state}
-              </Typography>
-            </Box>
-          </Box>
-          <Typography 
-            variant="body2" 
-            color={getStatusColor(userData.status)} 
-            fontWeight={500}
-          >
-            ● {getStatusText(userData.status)}
-          </Typography>
+        >
+          {/* Profile Avatar */}
+          <Avatar
+            src={userData.docUpload || '/avatar.png'}
+            alt={userData.compName}
+            sx={{
+              width: 120,
+              height: 120,
+              border: '6px solid white',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+              position: 'absolute',
+              bottom: -60
+            }}
+          />
         </Box>
-      </Box>
 
-      {/* Info Boxes */}
-      <Grid container spacing={2} mt={3}>
+        {/* Profile Info */}
+        <CardContent sx={{ pt: 8, pb: 4 }}>
+          <Box display="flex" flexDirection={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} mb={3}>
+            <Box>
+              <Typography variant="h4" fontWeight={700} color="text.primary" mb={1}>
+                {userData.compName || 'Company Name'}
+              </Typography>
+              <Box display="flex" flexWrap="wrap" gap={2}>
+                <Chip
+                  icon={<Person />}
+                  label={userData.userType === 'trucker' ? 'Trucker' : 'Shipper'}
+                  sx={{
+                    background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                    color: 'white',
+                    fontWeight: 600
+                  }}
+                />
+                <Chip
+                  icon={<CalendarMonth />}
+                  label={`Joined ${formatDate(userData.createdAt)}`}
+                  variant="outlined"
+                  sx={{ fontWeight: 500 }}
+                />
+                <Chip
+                  icon={<LocationOn />}
+                  label={`${userData.city}, ${userData.state}`}
+                  variant="outlined"
+                  sx={{ fontWeight: 500 }}
+                />
+              </Box>
+            </Box>
+
+            <Chip
+              icon={getStatusIcon(userData.status)}
+              label={getStatusText(userData.status)}
+              sx={{
+                background: getStatusColor(userData.status),
+                color: 'white',
+                fontWeight: 600,
+                px: 2,
+                py: 1,
+                fontSize: '0.9rem',
+                mt: { xs: 2, sm: 0 }
+              }}
+            />
+          </Box>
+        </CardContent>
+      </Card>
+
+      {/* Information Cards */}
+      <Grid container spacing={3}>
         {/* Company Information */}
         <Grid item xs={12} md={6}>
-          <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
-            <Typography variant="subtitle1" fontWeight={600} mb={1}>
-              Company Information
-            </Typography>
-            <Box display="flex" flexDirection="column" gap={1}>
-              <Typography variant="body2">
-                <Business sx={{ fontSize: 18, mr: 1 }} /> 
-                <strong>Company Name:</strong> {userData.compName || 'N/A'}
-              </Typography>
-              <Typography variant="body2">
-                <Assignment sx={{ fontSize: 18, mr: 1 }} /> 
-                <strong>MC/DOT Number:</strong> {userData.mc_dot_no || 'N/A'}
-              </Typography>
-              <Typography variant="body2">
-                <LocalShipping sx={{ fontSize: 18, mr: 1 }} /> 
-                <strong>Carrier Type:</strong> {userData.carrierType || 'N/A'}
-              </Typography>
-              <Typography variant="body2">
-                <LocalShipping sx={{ fontSize: 18, mr: 1 }} /> 
-                <strong>Fleet Size:</strong> {userData.fleetsize || 'N/A'}
-              </Typography>
-            </Box>
-          </Paper>
+          <Card 
+            sx={{ 
+              height: '100%',
+              borderRadius: 4,
+              boxShadow: '0 2px 16px rgba(0,0,0,0.06)',
+              border: '1px solid rgba(0,0,0,0.05)',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                transform: 'translateY(-2px)',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+                border: '1px solid rgba(102,126,234,0.2)'
+              }
+            }}
+          >
+            <CardContent sx={{ p: 0 }}>
+              {/* Card Header */}
+              <Box
+                sx={{
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  p: 3,
+                  borderRadius: '16px 16px 0 0',
+                  color: 'white'
+                }}
+              >
+                <Box display="flex" alignItems="center" gap={2}>
+                  <Box
+                    sx={{
+                      p: 1,
+                      borderRadius: 2,
+                      background: 'rgba(255,255,255,0.2)',
+                      backdropFilter: 'blur(10px)'
+                    }}
+                  >
+                    <Business sx={{ fontSize: 20 }} />
+                  </Box>
+                  <Typography variant="h6" fontWeight={600}>
+                    Company Information
+                  </Typography>
+                </Box>
+              </Box>
+              
+              {/* Card Content */}
+              <Box sx={{ p: 3 }}>
+                <Box display="flex" flexDirection="column" gap={3}>
+                  <Box display="flex" alignItems="center" gap={2}>
+                    <Business sx={{ color: '#667eea', fontSize: 20 }} />
+                    <Box>
+                      <Typography variant="body2" color="text.secondary" fontWeight={500}>
+                        Company Name
+                      </Typography>
+                      <Typography variant="body1" fontWeight={600} color="text.primary">
+                        {userData.compName || 'N/A'}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  
+                  <Box display="flex" alignItems="center" gap={2}>
+                    <Assignment sx={{ color: '#667eea', fontSize: 20 }} />
+                    <Box>
+                      <Typography variant="body2" color="text.secondary" fontWeight={500}>
+                        MC/DOT Number
+                      </Typography>
+                      <Typography variant="body1" fontWeight={600} color="text.primary">
+                        {userData.mc_dot_no || 'N/A'}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  
+                  <Box display="flex" alignItems="center" gap={2}>
+                    <LocalShipping sx={{ color: '#667eea', fontSize: 20 }} />
+                    <Box>
+                      <Typography variant="body2" color="text.secondary" fontWeight={500}>
+                        Carrier Type
+                      </Typography>
+                      <Typography variant="body1" fontWeight={600} color="text.primary">
+                        {userData.carrierType || 'N/A'}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  
+                  <Box display="flex" alignItems="center" gap={2}>
+                    <LocalShipping sx={{ color: '#667eea', fontSize: 20 }} />
+                    <Box>
+                      <Typography variant="body2" color="text.secondary" fontWeight={500}>
+                        Fleet Size
+                      </Typography>
+                      <Typography variant="body1" fontWeight={600} color="text.primary">
+                        {userData.fleetsize || 'N/A'}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
         </Grid>
 
         {/* Location Information */}
         <Grid item xs={12} md={6}>
-          <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
-            <Typography variant="subtitle1" fontWeight={600} mb={1}>
-              Location Information
-            </Typography>
-            <Box display="flex" flexDirection="column" gap={1}>
-              <Typography variant="body2">
-                <LocationOn sx={{ fontSize: 18, mr: 1 }} /> 
-                <strong>Address:</strong> {userData.compAdd || 'N/A'}
-              </Typography>
-              <Typography variant="body2">
-                <Flag sx={{ fontSize: 18, mr: 1 }} /> 
-                <strong>Country:</strong> {userData.country || 'N/A'}
-              </Typography>
-              <Typography variant="body2">
-                <LocationOn sx={{ fontSize: 18, mr: 1 }} /> 
-                <strong>State:</strong> {userData.state || 'N/A'}
-              </Typography>
-              <Typography variant="body2">
-                <LocationOn sx={{ fontSize: 18, mr: 1 }} /> 
-                <strong>City:</strong> {userData.city || 'N/A'}
-              </Typography>
-              <Typography variant="body2">
-                <LocationOn sx={{ fontSize: 18, mr: 1 }} /> 
-                <strong>Zip Code:</strong> {userData.zipcode || 'N/A'}
-              </Typography>
-            </Box>
-          </Paper>
+          <Card 
+            sx={{ 
+              height: '100%',
+              borderRadius: 4,
+              boxShadow: '0 2px 16px rgba(0,0,0,0.06)',
+              border: '1px solid rgba(0,0,0,0.05)',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                transform: 'translateY(-2px)',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+                border: '1px solid rgba(240,147,251,0.2)'
+              }
+            }}
+          >
+            <CardContent sx={{ p: 0 }}>
+              {/* Card Header */}
+              <Box
+                sx={{
+                  background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+                  p: 3,
+                  borderRadius: '16px 16px 0 0',
+                  color: 'white'
+                }}
+              >
+                <Box display="flex" alignItems="center" gap={2}>
+                  <Box
+                    sx={{
+                      p: 1,
+                      borderRadius: 2,
+                      background: 'rgba(255,255,255,0.2)',
+                      backdropFilter: 'blur(10px)'
+                    }}
+                  >
+                    <LocationOn sx={{ fontSize: 20 }} />
+                  </Box>
+                  <Typography variant="h6" fontWeight={600}>
+                    Location Information
+                  </Typography>
+                </Box>
+              </Box>
+              
+              {/* Card Content */}
+              <Box sx={{ p: 3 }}>
+                <Box display="flex" flexDirection="column" gap={3}>
+                  <Box display="flex" alignItems="center" gap={2}>
+                    <LocationOn sx={{ color: '#f093fb', fontSize: 20 }} />
+                    <Box>
+                      <Typography variant="body2" color="text.secondary" fontWeight={500}>
+                        Address
+                      </Typography>
+                      <Typography variant="body1" fontWeight={600} color="text.primary">
+                        {userData.compAdd || 'N/A'}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  
+                  <Box display="flex" alignItems="center" gap={2}>
+                    <Flag sx={{ color: '#f093fb', fontSize: 20 }} />
+                    <Box>
+                      <Typography variant="body2" color="text.secondary" fontWeight={500}>
+                        Country
+                      </Typography>
+                      <Typography variant="body1" fontWeight={600} color="text.primary">
+                        {userData.country || 'N/A'}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  
+                  <Box display="flex" alignItems="center" gap={2}>
+                    <LocationOn sx={{ color: '#f093fb', fontSize: 20 }} />
+                    <Box>
+                      <Typography variant="body2" color="text.secondary" fontWeight={500}>
+                        State
+                      </Typography>
+                      <Typography variant="body1" fontWeight={600} color="text.primary">
+                        {userData.state || 'N/A'}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  
+                  <Box display="flex" alignItems="center" gap={2}>
+                    <LocationOn sx={{ color: '#f093fb', fontSize: 20 }} />
+                    <Box>
+                      <Typography variant="body2" color="text.secondary" fontWeight={500}>
+                        City
+                      </Typography>
+                      <Typography variant="body1" fontWeight={600} color="text.primary">
+                        {userData.city || 'N/A'}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  
+                  <Box display="flex" alignItems="center" gap={2}>
+                    <LocationOn sx={{ color: '#f093fb', fontSize: 20 }} />
+                    <Box>
+                      <Typography variant="body2" color="text.secondary" fontWeight={500}>
+                        Zip Code
+                      </Typography>
+                      <Typography variant="body1" fontWeight={600} color="text.primary">
+                        {userData.zipcode || 'N/A'}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
         </Grid>
 
         {/* Contact Information */}
         <Grid item xs={12} md={6}>
-          <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
-            <Typography variant="subtitle1" fontWeight={600} mb={1}>
-              Contact Information
-            </Typography>
-            <Box display="flex" flexDirection="column" gap={1}>
-              <Typography variant="body2">
-                <Call sx={{ fontSize: 18, mr: 1 }} /> 
-                <strong>Phone:</strong> {userData.phoneNo || 'N/A'}
-              </Typography>
-              <Typography variant="body2">
-                <Email sx={{ fontSize: 18, mr: 1 }} /> 
-                <strong>Email:</strong> {userData.email || 'N/A'}
-              </Typography>
-            </Box>
-          </Paper>
+          <Card 
+            sx={{ 
+              height: '100%',
+              borderRadius: 4,
+              boxShadow: '0 2px 16px rgba(0,0,0,0.06)',
+              border: '1px solid rgba(0,0,0,0.05)',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                transform: 'translateY(-2px)',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+                border: '1px solid rgba(79,172,254,0.2)'
+              }
+            }}
+          >
+            <CardContent sx={{ p: 0 }}>
+              {/* Card Header */}
+              <Box
+                sx={{
+                  background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+                  p: 3,
+                  borderRadius: '16px 16px 0 0',
+                  color: 'white'
+                }}
+              >
+                <Box display="flex" alignItems="center" gap={2}>
+                  <Box
+                    sx={{
+                      p: 1,
+                      borderRadius: 2,
+                      background: 'rgba(255,255,255,0.2)',
+                      backdropFilter: 'blur(10px)'
+                    }}
+                  >
+                    <Call sx={{ fontSize: 20 }} />
+                  </Box>
+                  <Typography variant="h6" fontWeight={600}>
+                    Contact Information
+                  </Typography>
+                </Box>
+              </Box>
+              
+              {/* Card Content */}
+              <Box sx={{ p: 3 }}>
+                <Box display="flex" flexDirection="column" gap={3}>
+                  <Box display="flex" alignItems="center" gap={2}>
+                    <Call sx={{ color: '#4facfe', fontSize: 20 }} />
+                    <Box>
+                      <Typography variant="body2" color="text.secondary" fontWeight={500}>
+                        Phone Number
+                      </Typography>
+                      <Typography variant="body1" fontWeight={600} color="text.primary">
+                        {userData.phoneNo || 'N/A'}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  
+                  <Box display="flex" alignItems="center" gap={2}>
+                    <Email sx={{ color: '#4facfe', fontSize: 20 }} />
+                    <Box>
+                      <Typography variant="body2" color="text.secondary" fontWeight={500}>
+                        Email Address
+                      </Typography>
+                      <Typography variant="body1" fontWeight={600} color="text.primary">
+                        {userData.email || 'N/A'}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
         </Grid>
 
         {/* Account Information */}
         <Grid item xs={12} md={6}>
-          <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
-            <Typography variant="subtitle1" fontWeight={600} mb={1}>
-              Account Information
-            </Typography>
-            <Box display="flex" flexDirection="column" gap={1}>
-              <Typography variant="body2">
-                <Person sx={{ fontSize: 18, mr: 1 }} /> 
-                <strong>User Type:</strong> {userData.userType === 'trucker' ? 'Trucker' : 'Shipper'}
-              </Typography>
-              <Typography variant="body2">
-                <CalendarMonth sx={{ fontSize: 18, mr: 1 }} /> 
-                <strong>Created:</strong> {formatDate(userData.createdAt)}
-              </Typography>
-              <Typography variant="body2">
-                <CalendarMonth sx={{ fontSize: 18, mr: 1 }} /> 
-                <strong>Last Updated:</strong> {formatDate(userData.updatedAt)}
-              </Typography>
-              <Typography variant="body2">
-                <Person sx={{ fontSize: 18, mr: 1 }} /> 
-                <strong>Status:</strong> {getStatusText(userData.status)}
-              </Typography>
-            </Box>
-          </Paper>
+          <Card 
+            sx={{ 
+              height: '100%',
+              borderRadius: 4,
+              boxShadow: '0 2px 16px rgba(0,0,0,0.06)',
+              border: '1px solid rgba(0,0,0,0.05)',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                transform: 'translateY(-2px)',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+                border: '1px solid rgba(67,233,123,0.2)'
+              }
+            }}
+          >
+            <CardContent sx={{ p: 0 }}>
+              {/* Card Header */}
+              <Box
+                sx={{
+                  background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+                  p: 3,
+                  borderRadius: '16px 16px 0 0',
+                  color: 'white'
+                }}
+              >
+                <Box display="flex" alignItems="center" gap={2}>
+                  <Box
+                    sx={{
+                      p: 1,
+                      borderRadius: 2,
+                      background: 'rgba(255,255,255,0.2)',
+                      backdropFilter: 'blur(10px)'
+                    }}
+                  >
+                    <Person sx={{ fontSize: 20 }} />
+                  </Box>
+                  <Typography variant="h6" fontWeight={600}>
+                    Account Information
+                  </Typography>
+                </Box>
+              </Box>
+              
+              {/* Card Content */}
+              <Box sx={{ p: 3 }}>
+                <Box display="flex" flexDirection="column" gap={3}>
+                  <Box display="flex" alignItems="center" gap={2}>
+                    <Person sx={{ color: '#43e97b', fontSize: 20 }} />
+                    <Box>
+                      <Typography variant="body2" color="text.secondary" fontWeight={500}>
+                        User Type
+                      </Typography>
+                      <Typography variant="body1" fontWeight={600} color="text.primary">
+                        {userData.userType === 'trucker' ? 'Trucker' : 'Shipper'}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  
+                  <Box display="flex" alignItems="center" gap={2}>
+                    <CalendarMonth sx={{ color: '#43e97b', fontSize: 20 }} />
+                    <Box>
+                      <Typography variant="body2" color="text.secondary" fontWeight={500}>
+                        Account Created
+                      </Typography>
+                      <Typography variant="body1" fontWeight={600} color="text.primary">
+                        {formatDate(userData.createdAt)}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  
+                  <Box display="flex" alignItems="center" gap={2}>
+                    <CalendarMonth sx={{ color: '#43e97b', fontSize: 20 }} />
+                    <Box>
+                      <Typography variant="body2" color="text.secondary" fontWeight={500}>
+                        Last Updated
+                      </Typography>
+                      <Typography variant="body1" fontWeight={600} color="text.primary">
+                        {formatDate(userData.updatedAt)}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  
+                  <Box display="flex" alignItems="center" gap={2}>
+                    <Person sx={{ color: '#43e97b', fontSize: 20 }} />
+                    <Box>
+                      <Typography variant="body2" color="text.secondary" fontWeight={500}>
+                        Account Status
+                      </Typography>
+                      <Typography variant="body1" fontWeight={600} color="text.primary">
+                        {getStatusText(userData.status)}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
         </Grid>
       </Grid>
     </Box>
