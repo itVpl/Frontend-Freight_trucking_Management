@@ -22,6 +22,18 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import truckIconPng from "../../assets/Icons super admin/truck.png";
 
+// Fix for Leaflet default icons
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: markerIcon2x,
+  iconUrl: markerIcon,
+  shadowUrl: markerShadow,
+});
+
 // Add CSS for spinner animation
 const spinnerStyles = `
   @keyframes spin {
@@ -816,6 +828,7 @@ export default function LiveTracker() {
           scrollWheelZoom={true}
           className="leaflet-container"
           style={{ height: "93vh", width: "100%", zIndex: 1 }}
+          whenReady={() => console.log('Map is ready')}
         >
           <TileLayer
             attribution="&copy; OpenStreetMap contributors"
