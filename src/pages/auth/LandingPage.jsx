@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import logo from "../../../public/images/logo_vpower.png";
+// Logo is served from public directory, so we use it as a URL
+const logo = "/images/logo_vpower.png";
 import groupphoto from "../../assets/Icons super admin/Groupphoto.png"; // <- aapka image import
 
 /** ====== TUNING ====== **/
