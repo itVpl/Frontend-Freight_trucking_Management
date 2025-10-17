@@ -618,6 +618,7 @@ const Dashboard = () => {
                   center={[39.8283, -98.5795]} // Center of USA
                   zoom={4}
                   style={{ height: '100%', width: '100%' }}
+                  whenReady={() => console.log('Dashboard map is ready')}
                 >
                   <TileLayer
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
