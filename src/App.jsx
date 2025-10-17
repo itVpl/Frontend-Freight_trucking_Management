@@ -12,6 +12,7 @@ import Reports from './pages/reports/Reports';
 import Bills from './pages/shipper/Bills';
 import Loadboard from './pages/shipper/Loadboard';
 import Profile from './pages/profile/Profile';
+import Email from './pages/email/Email';
 import Layout from './components/layout/Layout';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -48,6 +49,7 @@ function App() {
               <Route path="/reports/complete" element={<Completed />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/loadcalculator" element={<LoadCalculator />} />
+              <Route path="/email" element={<Email />} />
 
               {/* Trucker Only Routes */}
               <Route path="/fleet" element={<ProtectedRoute userType="trucker"><Fleet /></ProtectedRoute>} />

@@ -28,9 +28,22 @@ import {
   FormControl,
   InputLabel,
   Tabs,
-  Tab
+  Tab,
+  Divider
 } from '@mui/material';
-import { Add, Refresh, Clear } from '@mui/icons-material';
+import { 
+  Add, 
+  Refresh, 
+  Clear, 
+  LocationOn, 
+  LocalShipping, 
+  Assignment, 
+  CalendarToday,
+  AttachMoney,
+  Scale,
+  Business,
+  Description
+} from '@mui/icons-material';
 import { Download, Search } from '@mui/icons-material';
 import PersonIcon from '@mui/icons-material/Person';
 import SearchNavigationFeedback from '../../components/SearchNavigationFeedback';
@@ -1416,317 +1429,640 @@ const LoadBoard = () => {
         />
       </Paper>
 
-      {/* Modal Form */}
-      <Dialog open={modalOpen} onClose={handleCloseModal} maxWidth="sm" fullWidth>
-        <DialogContent sx={{ pb: 4 }}>
-          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1, px: 2 }}>
-                         {/* Tab Toggle */}
-             <Stack direction="row" spacing={1} sx={{ mb: 3 }} justifyContent="center">
+      {/* Modern Add Load Modal */}
+      <Dialog 
+        open={modalOpen} 
+        onClose={handleCloseModal} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
+            background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+            minHeight: '80vh'
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          fontWeight: 700, 
+          color: '#1976d2', 
+          fontSize: 24, 
+          borderBottom: '2px solid #e0e0e0',
+          background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 2,
+          py: 3
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Add sx={{ fontSize: 28 }} />
+            Add New Load
+          </Box>
+          
+          {/* Load Type Toggle in Header */}
+          <Stack direction="row" spacing={1}>
                <Button
                  variant={loadType === 'OTR' ? 'contained' : 'outlined'}
                  onClick={() => handleLoadTypeChange('OTR')}
-                 sx={{ borderRadius: 5, minWidth: 120 }}
+              sx={{ 
+                borderRadius: 3, 
+                minWidth: 80,
+                fontWeight: 600,
+                textTransform: 'none',
+                py: 1,
+                px: 2,
+                fontSize: '0.9rem',
+                ...(loadType === 'OTR' ? {
+                  background: 'linear-gradient(45deg, #1976d2, #42a5f5)',
+                  '&:hover': { background: 'linear-gradient(45deg, #1565c0, #1976d2)' }
+                } : {
+                  borderColor: '#1976d2',
+                  color: '#1976d2',
+                  backgroundColor: 'rgba(255,255,255,0.8)',
+                  '&:hover': { borderColor: '#0d47a1', backgroundColor: 'rgba(25, 118, 210, 0.04)' }
+                })
+              }}
                >
                  OTR
                </Button>
                <Button
                  variant={loadType === 'Drayage' ? 'contained' : 'outlined'}
                  onClick={() => handleLoadTypeChange('Drayage')}
-                 sx={{ borderRadius: 5, minWidth: 120 }}
+              sx={{ 
+                borderRadius: 3, 
+                minWidth: 80,
+                fontWeight: 600,
+                textTransform: 'none',
+                py: 1,
+                px: 2,
+                fontSize: '0.9rem',
+                ...(loadType === 'Drayage' ? {
+                  background: 'linear-gradient(45deg, #1976d2, #42a5f5)',
+                  '&:hover': { background: 'linear-gradient(45deg, #1565c0, #1976d2)' }
+                } : {
+                  borderColor: '#1976d2',
+                  color: '#1976d2',
+                  backgroundColor: 'rgba(255,255,255,0.8)',
+                  '&:hover': { borderColor: '#0d47a1', backgroundColor: 'rgba(25, 118, 210, 0.04)' }
+                })
+              }}
                >
                  Drayage
                </Button>
              </Stack>
+        </DialogTitle>
+        
+        <DialogContent sx={{ p: 0, background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)' }}>
+          <Box component="form" onSubmit={handleSubmit} sx={{ p: 3 }}>
 
-            {/* Grid Fields */}
-            <Grid container spacing={2} sx={{ mb: 2 }}>
-              {/* From City - From State */}
-              <Grid item xs={12} sm={6}>
+            {/* Form Sections */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              
+              {/* Pick Up Location Section */}
+              <Paper elevation={2} sx={{ 
+                p: 3, 
+                borderRadius: 3,
+                background: 'white',
+                border: '1px solid #e0e0e0'
+              }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                  <Box sx={{ 
+                    p: 1.5, 
+                    borderRadius: 2, 
+                    background: 'linear-gradient(135deg, #e3f2fd, #bbdefb)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <LocationOn sx={{ color: '#1976d2', fontSize: 24 }} />
+                  </Box>
+                  <Typography variant="h6" sx={{ fontWeight: 600, color: '#1976d2' }}>
+                    Pick Up Location
+                  </Typography>
+                </Box>
+                
+                <Grid container spacing={3}>
+                  <Grid item xs={12}>
                 <TextField
-                  label="From City"
+                      label="Pick-up Address *"
                   name="fromCity"
                   value={form.fromCity}
                   onChange={handleFormChange}
                   fullWidth
                   error={!!errors.fromCity}
+                      placeholder="Enter ZIP code or full address..."
                   sx={{
                     '& .MuiInputBase-root': {
-                      borderRadius: '12px',
-                      paddingRight: 3,
+                          borderRadius: 2,
+                          backgroundColor: '#f8f9fa',
+                          '&:hover': { backgroundColor: '#e9ecef' },
+                          '&.Mui-focused': { backgroundColor: 'white' }
                     },
                   }}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField
-                  label="From State"
+                      label="City"
+                      name="fromCity"
+                      value={form.fromCity}
+                      onChange={handleFormChange}
+                      fullWidth
+                      placeholder="Auto filled from ZIP (editable)"
+                      sx={{
+                        '& .MuiInputBase-root': {
+                          borderRadius: 2,
+                          backgroundColor: '#f8f9fa',
+                          '&:hover': { backgroundColor: '#e9ecef' },
+                          '&.Mui-focused': { backgroundColor: 'white' }
+                        },
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      label="State *"
                   name="fromState"
                   value={form.fromState}
                   onChange={handleFormChange}
                   fullWidth
                   error={!!errors.fromState}
+                      placeholder="Auto filled from ZIP (editable, e.g., NJ)"
                   sx={{
                     '& .MuiInputBase-root': {
-                      borderRadius: '12px',
-                      paddingRight: 3,
+                          borderRadius: 2,
+                          backgroundColor: '#f8f9fa',
+                          '&:hover': { backgroundColor: '#e9ecef' },
+                          '&.Mui-focused': { backgroundColor: 'white' }
                     },
                   }}
                 />
               </Grid>
+                </Grid>
+              </Paper>
 
-              {/* To City - To State */}
-              <Grid item xs={12} sm={6}>
+              {/* Loading/Unloading Section */}
+              <Paper elevation={2} sx={{ 
+                p: 3, 
+                borderRadius: 3,
+                background: 'white',
+                border: '1px solid #e0e0e0'
+              }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                  <Box sx={{ 
+                    p: 1.5, 
+                    borderRadius: 2, 
+                    background: 'linear-gradient(135deg, #e8f5e8, #c8e6c9)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <LocalShipping sx={{ color: '#2e7d32', fontSize: 24 }} />
+                  </Box>
+                  <Typography variant="h6" sx={{ fontWeight: 600, color: '#2e7d32' }}>
+                    Loading/Unloading
+                  </Typography>
+                </Box>
+                
+                <Grid container spacing={3}>
+                  <Grid item xs={12}>
                 <TextField
-                  label="To City"
+                      label="Loading/Unloading Address *"
                   name="toCity"
                   value={form.toCity}
                   onChange={handleFormChange}
                   fullWidth
                   error={!!errors.toCity}
+                      placeholder="Enter ZIP code or full address..."
                   sx={{
                     '& .MuiInputBase-root': {
-                      borderRadius: '12px',
-                      paddingRight: 3,
+                          borderRadius: 2,
+                          backgroundColor: '#f8f9fa',
+                          '&:hover': { backgroundColor: '#e9ecef' },
+                          '&.Mui-focused': { backgroundColor: 'white' }
                     },
                   }}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField
-                  label="To State"
+                      label="City"
+                      name="toCity"
+                      value={form.toCity}
+                      onChange={handleFormChange}
+                      fullWidth
+                      placeholder="Auto filled from ZIP (editable)"
+                      sx={{
+                        '& .MuiInputBase-root': {
+                          borderRadius: 2,
+                          backgroundColor: '#f8f9fa',
+                          '&:hover': { backgroundColor: '#e9ecef' },
+                          '&.Mui-focused': { backgroundColor: 'white' }
+                        },
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      label="State *"
                   name="toState"
                   value={form.toState}
                   onChange={handleFormChange}
                   fullWidth
                   error={!!errors.toState}
+                      placeholder="Auto filled from ZIP (editable, e.g., AZ)"
                   sx={{
                     '& .MuiInputBase-root': {
-                      borderRadius: '12px',
-                      paddingRight: 3,
+                          borderRadius: 2,
+                          backgroundColor: '#f8f9fa',
+                          '&:hover': { backgroundColor: '#e9ecef' },
+                          '&.Mui-focused': { backgroundColor: 'white' }
                     },
                   }}
                 />
               </Grid>
+                </Grid>
+              </Paper>
 
-              {/* Pickup Date - Drop Date */}
+              {/* Return Details Section - Only for Drayage */}
+              {loadType === 'Drayage' && (
+                <Paper elevation={2} sx={{ 
+                  p: 3, 
+                  borderRadius: 3,
+                  background: 'white',
+                  border: '1px solid #e0e0e0'
+                }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                    <Box sx={{ 
+                      p: 1.5, 
+                      borderRadius: 2, 
+                      background: 'linear-gradient(135deg, #fff3e0, #ffe0b2)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <Assignment sx={{ color: '#f57c00', fontSize: 24 }} />
+                    </Box>
+                    <Typography variant="h6" sx={{ fontWeight: 600, color: '#f57c00' }}>
+                      Return Details
+                    </Typography>
+                  </Box>
+                  
+                  <Grid container spacing={3}>
               <Grid item xs={12} sm={6}>
                 <TextField
                   type="date"
-                  label="Pickup Date"
-                  name="pickupDate"
-                  value={form.pickupDate}
+                        label="Return Date *"
+                        name="returnDate"
+                        value={form.returnDate}
                   onChange={handleFormChange}
                   fullWidth
-                  error={!!errors.pickupDate}
                   InputLabelProps={{ shrink: true }}
                   sx={{
                     '& .MuiInputBase-root': {
-                      borderRadius: '12px',
-                      paddingRight: 3,
-                    },
-                    '& input[type="date"]': {
-                      fontSize: '16px',
-                      height: '1.4375em',
-                      padding: '16.5px 14px',
-                      width: '195px',
+                            borderRadius: 2,
+                            backgroundColor: '#f8f9fa',
+                            '&:hover': { backgroundColor: '#e9ecef' },
+                            '&.Mui-focused': { backgroundColor: 'white' }
                     },
                   }}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField
-                  type="date"
-                  label="Drop Date"
-                  name="dropDate"
-                  value={form.dropDate}
+                        label="Return Location *"
+                        name="drayageLocation"
+                        value={form.drayageLocation}
                   onChange={handleFormChange}
                   fullWidth
-                  error={!!errors.dropDate}
-                  InputLabelProps={{ shrink: true }}
+                        placeholder="Enter Return Location"
                   sx={{
                     '& .MuiInputBase-root': {
-                      borderRadius: '12px',
-                      paddingRight: 3,
-                    },
-                    '& input[type="date"]': {
-                      fontSize: '16px',
-                      height: '1.4375em',
-                      padding: '16.5px 14px',
-                      width: '195px',
+                            borderRadius: 2,
+                            backgroundColor: '#f8f9fa',
+                            '&:hover': { backgroundColor: '#e9ecef' },
+                            '&.Mui-focused': { backgroundColor: 'white' }
                     },
                   }}
                 />
               </Grid>
+                  </Grid>
+                </Paper>
+              )}
 
-              {/* Vehicle Type - Commodity */}
+              {/* Load Details Section */}
+              <Paper elevation={2} sx={{ 
+                p: 3, 
+                borderRadius: 3,
+                background: 'white',
+                border: '1px solid #e0e0e0'
+              }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                  <Box sx={{ 
+                    p: 1.5, 
+                    borderRadius: 2, 
+                    background: 'linear-gradient(135deg, #f3e5f5, #e1bee7)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <Business sx={{ color: '#7b1fa2', fontSize: 24 }} />
+                  </Box>
+                  <Typography variant="h6" sx={{ fontWeight: 600, color: '#7b1fa2' }}>
+                    Load Details
+                  </Typography>
+                </Box>
+                
+                <Grid container spacing={3}>
               <Grid item xs={12} sm={6}>
                 <TextField
-                  label="Vehicle Type"
+                      label="Vehicle Type *"
                   name="vehicleType"
                   value={form.vehicleType}
                   onChange={handleFormChange}
                   fullWidth
                   error={!!errors.vehicleType}
+                      placeholder="Search container type..."
                   sx={{
                     '& .MuiInputBase-root': {
-                      borderRadius: '12px',
-                      paddingRight: 3,
+                          borderRadius: 2,
+                          backgroundColor: '#f8f9fa',
+                          '&:hover': { backgroundColor: '#e9ecef' },
+                          '&.Mui-focused': { backgroundColor: 'white' }
                     },
                   }}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField
-                  label="Commodity"
-                  name="commodity"
-                  value={form.commodity}
+                      label="Target Rate ($)"
+                      name="price"
+                      value={form.price}
                   onChange={handleFormChange}
                   fullWidth
-                  error={!!errors.commodity}
+                      error={!!errors.price}
+                      placeholder="e.g., 7500 or 7500/60"
+                      InputProps={{
+                        startAdornment: <AttachMoney sx={{ color: '#666' }} />
+                      }}
                   sx={{
                     '& .MuiInputBase-root': {
-                      borderRadius: '12px',
-                      paddingRight: 3,
+                          borderRadius: 2,
+                          backgroundColor: '#f8f9fa',
+                          '&:hover': { backgroundColor: '#e9ecef' },
+                          '&.Mui-focused': { backgroundColor: 'white' }
                     },
                   }}
                 />
               </Grid>
-
-              {/* Weight (kg) - Container No (Optional) */}
               <Grid item xs={12} sm={6}>
                 <TextField
-                  label="Weight (kg)"
+                      label="Weight (lbs) *"
                   name="weight"
                   value={form.weight}
                   onChange={handleFormChange}
                   fullWidth
                   error={!!errors.weight}
+                      placeholder="e.g., 75000"
+                      InputProps={{
+                        startAdornment: <Scale sx={{ color: '#666' }} />
+                      }}
                   sx={{
                     '& .MuiInputBase-root': {
-                      borderRadius: '12px',
-                      paddingRight: 3,
+                          borderRadius: 2,
+                          backgroundColor: '#f8f9fa',
+                          '&:hover': { backgroundColor: '#e9ecef' },
+                          '&.Mui-focused': { backgroundColor: 'white' }
                     },
                   }}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField
-                  label="Container No (Optional)"
-                  name="containerNo"
-                  value={form.containerNo}
+                      label="Commodity *"
+                      name="commodity"
+                      value={form.commodity}
                   onChange={handleFormChange}
                   fullWidth
+                      error={!!errors.commodity}
+                      placeholder="e.g., Electronics, Furniture"
                   sx={{
                     '& .MuiInputBase-root': {
-                      borderRadius: '12px',
-                      paddingRight: 3,
+                          borderRadius: 2,
+                          backgroundColor: '#f8f9fa',
+                          '&:hover': { backgroundColor: '#e9ecef' },
+                          '&.Mui-focused': { backgroundColor: 'white' }
                     },
                   }}
                 />
               </Grid>
+                </Grid>
+              </Paper>
 
-              {/* PO Number (Optional) - BOL Number (Optional) */}
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="PO Number (Optional)"
-                  name="poNumber"
-                  value={form.poNumber}
-                  onChange={handleFormChange}
-                  fullWidth
-                  sx={{
-                    '& .MuiInputBase-root': {
-                      borderRadius: '12px',
-                      paddingRight: 3,
-                    },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="BOL Number (Optional)"
-                  name="bolNumber"
-                  value={form.bolNumber}
-                  onChange={handleFormChange}
-                  fullWidth
-                  sx={{
-                    '& .MuiInputBase-root': {
-                      borderRadius: '12px',
-                      paddingRight: 3,
-                    },
-                  }}
-                />
-              </Grid>
 
-              {/* Drayage specific fields */}
-              {loadType === 'Drayage' && (
-                <>
-                  <Grid item xs={12} sm={6}>
+
+
+
+              {/* Schedule & Timeline Section */}
+              <Paper elevation={2} sx={{ 
+                p: 3, 
+                borderRadius: 3,
+                background: 'white',
+                border: '1px solid #e0e0e0'
+              }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                  <Box sx={{ 
+                    p: 1.5, 
+                    borderRadius: 2, 
+                    background: 'linear-gradient(135deg, #e8f5e8, #c8e6c9)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <CalendarToday sx={{ color: '#2e7d32', fontSize: 24 }} />
+                  </Box>
+                  <Typography variant="h6" sx={{ fontWeight: 600, color: '#2e7d32' }}>
+                    Schedule & Timeline
+                  </Typography>
+                </Box>
+                
+                <Grid container spacing={3}>
+                  <Grid item xs={12} sm={4}>
+                <TextField
+                      type="date"
+                      label="Pickup Date *"
+                      name="pickupDate"
+                      value={form.pickupDate}
+                  onChange={handleFormChange}
+                  fullWidth
+                      error={!!errors.pickupDate}
+                      InputLabelProps={{ shrink: true }}
+                  sx={{
+                    '& .MuiInputBase-root': {
+                          borderRadius: 2,
+                          backgroundColor: '#f8f9fa',
+                          '&:hover': { backgroundColor: '#e9ecef' },
+                          '&.Mui-focused': { backgroundColor: 'white' }
+                    },
+                  }}
+                />
+              </Grid>
+                  <Grid item xs={12} sm={4}>
+                <TextField
+                      type="date"
+                      label="Delivery Date *"
+                      name="dropDate"
+                      value={form.dropDate}
+                  onChange={handleFormChange}
+                  fullWidth
+                      error={!!errors.dropDate}
+                      InputLabelProps={{ shrink: true }}
+                  sx={{
+                    '& .MuiInputBase-root': {
+                          borderRadius: 2,
+                          backgroundColor: '#f8f9fa',
+                          '&:hover': { backgroundColor: '#e9ecef' },
+                          '&.Mui-focused': { backgroundColor: 'white' }
+                    },
+                  }}
+                />
+              </Grid>
+                  <Grid item xs={12} sm={4}>
                     <TextField
                       type="date"
-                      label="Return Date"
-                      name="returnDate"
-                      value={form.returnDate}
+                      label="Bid Deadline *"
+                      name="bidDeadline"
+                      value={form.bidDeadline}
                       onChange={handleFormChange}
                       fullWidth
                       InputLabelProps={{ shrink: true }}
                       sx={{
                         '& .MuiInputBase-root': {
-                          borderRadius: '12px',
-                          paddingRight: 3,
-                        },
-                        '& input[type="date"]': {
-                          fontSize: '16px',
-                          height: '1.4375em',
-                          padding: '16.5px 14px',
+                          borderRadius: 2,
+                          backgroundColor: '#f8f9fa',
+                          '&:hover': { backgroundColor: '#e9ecef' },
+                          '&.Mui-focused': { backgroundColor: 'white' }
                         },
                       }}
                     />
                   </Grid>
-                  <Grid item xs={12} sm={6}>
+                </Grid>
+              </Paper>
+
+              {/* Additional Details Section */}
+              <Paper elevation={2} sx={{ 
+                p: 3, 
+                borderRadius: 3,
+                background: 'white',
+                border: '1px solid #e0e0e0'
+              }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                  <Box sx={{ 
+                    p: 1.5, 
+                    borderRadius: 2, 
+                    background: 'linear-gradient(135deg, #e0f2f1, #b2dfdb)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <Description sx={{ color: '#00695c', fontSize: 24 }} />
+                  </Box>
+                  <Typography variant="h6" sx={{ fontWeight: 600, color: '#00695c' }}>
+                    Additional Details
+                  </Typography>
+                </Box>
+                
+                <Grid container spacing={3}>
+                  <Grid item xs={12} sm={4}>
                     <TextField
-                      label="Drayage Location"
-                      name="drayageLocation"
-                      value={form.drayageLocation}
+                      label="Container No."
+                      name="containerNo"
+                      value={form.containerNo}
                       onChange={handleFormChange}
                       fullWidth
+                      placeholder="Alphanumeric only"
                       sx={{
                         '& .MuiInputBase-root': {
-                          borderRadius: '12px',
-                          paddingRight: 3,
+                          borderRadius: 2,
+                          backgroundColor: '#f8f9fa',
+                          '&:hover': { backgroundColor: '#e9ecef' },
+                          '&.Mui-focused': { backgroundColor: 'white' }
                         },
                       }}
                     />
                   </Grid>
-                </>
-              )}
-            </Grid>
-
-            {/* Price */}
+                  <Grid item xs={12} sm={4}>
+                    <TextField
+                      label="PO Number"
+                      name="poNumber"
+                      value={form.poNumber}
+                      onChange={handleFormChange}
+                      fullWidth
+                      placeholder="Alphanumeric only"
+                      sx={{
+                        '& .MuiInputBase-root': {
+                          borderRadius: 2,
+                          backgroundColor: '#f8f9fa',
+                          '&:hover': { backgroundColor: '#e9ecef' },
+                          '&.Mui-focused': { backgroundColor: 'white' }
+                        },
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={4}>
             <TextField
-              label="Target Rate ($)"
-              name="price"
-              value={form.price}
+                      label="BOL Number"
+                      name="bolNumber"
+                      value={form.bolNumber}
               onChange={handleFormChange}
               fullWidth
-              // required hata diya
-              error={!!errors.price}
+                      placeholder="Alphanumeric only"
               sx={{
-                
                 '& .MuiInputBase-root': {
-                  borderRadius: '12px',
-                  fontSize: '20px',
-                  fontWeight: 600,
-                  paddingY: 1.5,
-                  width: '510px',
-                },
-                '& input': {
-                  textAlign: 'center',
+                          borderRadius: 2,
+                          backgroundColor: '#f8f9fa',
+                          '&:hover': { backgroundColor: '#e9ecef' },
+                          '&.Mui-focused': { backgroundColor: 'white' }
                 },
               }}
             />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <FormControl fullWidth>
+                      <InputLabel>Rate Type</InputLabel>
+                      <Select
+                        name="rateType"
+                        value={form.rateType}
+                        onChange={handleFormChange}
+                        label="Rate Type"
+                        sx={{
+                          borderRadius: 2,
+                          backgroundColor: '#f8f9fa',
+                          '&:hover': { backgroundColor: '#e9ecef' },
+                          '&.Mui-focused': { backgroundColor: 'white' }
+                        }}
+                      >
+                        <MenuItem value="Flat Rate">Flat Rate</MenuItem>
+                        <MenuItem value="Per Mile">Per Mile</MenuItem>
+                        <MenuItem value="Per Hour">Per Hour</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                </Grid>
+              </Paper>
 
             {/* Smart Rate Suggestion Button */}
-            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+              <Box sx={{ 
+                display: 'flex', 
+                justifyContent: 'center', 
+                mt: 3,
+                p: 2,
+                background: 'white',
+                borderRadius: 3,
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+              }}>
               <Button
                 variant="outlined"
                 onClick={handleSmartRateSuggestion}
@@ -1759,6 +2095,7 @@ const LoadBoard = () => {
               >
                 💡 Smart Rate Suggestion
               </Button>
+              </Box>
             </Box>
 
             {/* Rate Suggestions */}
@@ -1802,37 +2139,53 @@ const LoadBoard = () => {
 
             
 
-            {/* Buttons */}
-            <DialogActions sx={{ mt: 4, justifyContent: 'center', gap: 1 }}>
+          </Box>
+        </DialogContent>
+        
+        <DialogActions sx={{ 
+          p: 3, 
+          background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
+          borderTop: '2px solid #e0e0e0'
+        }}>
               <Button
                 onClick={handleCloseModal}
-                variant="contained"
+            variant="outlined" 
                 sx={{
-                  borderRadius: 3,
-                  backgroundColor: '#f0f0f0',
-                  color: '#000',
+              borderRadius: 2, 
+              fontWeight: 600, 
+              color: '#1976d2', 
+              borderColor: '#1976d2',
+              px: 3,
+              py: 1.5,
                   textTransform: 'none',
-                  px: 4,
-                  '&:hover': { backgroundColor: '#e0e0e0' },
+              '&:hover': {
+                borderColor: '#0d47a1',
+                backgroundColor: 'rgba(25, 118, 210, 0.04)'
+              }
                 }}
               >
                 Cancel
               </Button>
               <Button
-                type="submit"
+            onClick={handleSubmit} 
                 variant="contained"
-                color="primary"
                 sx={{
-                  borderRadius: 3,
-                  textTransform: 'none',
+              borderRadius: 2, 
+              fontWeight: 600, 
+              background: 'linear-gradient(45deg, #1976d2, #42a5f5)',
                   px: 4,
-                }}
-              >
-                Submit
+              py: 1.5,
+              textTransform: 'none',
+              '&:hover': { 
+                background: 'linear-gradient(45deg, #1565c0, #1976d2)',
+                transform: 'translateY(-1px)',
+                boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)'
+              }
+            }}
+          >
+            Add Load
               </Button>
             </DialogActions>
-          </Box>
-        </DialogContent>
       </Dialog>
 
       {/* Bids Modal */}

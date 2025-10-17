@@ -35,6 +35,7 @@ import {
   KeyboardArrowLeft,
   ChevronLeft,
   ChevronRight,
+  Email as EmailIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
 import UniversalSearch from '../UniversalSearch';
@@ -82,6 +83,7 @@ const Layout = () => {
       { text: 'Driver', icon: <Person />, path: '/driver' },
       { text: 'Consignment', icon: <Assignment />, path: '/consignment' },
       { text: 'Bid Management', icon: <ListAlt />, path: '/bid-management' },
+      { text: 'Email', icon: <EmailIcon />, path: '/email' },
       { text: 'Report', icon: <Assessment />, path: '/reports' },
       { text: 'Load Calculator', icon: <AccountBalance />, path: '/loadcalculator' },
     ];
@@ -92,6 +94,7 @@ const Layout = () => {
       { text: 'Bills', icon: <Receipt />, path: '/bills' },
       { text: 'Consignment', icon: <Assignment />, path: '/consignment' },
       { text: 'Load Board', icon: <ListAlt />, path: '/loadboard' },
+      { text: 'Email', icon: <EmailIcon />, path: '/email' },
       { text: 'Report', icon: <Assessment />, path: '/reports' },
       { text: 'Load Calculator', icon: <AccountBalance />, path: '/loadcalculator' },
     ];
