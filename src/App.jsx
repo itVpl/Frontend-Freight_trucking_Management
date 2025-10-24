@@ -53,7 +53,7 @@ function App() {
 
               {/* Trucker Only Routes */}
               <Route path="/fleet" element={<ProtectedRoute userType="trucker"><Fleet /></ProtectedRoute>} />
-              {/* <Route path="/billing" element={<ProtectedRoute userType="trucker"><Billing /></ProtectedRoute>} /> */}
+              <Route path="/billing" element={<ProtectedRoute userType="trucker"><Billing /></ProtectedRoute>} />
               <Route path="/driver" element={<ProtectedRoute userType="trucker"><Driver /></ProtectedRoute>} />
               <Route path="/bid-management" element={<ProtectedRoute userType="trucker"><BidManagement /></ProtectedRoute>} />
 
