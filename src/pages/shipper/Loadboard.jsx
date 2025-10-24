@@ -411,7 +411,9 @@ const LoadBoard = () => {
 
   const handleOpenModal = () => {
     setModalOpen(true);
-    setForm({ ...form, loadType: loadType, rateType: 'Flat Rate' });
+    // Convert to uppercase for API compatibility
+    const apiLoadType = loadType === 'Drayage' ? 'DRAYAGE' : 'OTR';
+    setForm({ ...form, loadType: apiLoadType, rateType: 'Flat Rate' });
   };
   const handleCloseModal = () => {
     setModalOpen(false);
@@ -437,13 +439,16 @@ const LoadBoard = () => {
   };
 
   const handleLoadTypeChange = (type) => {
-    setLoadType(type);
-    setForm({ ...form, loadType: type });
+setLoadType(type);
+    // Convert to uppercase for API compatibility
+    const apiLoadType = type === 'Drayage' ? 'DRAYAGE' : 'OTR';
+    setForm({ ...form, loadType: apiLoadType });
   };
 
   const handleSubmit = async (e) => {
     // alert('Form submit triggered');
     console.log('Form submit triggered', form);
+    console.log('loadType being sent to API:', form.loadType);
     e.preventDefault();
     const newErrors = {};
     // Required fields ki list bana le, loadType ke hisaab se
