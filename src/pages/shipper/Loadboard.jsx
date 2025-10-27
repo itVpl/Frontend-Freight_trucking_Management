@@ -42,7 +42,8 @@ import {
   AttachMoney,
   Scale,
   Business,
-  Description
+  Description,
+  Delete
 } from '@mui/icons-material';
 import { Download, Search } from '@mui/icons-material';
 import PersonIcon from '@mui/icons-material/Person';
@@ -184,25 +185,83 @@ const LoadBoard = () => {
   const [originalLoadData, setOriginalLoadData] = useState([]);
   const [isFiltered, setIsFiltered] = useState(false);
 
+  // Vehicle type options
+  const DRAYAGE_VEHICLE_TYPES = [
+    "20' Standard (Dry Van)",
+    "40' Standard (Dry Van)", 
+    "45' Standard (Dry Van)",
+    "20' Reefer",
+    "40' Reefer (High Cube or Standard)",
+    "Open Top Container",
+    "Flat Rack Container",
+    "Tank Container (ISO Tank)",
+    "40' High Cube (HC)",
+    "45' High Cube (HC)"
+  ];
+
+  const OTR_VEHICLE_TYPES = [
+    "Dry Van",
+    "Reefer (Refrigerated Van)",
+    "Flatbed",
+    "Step Deck (Drop Deck)",
+    "Double Drop / Lowboy",
+    "Conestoga",
+    "Tanker",
+    "Livestock Trailer",
+    "Car Hauler",
+    "Container Chassis",
+    "End Dump",
+    "Side Dump",
+    "Hopper Bottom"
+  ];
+
   const [form, setForm] = useState({
+    // Common fields
+    loadType: 'OTR',
+    vehicleType: '',
+    rate: '',
+    rateType: 'Flat Rate',
+    bidDeadline: '',
+    
+    // DRAYAGE specific fields
+    fromAddress: '',
     fromCity: '',
     fromState: '',
+    toAddress: '',
     toCity: '',
     toState: '',
-    pickupDate: '',
-    dropDate: '',
-    vehicleType: '',
-    commodity: '',
     weight: '',
+    commodity: '',
+    pickupDate: '',
+    deliveryDate: '',
     containerNo: '',
     poNumber: '',
     bolNumber: '',
-    price: '',
     returnDate: '',
-    drayageLocation: '',
-    rateType: '',
-    bidDeadline: '',
-    loadType: '',
+    returnLocation: '',
+    
+    // OTR specific fields - origins and destinations arrays
+    origins: [{
+      addressLine1: '',
+      addressLine2: '',
+      city: '',
+      state: '',
+      zip: '',
+      weight: '',
+      commodity: '',
+      pickupDate: '',
+      deliveryDate: ''
+    }],
+    destinations: [{
+      addressLine1: '',
+      addressLine2: '',
+      city: '',
+      state: '',
+      zip: '',
+      weight: '',
+      commodity: '',
+      deliveryDate: ''
+    }]
   });
 
   // Naya state for errors
@@ -258,7 +317,7 @@ const LoadBoard = () => {
     bolNumber: '',
     notes: '',
     returnDate: '',
-    drayageLocation: ''
+    returnLocation: ''
   });
   const [editErrors, setEditErrors] = useState({});
   const [editLoading, setEditLoading] = useState(false);
@@ -438,46 +497,185 @@ const LoadBoard = () => {
 
   const handleLoadTypeChange = (type) => {
     setLoadType(type);
-    setForm({ ...form, loadType: type });
+    
+    // Reset form based on load type
+    if (type === 'DRAYAGE') {
+      setForm({
+        loadType: 'DRAYAGE',
+        vehicleType: '',
+        rate: '',
+        rateType: 'Flat Rate',
+        bidDeadline: '',
+        fromAddress: '',
+        fromCity: '',
+        fromState: '',
+        toAddress: '',
+        toCity: '',
+        toState: '',
+        weight: '',
+        commodity: '',
+        pickupDate: '',
+        deliveryDate: '',
+        containerNo: '',
+        poNumber: '',
+        bolNumber: '',
+        returnDate: '',
+        returnLocation: '',
+        origins: [],
+        destinations: []
+      });
+    } else {
+      setForm({
+        loadType: 'OTR',
+        vehicleType: '',
+        rate: '',
+        rateType: 'Per Mile',
+        bidDeadline: '',
+        fromAddress: '',
+        fromCity: '',
+        fromState: '',
+        toAddress: '',
+        toCity: '',
+        toState: '',
+        weight: '',
+        commodity: '',
+        pickupDate: '',
+        deliveryDate: '',
+        containerNo: '',
+        poNumber: '',
+        bolNumber: '',
+        returnDate: '',
+        returnLocation: '',
+        origins: [{
+          addressLine1: '',
+          addressLine2: '',
+          city: '',
+          state: '',
+          zip: '',
+          weight: '',
+          commodity: '',
+          pickupDate: '',
+          deliveryDate: ''
+        }],
+        destinations: [{
+          addressLine1: '',
+          addressLine2: '',
+          city: '',
+          state: '',
+          zip: '',
+          weight: '',
+          commodity: '',
+          deliveryDate: ''
+        }]
+      });
+    }
+    setErrors({});
   };
 
   const handleSubmit = async (e) => {
-    // alert('Form submit triggered');
     console.log('Form submit triggered', form);
     e.preventDefault();
     const newErrors = {};
-    // Required fields ki list bana le, loadType ke hisaab se
-    const requiredFields = [
-      'weight', 'vehicleType', 'commodity', 'fromCity', 'fromState', 'toCity', 'toState', 'pickupDate', 'dropDate', 'price'
-    ];
-    requiredFields.forEach(field => {
-      if (!form[field]) newErrors[field] = true;
-    });
+    
+    // Validate based on load type
+    if (form.loadType === 'DRAYAGE') {
+      const requiredFields = ['fromAddress', 'fromCity', 'fromState', 'toAddress', 'toCity', 'toState', 'weight', 'commodity', 'vehicleType', 'pickupDate', 'deliveryDate', 'rate', 'returnDate', 'returnLocation'];
+      requiredFields.forEach(field => {
+        if (!form[field]) newErrors[field] = true;
+      });
+    } else if (form.loadType === 'OTR') {
+      const requiredFields = ['vehicleType', 'rate'];
+      requiredFields.forEach(field => {
+        if (!form[field]) newErrors[field] = true;
+      });
+      
+      // Validate origins
+      if (!form.origins || form.origins.length === 0) {
+        newErrors.origins = true;
+      } else {
+        form.origins.forEach((origin, index) => {
+          const requiredOriginFields = ['addressLine1', 'city', 'weight', 'commodity', 'pickupDate'];
+          requiredOriginFields.forEach(field => {
+            if (!origin[field]) {
+              newErrors[`origin_${index}_${field}`] = true;
+            }
+          });
+        });
+      }
+      
+      // Validate destinations
+      if (!form.destinations || form.destinations.length === 0) {
+        newErrors.destinations = true;
+      } else {
+        form.destinations.forEach((destination, index) => {
+          const requiredDestinationFields = ['addressLine1', 'city', 'weight', 'commodity', 'deliveryDate'];
+          requiredDestinationFields.forEach(field => {
+            if (!destination[field]) {
+              newErrors[`destination_${index}_${field}`] = true;
+            }
+          });
+        });
+      }
+    }
+    
     setErrors(newErrors);
     if (Object.keys(newErrors).length === 0) {
-      // Map form data to API fields
-      const payload = {
-        fromAddressLine1: form.fromCity,
-        fromAddressLine2: '',
-        fromCity: form.fromCity,
-        fromState: form.fromState,
-        toAddressLine1: form.toCity,
-        toAddressLine2: '',
-        toCity: form.toCity,
-        toState: form.toState,
-        weight: Number(form.weight),
-        commodity: form.commodity,
-        vehicleType: form.vehicleType,
-        pickupDate: form.pickupDate,
-        deliveryDate: form.dropDate,
-        rate: Number(form.price),
-        rateType: form.rateType,
-        bidDeadline: form.bidDeadline,
-        loadType: form.loadType,
-        containerNo: form.containerNo || '',
-        poNumber: form.poNumber || '',
-        bolNumber: form.bolNumber || ''
-      };
+      // Create payload based on load type
+      let payload;
+      
+      if (form.loadType === 'DRAYAGE') {
+        payload = {
+          loadType: 'DRAYAGE',
+          fromAddress: form.fromAddress,
+          fromCity: form.fromCity,
+          fromState: form.fromState,
+          toAddress: form.toAddress,
+          toCity: form.toCity,
+          toState: form.toState,
+          weight: Number(form.weight),
+          commodity: form.commodity,
+          vehicleType: form.vehicleType,
+          pickupDate: form.pickupDate,
+          deliveryDate: form.deliveryDate,
+          rate: Number(form.rate),
+          rateType: form.rateType || 'Flat Rate',
+          bidDeadline: form.bidDeadline || '',
+          containerNo: form.containerNo || '',
+          poNumber: form.poNumber || '',
+          bolNumber: form.bolNumber || '',
+          returnDate: form.returnDate,
+          returnLocation: form.returnLocation
+        };
+      } else {
+        payload = {
+          loadType: 'OTR',
+          vehicleType: form.vehicleType,
+          rate: Number(form.rate),
+          rateType: form.rateType || 'Flat Rate',
+          bidDeadline: form.bidDeadline || '',
+          origins: form.origins.map(origin => ({
+            addressLine1: origin.addressLine1,
+            addressLine2: origin.addressLine2 || '',
+            city: origin.city,
+            state: origin.state || '',
+            zip: origin.zip || '',
+            weight: Number(origin.weight),
+            commodity: origin.commodity,
+            pickupDate: origin.pickupDate,
+            deliveryDate: origin.deliveryDate || ''
+          })),
+          destinations: form.destinations.map(destination => ({
+            addressLine1: destination.addressLine1,
+            addressLine2: destination.addressLine2 || '',
+            city: destination.city,
+            state: destination.state || '',
+            zip: destination.zip || '',
+            weight: Number(destination.weight),
+            commodity: destination.commodity,
+            deliveryDate: destination.deliveryDate
+          }))
+        };
+      }
              try {
          const token = localStorage.getItem('token');
          await axios.post(`${BASE_API_URL}/api/v1/load/create`, payload, {
@@ -489,24 +687,47 @@ const LoadBoard = () => {
          handleCloseModal();
          // Reset form
          setForm({
+           loadType: 'OTR',
+           vehicleType: '',
+           rate: '',
+           rateType: 'Flat Rate',
+           bidDeadline: '',
+           fromAddress: '',
            fromCity: '',
            fromState: '',
+           toAddress: '',
            toCity: '',
            toState: '',
-           pickupDate: '',
-           dropDate: '',
-           vehicleType: '',
-           commodity: '',
            weight: '',
+           commodity: '',
+           pickupDate: '',
+           deliveryDate: '',
            containerNo: '',
            poNumber: '',
            bolNumber: '',
-           price: '',
            returnDate: '',
-           drayageLocation: '',
-           rateType: '',
-           bidDeadline: '',
-           loadType: '',
+           returnLocation: '',
+           origins: [{
+             addressLine1: '',
+             addressLine2: '',
+             city: '',
+             state: '',
+             zip: '',
+             weight: '',
+             commodity: '',
+             pickupDate: '',
+             deliveryDate: ''
+           }],
+           destinations: [{
+             addressLine1: '',
+             addressLine2: '',
+             city: '',
+             state: '',
+             zip: '',
+             weight: '',
+             commodity: '',
+             deliveryDate: ''
+           }]
          });
          setErrors({});
          // Refresh loads
@@ -707,10 +928,10 @@ const LoadBoard = () => {
   const handleEditLoad = (load) => {
     setSelectedLoad(load);
     setEditForm({
-      fromCity: load.origin?.city || '',
-      fromState: load.origin?.state || '',
-      toCity: load.destination?.city || '',
-      toState: load.destination?.state || '',
+      fromCity: (load.origins && load.origins.length > 0) ? load.origins[0].city || '' : load.origin?.city || '',
+      fromState: (load.origins && load.origins.length > 0) ? load.origins[0].state || '' : load.origin?.state || '',
+      toCity: (load.destinations && load.destinations.length > 0) ? load.destinations[0].city || '' : load.destination?.city || '',
+      toState: (load.destinations && load.destinations.length > 0) ? load.destinations[0].state || '' : load.destination?.state || '',
       pickupDate: load.pickupDate ? new Date(load.pickupDate).toISOString().split('T')[0] : '',
       deliveryDate: load.deliveryDate ? new Date(load.deliveryDate).toISOString().split('T')[0] : '',
       weight: load.weight || '',
@@ -724,7 +945,7 @@ const LoadBoard = () => {
       bolNumber: load.bolNumber || '',
       notes: load.notes || '',
       returnDate: load.returnDate ? new Date(load.returnDate).toISOString().split('T')[0] : '',
-      drayageLocation: load.drayageLocation || ''
+      returnLocation: load.returnLocation || ''
     });
     setEditErrors({});
     setEditModalOpen(true);
@@ -751,7 +972,7 @@ const LoadBoard = () => {
       bolNumber: '',
       notes: '',
       returnDate: '',
-      drayageLocation: ''
+      returnLocation: ''
     });
     setEditErrors({});
   };
@@ -790,22 +1011,23 @@ const LoadBoard = () => {
     try {
       const token = localStorage.getItem('token');
       const updateData = {
+        loadType: editForm.loadType,
         fromCity: editForm.fromCity,
         fromState: editForm.fromState,
         toCity: editForm.toCity,
         toState: editForm.toState,
         pickupDate: new Date(editForm.pickupDate).toISOString(),
         deliveryDate: new Date(editForm.deliveryDate).toISOString(),
-        weight: editForm.weight,
+        weight: Number(editForm.weight),
         commodity: editForm.commodity,
         vehicleType: editForm.vehicleType,
-        rate: editForm.rate,
+        rate: Number(editForm.rate),
         rateType: editForm.rateType,
-        loadType: editForm.loadType,
-        containerNo: editForm.containerNo,
-        poNumber: editForm.poNumber,
-        bolNumber: editForm.bolNumber,
-        notes: editForm.notes
+        containerNo: editForm.containerNo || '',
+        poNumber: editForm.poNumber || '',
+        bolNumber: editForm.bolNumber || '',
+        returnDate: editForm.returnDate ? new Date(editForm.returnDate).toISOString() : '',
+        returnLocation: editForm.returnLocation || ''
       };
 
       const response = await axios.put(
@@ -943,7 +1165,7 @@ const LoadBoard = () => {
 
   // Apply suggested rate to form
   const applySuggestedRate = (rate) => {
-    setForm({ ...form, price: rate });
+    setForm({ ...form, rate: rate });
     setShowRateSuggestions(false);
   };
 
@@ -1348,8 +1570,18 @@ const LoadBoard = () => {
                      <TableCell>{load._id ? `L-${load._id.slice(-4)}` : '-'}</TableCell>
                      <TableCell>{load.shipmentNumber}</TableCell>
                      <TableCell>{load.weight !== undefined && load.weight !== null && load.weight !== '' ? `${load.weight} Kg` : '-'}</TableCell>
-                     <TableCell>{(load.origin && load.origin.city) ? load.origin.city : '-'}</TableCell>
-                     <TableCell>{(load.destination && load.destination.city) ? load.destination.city : '-'}</TableCell>
+                     <TableCell>
+                       {load.origins && load.origins.length > 0 
+                         ? load.origins[0].city || '-'
+                         : (load.origin && load.origin.city) ? load.origin.city : '-'
+                       }
+                     </TableCell>
+                     <TableCell>
+                       {load.destinations && load.destinations.length > 0 
+                         ? load.destinations[0].city || '-'
+                         : (load.destination && load.destination.city) ? load.destination.city : '-'
+                       }
+                     </TableCell>
                      <TableCell>{load.vehicleType || '-'}</TableCell>
                      <TableCell>
                        <Chip label={load.status || '-'} color={getStatusColor(load.status || '')} size="small" />
@@ -1488,8 +1720,8 @@ const LoadBoard = () => {
                  OTR
                </Button>
                <Button
-                 variant={loadType === 'Drayage' ? 'contained' : 'outlined'}
-                 onClick={() => handleLoadTypeChange('Drayage')}
+                 variant={loadType === 'DRAYAGE' ? 'contained' : 'outlined'}
+                 onClick={() => handleLoadTypeChange('DRAYAGE')}
               sx={{ 
                 borderRadius: 3, 
                 minWidth: 80,
@@ -1498,7 +1730,7 @@ const LoadBoard = () => {
                 py: 1,
                 px: 2,
                 fontSize: '0.9rem',
-                ...(loadType === 'Drayage' ? {
+                ...(loadType === 'DRAYAGE' ? {
                   background: 'linear-gradient(45deg, #1976d2, #42a5f5)',
                   '&:hover': { background: 'linear-gradient(45deg, #1565c0, #1976d2)' }
                 } : {
@@ -1509,7 +1741,7 @@ const LoadBoard = () => {
                 })
               }}
                >
-                 Drayage
+                 DRAYAGE
                </Button>
              </Stack>
         </DialogTitle>
@@ -1520,174 +1752,182 @@ const LoadBoard = () => {
             {/* Form Sections */}
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
               
-              {/* Pick Up Location Section */}
-              <Paper elevation={2} sx={{ 
-                p: 3, 
-                borderRadius: 3,
-                background: 'white',
-                border: '1px solid #e0e0e0'
-              }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-                  <Box sx={{ 
-                    p: 1.5, 
-                    borderRadius: 2, 
-                    background: 'linear-gradient(135deg, #e3f2fd, #bbdefb)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
+              {/* DRAYAGE Location Section - Only for DRAYAGE */}
+              {loadType === 'DRAYAGE' && (
+                <>
+                  {/* Pick Up Location Section */}
+                  <Paper elevation={2} sx={{ 
+                    p: 3, 
+                    borderRadius: 3,
+                    background: 'white',
+                    border: '1px solid #e0e0e0'
                   }}>
-                    <LocationOn sx={{ color: '#1976d2', fontSize: 24 }} />
-                  </Box>
-                  <Typography variant="h6" sx={{ fontWeight: 600, color: '#1976d2' }}>
-                    Pick Up Location
-                  </Typography>
-                </Box>
-                
-                <Grid container spacing={3}>
-                  <Grid item xs={12}>
-                <TextField
-                      label="Pick-up Address *"
-                  name="fromCity"
-                  value={form.fromCity}
-                  onChange={handleFormChange}
-                  fullWidth
-                  error={!!errors.fromCity}
-                      placeholder="Enter ZIP code or full address..."
-                  sx={{
-                    '& .MuiInputBase-root': {
-                          borderRadius: 2,
-                          backgroundColor: '#f8f9fa',
-                          '&:hover': { backgroundColor: '#e9ecef' },
-                          '&.Mui-focused': { backgroundColor: 'white' }
-                    },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                      label="City"
-                      name="fromCity"
-                      value={form.fromCity}
-                      onChange={handleFormChange}
-                      fullWidth
-                      placeholder="Auto filled from ZIP (editable)"
-                      sx={{
-                        '& .MuiInputBase-root': {
-                          borderRadius: 2,
-                          backgroundColor: '#f8f9fa',
-                          '&:hover': { backgroundColor: '#e9ecef' },
-                          '&.Mui-focused': { backgroundColor: 'white' }
-                        },
-                      }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      label="State *"
-                  name="fromState"
-                  value={form.fromState}
-                  onChange={handleFormChange}
-                  fullWidth
-                  error={!!errors.fromState}
-                      placeholder="Auto filled from ZIP (editable, e.g., NJ)"
-                  sx={{
-                    '& .MuiInputBase-root': {
-                          borderRadius: 2,
-                          backgroundColor: '#f8f9fa',
-                          '&:hover': { backgroundColor: '#e9ecef' },
-                          '&.Mui-focused': { backgroundColor: 'white' }
-                    },
-                  }}
-                />
-              </Grid>
-                </Grid>
-              </Paper>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                      <Box sx={{ 
+                        p: 1.5, 
+                        borderRadius: 2, 
+                        background: 'linear-gradient(135deg, #e3f2fd, #bbdefb)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}>
+                        <LocationOn sx={{ color: '#1976d2', fontSize: 24 }} />
+                      </Box>
+                      <Typography variant="h6" sx={{ fontWeight: 600, color: '#1976d2' }}>
+                        Pick Up Location
+                      </Typography>
+                    </Box>
+                    
+                    <Grid container spacing={3}>
+                      <Grid item xs={12}>
+                        <TextField
+                          label="Address *"
+                          name="fromAddress"
+                          value={form.fromAddress}
+                          onChange={handleFormChange}
+                          fullWidth
+                          error={!!errors.fromAddress}
+                          placeholder="Enter full address"
+                          sx={{
+                            '& .MuiInputBase-root': {
+                              borderRadius: 2,
+                              backgroundColor: '#f8f9fa',
+                              '&:hover': { backgroundColor: '#e9ecef' },
+                              '&.Mui-focused': { backgroundColor: 'white' }
+                            },
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          label="City *"
+                          name="fromCity"
+                          value={form.fromCity}
+                          onChange={handleFormChange}
+                          fullWidth
+                          error={!!errors.fromCity}
+                          placeholder="Enter city name"
+                          sx={{
+                            '& .MuiInputBase-root': {
+                              borderRadius: 2,
+                              backgroundColor: '#f8f9fa',
+                              '&:hover': { backgroundColor: '#e9ecef' },
+                              '&.Mui-focused': { backgroundColor: 'white' }
+                            },
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          label="State *"
+                          name="fromState"
+                          value={form.fromState}
+                          onChange={handleFormChange}
+                          fullWidth
+                          error={!!errors.fromState}
+                          placeholder="Enter state"
+                          sx={{
+                            '& .MuiInputBase-root': {
+                              borderRadius: 2,
+                              backgroundColor: '#f8f9fa',
+                              '&:hover': { backgroundColor: '#e9ecef' },
+                              '&.Mui-focused': { backgroundColor: 'white' }
+                            },
+                          }}
+                        />
+                      </Grid>
+                    </Grid>
+                  </Paper>
 
-              {/* Loading/Unloading Section */}
-              <Paper elevation={2} sx={{ 
-                p: 3, 
-                borderRadius: 3,
-                background: 'white',
-                border: '1px solid #e0e0e0'
-              }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-                  <Box sx={{ 
-                    p: 1.5, 
-                    borderRadius: 2, 
-                    background: 'linear-gradient(135deg, #e8f5e8, #c8e6c9)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
+                  {/* Delivery Location Section */}
+                  <Paper elevation={2} sx={{ 
+                    p: 3, 
+                    borderRadius: 3,
+                    background: 'white',
+                    border: '1px solid #e0e0e0'
                   }}>
-                    <LocalShipping sx={{ color: '#2e7d32', fontSize: 24 }} />
-                  </Box>
-                  <Typography variant="h6" sx={{ fontWeight: 600, color: '#2e7d32' }}>
-                    Loading/Unloading
-                  </Typography>
-                </Box>
-                
-                <Grid container spacing={3}>
-                  <Grid item xs={12}>
-                <TextField
-                      label="Loading/Unloading Address *"
-                  name="toCity"
-                  value={form.toCity}
-                  onChange={handleFormChange}
-                  fullWidth
-                  error={!!errors.toCity}
-                      placeholder="Enter ZIP code or full address..."
-                  sx={{
-                    '& .MuiInputBase-root': {
-                          borderRadius: 2,
-                          backgroundColor: '#f8f9fa',
-                          '&:hover': { backgroundColor: '#e9ecef' },
-                          '&.Mui-focused': { backgroundColor: 'white' }
-                    },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                      label="City"
-                      name="toCity"
-                      value={form.toCity}
-                      onChange={handleFormChange}
-                      fullWidth
-                      placeholder="Auto filled from ZIP (editable)"
-                      sx={{
-                        '& .MuiInputBase-root': {
-                          borderRadius: 2,
-                          backgroundColor: '#f8f9fa',
-                          '&:hover': { backgroundColor: '#e9ecef' },
-                          '&.Mui-focused': { backgroundColor: 'white' }
-                        },
-                      }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      label="State *"
-                  name="toState"
-                  value={form.toState}
-                  onChange={handleFormChange}
-                  fullWidth
-                  error={!!errors.toState}
-                      placeholder="Auto filled from ZIP (editable, e.g., AZ)"
-                  sx={{
-                    '& .MuiInputBase-root': {
-                          borderRadius: 2,
-                          backgroundColor: '#f8f9fa',
-                          '&:hover': { backgroundColor: '#e9ecef' },
-                          '&.Mui-focused': { backgroundColor: 'white' }
-                    },
-                  }}
-                />
-              </Grid>
-                </Grid>
-              </Paper>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                      <Box sx={{ 
+                        p: 1.5, 
+                        borderRadius: 2, 
+                        background: 'linear-gradient(135deg, #e8f5e8, #c8e6c9)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}>
+                        <LocalShipping sx={{ color: '#2e7d32', fontSize: 24 }} />
+                      </Box>
+                      <Typography variant="h6" sx={{ fontWeight: 600, color: '#2e7d32' }}>
+                        
+Loading/Unloading Location
+                      </Typography>
+                    </Box>
+                    
+                    <Grid container spacing={3}>
+                      <Grid item xs={12}>
+                        <TextField
+                          label="Address *"
+                          name="toAddress"
+                          value={form.toAddress}
+                          onChange={handleFormChange}
+                          fullWidth
+                          error={!!errors.toAddress}
+                          placeholder="Enter full address"
+                          sx={{
+                            '& .MuiInputBase-root': {
+                              borderRadius: 2,
+                              backgroundColor: '#f8f9fa',
+                              '&:hover': { backgroundColor: '#e9ecef' },
+                              '&.Mui-focused': { backgroundColor: 'white' }
+                            },
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          label="City *"
+                          name="toCity"
+                          value={form.toCity}
+                          onChange={handleFormChange}
+                          fullWidth
+                          error={!!errors.toCity}
+                          placeholder="Enter city name"
+                          sx={{
+                            '& .MuiInputBase-root': {
+                              borderRadius: 2,
+                              backgroundColor: '#f8f9fa',
+                              '&:hover': { backgroundColor: '#e9ecef' },
+                              '&.Mui-focused': { backgroundColor: 'white' }
+                            },
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          label="State *"
+                          name="toState"
+                          value={form.toState}
+                          onChange={handleFormChange}
+                          fullWidth
+                          error={!!errors.toState}
+                          placeholder="Enter state"
+                          sx={{
+                            '& .MuiInputBase-root': {
+                              borderRadius: 2,
+                              backgroundColor: '#f8f9fa',
+                              '&:hover': { backgroundColor: '#e9ecef' },
+                              '&.Mui-focused': { backgroundColor: 'white' }
+                            },
+                          }}
+                        />
+                      </Grid>
+                    </Grid>
+                  </Paper>
+                </>
+              )}
 
-              {/* Return Details Section - Only for Drayage */}
-              {loadType === 'Drayage' && (
+              {/* Return Details Section - Only for DRAYAGE */}
+              {loadType === 'DRAYAGE' && (
                 <Paper elevation={2} sx={{ 
                   p: 3, 
                   borderRadius: 3,
@@ -1706,7 +1946,8 @@ const LoadBoard = () => {
                       <Assignment sx={{ color: '#f57c00', fontSize: 24 }} />
                     </Box>
                     <Typography variant="h6" sx={{ fontWeight: 600, color: '#f57c00' }}>
-                      Return Details
+                      
+Drayage Details
                     </Typography>
                   </Box>
                   
@@ -1733,8 +1974,8 @@ const LoadBoard = () => {
               <Grid item xs={12} sm={6}>
                 <TextField
                         label="Return Location *"
-                        name="drayageLocation"
-                        value={form.drayageLocation}
+                        name="returnLocation"
+                        value={form.returnLocation}
                   onChange={handleFormChange}
                   fullWidth
                         placeholder="Enter Return Location"
@@ -1751,7 +1992,542 @@ const LoadBoard = () => {
                   </Grid>
                 </Paper>
               )}
+{/* OTR Origins and Destinations - Only for OTR */}
+{loadType === 'OTR' && (
+                <>
+                  {/* Origins Section */}
+                  <Paper elevation={2} sx={{ 
+                    p: 3, 
+                    borderRadius: 3,
+                    background: 'white',
+                    border: '1px solid #e0e0e0'
+                  }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                      <Box sx={{ 
+                        p: 1.5, 
+                        borderRadius: 2, 
+                        background: 'linear-gradient(135deg, #e3f2fd, #bbdefb)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}>
+                        <LocationOn sx={{ color: '#1976d2', fontSize: 24 }} />
+                      </Box>
+                      <Typography variant="h6" sx={{ fontWeight: 600, color: '#1976d2' }}>
+                      Location Details
+                      </Typography>
+                    </Box>
+                    
+                    {form.origins.map((origin, index) => (
+                      <Box key={index} sx={{ mb: 3, p: 2, border: '1px solid #e0e0e0', borderRadius: 2 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                            Pickup Locations {index + 1}
+                          </Typography>
+                          {form.origins.length > 1 && (
+                            <Button
+                              variant="outlined"
+                              color="error"
+                              size="small"
+                              startIcon={<Delete />}
+                              onClick={() => {
+                                const newOrigins = form.origins.filter((_, i) => i !== index);
+                                setForm({ ...form, origins: newOrigins });
+                              }}
+                              sx={{ 
+                                minWidth: 'auto',
+                                px: 1,
+                                py: 0.5,
+                                fontSize: '0.75rem'
+                              }}
+                            >
+                              Delete
+                            </Button>
+                          )}
+                        </Box>
+                        <Grid container spacing={2}>
+                          <Grid item xs={12}>
+                            <TextField
+                              label="Address Line 1 *"
+                              name={`origins[${index}].addressLine1`}
+                              value={origin.addressLine1}
+                              onChange={(e) => {
+                                const newOrigins = [...form.origins];
+                                newOrigins[index].addressLine1 = e.target.value;
+                                setForm({ ...form, origins: newOrigins });
+                              }}
+                              fullWidth
+                              error={!!errors[`origin_${index}_addressLine1`]}
+                              sx={{
+                                '& .MuiInputBase-root': {
+                                  borderRadius: 2,
+                                  backgroundColor: '#f8f9fa',
+                                  '&:hover': { backgroundColor: '#e9ecef' },
+                                  '&.Mui-focused': { backgroundColor: 'white' }
+                                },
+                              }}
+                            />
+                          </Grid>
+                          <Grid item xs={12}>
+                            <TextField
+                              label="Address Line 2"
+                              name={`origins[${index}].addressLine2`}
+                              value={origin.addressLine2}
+                              onChange={(e) => {
+                                const newOrigins = [...form.origins];
+                                newOrigins[index].addressLine2 = e.target.value;
+                                setForm({ ...form, origins: newOrigins });
+                              }}
+                              fullWidth
+                              sx={{
+                                '& .MuiInputBase-root': {
+                                  borderRadius: 2,
+                                  backgroundColor: '#f8f9fa',
+                                  '&:hover': { backgroundColor: '#e9ecef' },
+                                  '&.Mui-focused': { backgroundColor: 'white' }
+                                },
+                              }}
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <TextField
+                              label="City *"
+                              name={`origins[${index}].city`}
+                              value={origin.city}
+                              onChange={(e) => {
+                                const newOrigins = [...form.origins];
+                                newOrigins[index].city = e.target.value;
+                                setForm({ ...form, origins: newOrigins });
+                              }}
+                              fullWidth
+                              error={!!errors[`origin_${index}_city`]}
+                              sx={{
+                                '& .MuiInputBase-root': {
+                                  borderRadius: 2,
+                                  backgroundColor: '#f8f9fa',
+                                  '&:hover': { backgroundColor: '#e9ecef' },
+                                  '&.Mui-focused': { backgroundColor: 'white' }
+                                },
+                              }}
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <TextField
+                              label="State"
+                              name={`origins[${index}].state`}
+                              value={origin.state}
+                              onChange={(e) => {
+                                const newOrigins = [...form.origins];
+                                newOrigins[index].state = e.target.value;
+                                setForm({ ...form, origins: newOrigins });
+                              }}
+                              fullWidth
+                              sx={{
+                                '& .MuiInputBase-root': {
+                                  borderRadius: 2,
+                                  backgroundColor: '#f8f9fa',
+                                  '&:hover': { backgroundColor: '#e9ecef' },
+                                  '&.Mui-focused': { backgroundColor: 'white' }
+                                },
+                              }}
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <TextField
+                              label="ZIP"
+                              name={`origins[${index}].zip`}
+                              value={origin.zip}
+                              onChange={(e) => {
+                                const newOrigins = [...form.origins];
+                                newOrigins[index].zip = e.target.value;
+                                setForm({ ...form, origins: newOrigins });
+                              }}
+                              fullWidth
+                              sx={{
+                                '& .MuiInputBase-root': {
+                                  borderRadius: 2,
+                                  backgroundColor: '#f8f9fa',
+                                  '&:hover': { backgroundColor: '#e9ecef' },
+                                  '&.Mui-focused': { backgroundColor: 'white' }
+                                },
+                              }}
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <TextField
+                              label="Weight (lbs) *"
+                              name={`origins[${index}].weight`}
+                              value={origin.weight}
+                              onChange={(e) => {
+                                const newOrigins = [...form.origins];
+                                newOrigins[index].weight = e.target.value;
+                                setForm({ ...form, origins: newOrigins });
+                              }}
+                              fullWidth
+                              error={!!errors[`origin_${index}_weight`]}
+                              InputProps={{
+                                startAdornment: <Scale sx={{ color: '#666' }} />
+                              }}
+                              sx={{
+                                '& .MuiInputBase-root': {
+                                  borderRadius: 2,
+                                  backgroundColor: '#f8f9fa',
+                                  '&:hover': { backgroundColor: '#e9ecef' },
+                                  '&.Mui-focused': { backgroundColor: 'white' }
+                                },
+                              }}
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <TextField
+                              label="Commodity *"
+                              name={`origins[${index}].commodity`}
+                              value={origin.commodity}
+                              onChange={(e) => {
+                                const newOrigins = [...form.origins];
+                                newOrigins[index].commodity = e.target.value;
+                                setForm({ ...form, origins: newOrigins });
+                              }}
+                              fullWidth
+                              error={!!errors[`origin_${index}_commodity`]}
+                              sx={{
+                                '& .MuiInputBase-root': {
+                                  borderRadius: 2,
+                                  backgroundColor: '#f8f9fa',
+                                  '&:hover': { backgroundColor: '#e9ecef' },
+                                  '&.Mui-focused': { backgroundColor: 'white' }
+                                },
+                              }}
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <TextField
+                              type="date"
+                              label="Pickup Date *"
+                              name={`origins[${index}].pickupDate`}
+                              value={origin.pickupDate}
+                              onChange={(e) => {
+                                const newOrigins = [...form.origins];
+                                newOrigins[index].pickupDate = e.target.value;
+                                setForm({ ...form, origins: newOrigins });
+                              }}
+                              fullWidth
+                              error={!!errors[`origin_${index}_pickupDate`]}
+                              InputLabelProps={{ shrink: true }}
+                              sx={{
+                                '& .MuiInputBase-root': {
+                                  borderRadius: 2,
+                                  backgroundColor: '#f8f9fa',
+                                  '&:hover': { backgroundColor: '#e9ecef' },
+                                  '&.Mui-focused': { backgroundColor: 'white' }
+                                },
+                              }}
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <TextField
+                              type="date"
+                              label="Delivery Date"
+                              name={`origins[${index}].deliveryDate`}
+                              value={origin.deliveryDate}
+                              onChange={(e) => {
+                                const newOrigins = [...form.origins];
+                                newOrigins[index].deliveryDate = e.target.value;
+                                setForm({ ...form, origins: newOrigins });
+                              }}
+                              fullWidth
+                              InputLabelProps={{ shrink: true }}
+                              sx={{
+                                '& .MuiInputBase-root': {
+                                  borderRadius: 2,
+                                  backgroundColor: '#f8f9fa',
+                                  '&:hover': { backgroundColor: '#e9ecef' },
+                                  '&.Mui-focused': { backgroundColor: 'white' }
+                                },
+                              }}
+                            />
+                          </Grid>
+                        </Grid>
+                      </Box>
+                    ))}
+                    
+                    <Button
+                      variant="outlined"
+                      onClick={() => {
+                        const newOrigins = [...form.origins, {
+                          addressLine1: '',
+                          addressLine2: '',
+                          city: '',
+                          state: '',
+                          zip: '',
+                          weight: '',
+                          commodity: '',
+                          pickupDate: '',
+                          deliveryDate: ''
+                        }];
+                        setForm({ ...form, origins: newOrigins });
+                      }}
+                      sx={{ mt: 2 }}
+                    >
+                      Add Pickup Location
+                    </Button>
+                  </Paper>
 
+                  {/* Destinations Section */}
+                  <Paper elevation={2} sx={{ 
+                    p: 3, 
+                    borderRadius: 3,
+                    background: 'white',
+                    border: '1px solid #e0e0e0'
+                  }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                      <Box sx={{ 
+                        p: 1.5, 
+                        borderRadius: 2, 
+                        background: 'linear-gradient(135deg, #e8f5e8, #c8e6c9)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}>
+                        <LocalShipping sx={{ color: '#2e7d32', fontSize: 24 }} />
+                      </Box>
+                      <Typography variant="h6" sx={{ fontWeight: 600, color: '#2e7d32' }}>
+                      Delivery Locations
+                      </Typography>
+                    </Box>
+                    
+                    {form.destinations.map((destination, index) => (
+                      <Box key={index} sx={{ mb: 3, p: 2, border: '1px solid #e0e0e0', borderRadius: 2 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                            Delivery Location {index + 1}
+                          </Typography>
+                          {form.destinations.length > 1 && (
+                            <Button
+                              variant="outlined"
+                              color="error"
+                              size="small"
+                              startIcon={<Delete />}
+                              onClick={() => {
+                                const newDestinations = form.destinations.filter((_, i) => i !== index);
+                                setForm({ ...form, destinations: newDestinations });
+                              }}
+                              sx={{ 
+                                minWidth: 'auto',
+                                px: 1,
+                                py: 0.5,
+                                fontSize: '0.75rem'
+                              }}
+                            >
+                              Delete
+                            </Button>
+                          )}
+                        </Box>
+                        <Grid container spacing={2}>
+                          <Grid item xs={12}>
+                            <TextField
+                              label="Address Line 1 *"
+                              name={`destinations[${index}].addressLine1`}
+                              value={destination.addressLine1}
+                              onChange={(e) => {
+                                const newDestinations = [...form.destinations];
+                                newDestinations[index].addressLine1 = e.target.value;
+                                setForm({ ...form, destinations: newDestinations });
+                              }}
+                              fullWidth
+                              error={!!errors[`destination_${index}_addressLine1`]}
+                              sx={{
+                                '& .MuiInputBase-root': {
+                                  borderRadius: 2,
+                                  backgroundColor: '#f8f9fa',
+                                  '&:hover': { backgroundColor: '#e9ecef' },
+                                  '&.Mui-focused': { backgroundColor: 'white' }
+                                },
+                              }}
+                            />
+                          </Grid>
+                          <Grid item xs={12}>
+                            <TextField
+                              label="Address Line 2"
+                              name={`destinations[${index}].addressLine2`}
+                              value={destination.addressLine2}
+                              onChange={(e) => {
+                                const newDestinations = [...form.destinations];
+                                newDestinations[index].addressLine2 = e.target.value;
+                                setForm({ ...form, destinations: newDestinations });
+                              }}
+                              fullWidth
+                              sx={{
+                                '& .MuiInputBase-root': {
+                                  borderRadius: 2,
+                                  backgroundColor: '#f8f9fa',
+                                  '&:hover': { backgroundColor: '#e9ecef' },
+                                  '&.Mui-focused': { backgroundColor: 'white' }
+                                },
+                              }}
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <TextField
+                              label="City *"
+                              name={`destinations[${index}].city`}
+                              value={destination.city}
+                              onChange={(e) => {
+                                const newDestinations = [...form.destinations];
+                                newDestinations[index].city = e.target.value;
+                                setForm({ ...form, destinations: newDestinations });
+                              }}
+                              fullWidth
+                              error={!!errors[`destination_${index}_city`]}
+                              sx={{
+                                '& .MuiInputBase-root': {
+                                  borderRadius: 2,
+                                  backgroundColor: '#f8f9fa',
+                                  '&:hover': { backgroundColor: '#e9ecef' },
+                                  '&.Mui-focused': { backgroundColor: 'white' }
+                                },
+                              }}
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <TextField
+                              label="State"
+                              name={`destinations[${index}].state`}
+                              value={destination.state}
+                              onChange={(e) => {
+                                const newDestinations = [...form.destinations];
+                                newDestinations[index].state = e.target.value;
+                                setForm({ ...form, destinations: newDestinations });
+                              }}
+                              fullWidth
+                              sx={{
+                                '& .MuiInputBase-root': {
+                                  borderRadius: 2,
+                                  backgroundColor: '#f8f9fa',
+                                  '&:hover': { backgroundColor: '#e9ecef' },
+                                  '&.Mui-focused': { backgroundColor: 'white' }
+                                },
+                              }}
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <TextField
+                              label="ZIP"
+                              name={`destinations[${index}].zip`}
+                              value={destination.zip}
+                              onChange={(e) => {
+                                const newDestinations = [...form.destinations];
+                                newDestinations[index].zip = e.target.value;
+                                setForm({ ...form, destinations: newDestinations });
+                              }}
+                              fullWidth
+                              sx={{
+                                '& .MuiInputBase-root': {
+                                  borderRadius: 2,
+                                  backgroundColor: '#f8f9fa',
+                                  '&:hover': { backgroundColor: '#e9ecef' },
+                                  '&.Mui-focused': { backgroundColor: 'white' }
+                                },
+                              }}
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <TextField
+                              label="Weight (lbs) *"
+                              name={`destinations[${index}].weight`}
+                              value={destination.weight}
+                              onChange={(e) => {
+                                const newDestinations = [...form.destinations];
+                                newDestinations[index].weight = e.target.value;
+                                setForm({ ...form, destinations: newDestinations });
+                              }}
+                              fullWidth
+                              error={!!errors[`destination_${index}_weight`]}
+                              InputProps={{
+                                startAdornment: <Scale sx={{ color: '#666' }} />
+                              }}
+                              sx={{
+                                '& .MuiInputBase-root': {
+                                  borderRadius: 2,
+                                  backgroundColor: '#f8f9fa',
+                                  '&:hover': { backgroundColor: '#e9ecef' },
+                                  '&.Mui-focused': { backgroundColor: 'white' }
+                                },
+                              }}
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <TextField
+                              label="Commodity *"
+                              name={`destinations[${index}].commodity`}
+                              value={destination.commodity}
+                              onChange={(e) => {
+                                const newDestinations = [...form.destinations];
+                                newDestinations[index].commodity = e.target.value;
+                                setForm({ ...form, destinations: newDestinations });
+                              }}
+                              fullWidth
+                              error={!!errors[`destination_${index}_commodity`]}
+                              sx={{
+                                '& .MuiInputBase-root': {
+                                  borderRadius: 2,
+                                  backgroundColor: '#f8f9fa',
+                                  '&:hover': { backgroundColor: '#e9ecef' },
+                                  '&.Mui-focused': { backgroundColor: 'white' }
+                                },
+                              }}
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <TextField
+                              type="date"
+                              label="Delivery Date *"
+                              name={`destinations[${index}].deliveryDate`}
+                              value={destination.deliveryDate}
+                              onChange={(e) => {
+                                const newDestinations = [...form.destinations];
+                                newDestinations[index].deliveryDate = e.target.value;
+                                setForm({ ...form, destinations: newDestinations });
+                              }}
+                              fullWidth
+                              error={!!errors[`destination_${index}_deliveryDate`]}
+                              InputLabelProps={{ shrink: true }}
+                              sx={{
+                                '& .MuiInputBase-root': {
+                                  borderRadius: 2,
+                                  backgroundColor: '#f8f9fa',
+                                  '&:hover': { backgroundColor: '#e9ecef' },
+                                  '&.Mui-focused': { backgroundColor: 'white' }
+                                },
+                              }}
+                            />
+                          </Grid>
+                        </Grid>
+                      </Box>
+                    ))}
+                    
+                    <Button
+                      variant="outlined"
+                      onClick={() => {
+                        const newDestinations = [...form.destinations, {
+                          addressLine1: '',
+                          addressLine2: '',
+                          city: '',
+                          state: '',
+                          zip: '',
+                          weight: '',
+                          commodity: '',
+                          deliveryDate: ''
+                        }];
+                        setForm({ ...form, destinations: newDestinations });
+                      }}
+                      sx={{ mt: 2 }}
+                    >
+                      Add Delivery Location
+                    </Button>
+                  </Paper>
+                </>
+              )}
               {/* Load Details Section */}
               <Paper elevation={2} sx={{ 
                 p: 3, 
@@ -1776,168 +2552,41 @@ const LoadBoard = () => {
                 </Box>
                 
                 <Grid container spacing={3}>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                      label="Vehicle Type *"
-                  name="vehicleType"
-                  value={form.vehicleType}
-                  onChange={handleFormChange}
-                  fullWidth
-                  error={!!errors.vehicleType}
-                      placeholder="Search container type..."
-                  sx={{
-                    '& .MuiInputBase-root': {
+                  <Grid item xs={12} sm={6}>
+                    <FormControl fullWidth error={!!errors.vehicleType}>
+                      <InputLabel>Vehicle Type *</InputLabel>
+                      <Select
+                        name="vehicleType"
+                        value={form.vehicleType}
+                        onChange={handleFormChange}
+                        label="Vehicle Type *"
+                        sx={{
                           borderRadius: 2,
                           backgroundColor: '#f8f9fa',
                           '&:hover': { backgroundColor: '#e9ecef' },
                           '&.Mui-focused': { backgroundColor: 'white' }
-                    },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                      label="Target Rate ($)"
-                      name="price"
-                      value={form.price}
-                  onChange={handleFormChange}
-                  fullWidth
-                      error={!!errors.price}
-                      placeholder="e.g., 7500 or 7500/60"
+                        }}
+                      >
+                        {(loadType === 'DRAYAGE' ? DRAYAGE_VEHICLE_TYPES : OTR_VEHICLE_TYPES).map((type) => (
+                          <MenuItem key={type} value={type}>
+                            {type}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      label="Rate ($) *"
+                      name="rate"
+                      value={form.rate}
+                      onChange={handleFormChange}
+                      fullWidth
+                      error={!!errors.rate}
+                      placeholder="e.g., 7500"
                       InputProps={{
                         startAdornment: <AttachMoney sx={{ color: '#666' }} />
                       }}
-                  sx={{
-                    '& .MuiInputBase-root': {
-                          borderRadius: 2,
-                          backgroundColor: '#f8f9fa',
-                          '&:hover': { backgroundColor: '#e9ecef' },
-                          '&.Mui-focused': { backgroundColor: 'white' }
-                    },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                      label="Weight (lbs) *"
-                  name="weight"
-                  value={form.weight}
-                  onChange={handleFormChange}
-                  fullWidth
-                  error={!!errors.weight}
-                      placeholder="e.g., 75000"
-                      InputProps={{
-                        startAdornment: <Scale sx={{ color: '#666' }} />
-                      }}
-                  sx={{
-                    '& .MuiInputBase-root': {
-                          borderRadius: 2,
-                          backgroundColor: '#f8f9fa',
-                          '&:hover': { backgroundColor: '#e9ecef' },
-                          '&.Mui-focused': { backgroundColor: 'white' }
-                    },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                      label="Commodity *"
-                      name="commodity"
-                      value={form.commodity}
-                  onChange={handleFormChange}
-                  fullWidth
-                      error={!!errors.commodity}
-                      placeholder="e.g., Electronics, Furniture"
-                  sx={{
-                    '& .MuiInputBase-root': {
-                          borderRadius: 2,
-                          backgroundColor: '#f8f9fa',
-                          '&:hover': { backgroundColor: '#e9ecef' },
-                          '&.Mui-focused': { backgroundColor: 'white' }
-                    },
-                  }}
-                />
-              </Grid>
-                </Grid>
-              </Paper>
-
-
-
-
-
-              {/* Schedule & Timeline Section */}
-              <Paper elevation={2} sx={{ 
-                p: 3, 
-                borderRadius: 3,
-                background: 'white',
-                border: '1px solid #e0e0e0'
-              }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-                  <Box sx={{ 
-                    p: 1.5, 
-                    borderRadius: 2, 
-                    background: 'linear-gradient(135deg, #e8f5e8, #c8e6c9)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}>
-                    <CalendarToday sx={{ color: '#2e7d32', fontSize: 24 }} />
-                  </Box>
-                  <Typography variant="h6" sx={{ fontWeight: 600, color: '#2e7d32' }}>
-                    Schedule & Timeline
-                  </Typography>
-                </Box>
-                
-                <Grid container spacing={3}>
-                  <Grid item xs={12} sm={4}>
-                <TextField
-                      type="date"
-                      label="Pickup Date *"
-                      name="pickupDate"
-                      value={form.pickupDate}
-                  onChange={handleFormChange}
-                  fullWidth
-                      error={!!errors.pickupDate}
-                      InputLabelProps={{ shrink: true }}
-                  sx={{
-                    '& .MuiInputBase-root': {
-                          borderRadius: 2,
-                          backgroundColor: '#f8f9fa',
-                          '&:hover': { backgroundColor: '#e9ecef' },
-                          '&.Mui-focused': { backgroundColor: 'white' }
-                    },
-                  }}
-                />
-              </Grid>
-                  <Grid item xs={12} sm={4}>
-                <TextField
-                      type="date"
-                      label="Delivery Date *"
-                      name="dropDate"
-                      value={form.dropDate}
-                  onChange={handleFormChange}
-                  fullWidth
-                      error={!!errors.dropDate}
-                      InputLabelProps={{ shrink: true }}
-                  sx={{
-                    '& .MuiInputBase-root': {
-                          borderRadius: 2,
-                          backgroundColor: '#f8f9fa',
-                          '&:hover': { backgroundColor: '#e9ecef' },
-                          '&.Mui-focused': { backgroundColor: 'white' }
-                    },
-                  }}
-                />
-              </Grid>
-                  <Grid item xs={12} sm={4}>
-                    <TextField
-                      type="date"
-                      label="Bid Deadline *"
-                      name="bidDeadline"
-                      value={form.bidDeadline}
-                      onChange={handleFormChange}
-                      fullWidth
-                      InputLabelProps={{ shrink: true }}
                       sx={{
                         '& .MuiInputBase-root': {
                           borderRadius: 2,
@@ -1948,8 +2597,193 @@ const LoadBoard = () => {
                       }}
                     />
                   </Grid>
+                  {loadType === 'DRAYAGE' && (
+                    <>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          label="Weight (lbs) *"
+                          name="weight"
+                          value={form.weight}
+                          onChange={handleFormChange}
+                          fullWidth
+                          error={!!errors.weight}
+                          placeholder="e.g., 75000"
+                          InputProps={{
+                            startAdornment: <Scale sx={{ color: '#666' }} />
+                          }}
+                          sx={{
+                            '& .MuiInputBase-root': {
+                              borderRadius: 2,
+                              backgroundColor: '#f8f9fa',
+                              '&:hover': { backgroundColor: '#e9ecef' },
+                              '&.Mui-focused': { backgroundColor: 'white' }
+                            },
+                          }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          label="Commodity *"
+                          name="commodity"
+                          value={form.commodity}
+                          onChange={handleFormChange}
+                          fullWidth
+                          error={!!errors.commodity}
+                          placeholder="e.g., Electronics, Furniture"
+                          sx={{
+                            '& .MuiInputBase-root': {
+                              borderRadius: 2,
+                              backgroundColor: '#f8f9fa',
+                              '&:hover': { backgroundColor: '#e9ecef' },
+                              '&.Mui-focused': { backgroundColor: 'white' }
+                            },
+                          }}
+                        />
+                      </Grid>
+                    </>
+                  )}
                 </Grid>
               </Paper>
+
+
+
+
+
+              {/* Schedule & Timeline Section - Only for DRAYAGE */}
+              {loadType === 'DRAYAGE' && (
+                <Paper elevation={2} sx={{ 
+                  p: 3, 
+                  borderRadius: 3,
+                  background: 'white',
+                  border: '1px solid #e0e0e0'
+                }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                    <Box sx={{ 
+                      p: 1.5, 
+                      borderRadius: 2, 
+                      background: 'linear-gradient(135deg, #e8f5e8, #c8e6c9)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <CalendarToday sx={{ color: '#2e7d32', fontSize: 24 }} />
+                    </Box>
+                    <Typography variant="h6" sx={{ fontWeight: 600, color: '#2e7d32' }}>
+                      Schedule & Timeline
+                    </Typography>
+                  </Box>
+                  
+                  <Grid container spacing={3}>
+                    <Grid item xs={12} sm={4}>
+                      <TextField
+                        type="date"
+                        label="Pickup Date *"
+                        name="pickupDate"
+                        value={form.pickupDate}
+                        onChange={handleFormChange}
+                        fullWidth
+                        error={!!errors.pickupDate}
+                        InputLabelProps={{ shrink: true }}
+                        sx={{
+                          '& .MuiInputBase-root': {
+                            borderRadius: 2,
+                            backgroundColor: '#f8f9fa',
+                            '&:hover': { backgroundColor: '#e9ecef' },
+                            '&.Mui-focused': { backgroundColor: 'white' }
+                          },
+                        }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={4}>
+                      <TextField
+                        type="date"
+                        label="Delivery Date *"
+                        name="deliveryDate"
+                        value={form.deliveryDate}
+                        onChange={handleFormChange}
+                        fullWidth
+                        error={!!errors.deliveryDate}
+                        InputLabelProps={{ shrink: true }}
+                        sx={{
+                          '& .MuiInputBase-root': {
+                            borderRadius: 2,
+                            backgroundColor: '#f8f9fa',
+                            '&:hover': { backgroundColor: '#e9ecef' },
+                            '&.Mui-focused': { backgroundColor: 'white' }
+                          },
+                        }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={4}>
+                      <TextField
+                        type="date"
+                        label="Bid Deadline"
+                        name="bidDeadline"
+                        value={form.bidDeadline}
+                        onChange={handleFormChange}
+                        fullWidth
+                        InputLabelProps={{ shrink: true }}
+                        sx={{
+                          '& .MuiInputBase-root': {
+                            borderRadius: 2,
+                            backgroundColor: '#f8f9fa',
+                            '&:hover': { backgroundColor: '#e9ecef' },
+                            '&.Mui-focused': { backgroundColor: 'white' }
+                          },
+                        }}
+                      />
+                    </Grid>
+                  </Grid>
+                </Paper>
+              )}
+
+              {/* Bid Deadline for OTR */}
+              {loadType === 'OTR' && (
+                <Paper elevation={2} sx={{ 
+                  p: 3, 
+                  borderRadius: 3,
+                  background: 'white',
+                  border: '1px solid #e0e0e0'
+                }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                    <Box sx={{ 
+                      p: 1.5, 
+                      borderRadius: 2, 
+                      background: 'linear-gradient(135deg, #e8f5e8, #c8e6c9)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <CalendarToday sx={{ color: '#2e7d32', fontSize: 24 }} />
+                    </Box>
+                    <Typography variant="h6" sx={{ fontWeight: 600, color: '#2e7d32' }}>
+                    Schedule & Timeline
+                    </Typography>
+                  </Box>
+                  
+                  <Grid container spacing={3}>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        type="date"
+                        label="Bid Deadline"
+                        name="bidDeadline"
+                        value={form.bidDeadline}
+                        onChange={handleFormChange}
+                        fullWidth
+                        InputLabelProps={{ shrink: true }}
+                        sx={{
+                          '& .MuiInputBase-root': {
+                            borderRadius: 2,
+                            backgroundColor: '#f8f9fa',
+                            '&:hover': { backgroundColor: '#e9ecef' },
+                            '&.Mui-focused': { backgroundColor: 'white' }
+                          },
+                        }}
+                      />
+                    </Grid>
+                  </Grid>
+                </Paper>
+              )}
 
               {/* Additional Details Section */}
               <Paper elevation={2} sx={{ 
@@ -1970,19 +2804,19 @@ const LoadBoard = () => {
                     <Description sx={{ color: '#00695c', fontSize: 24 }} />
                   </Box>
                   <Typography variant="h6" sx={{ fontWeight: 600, color: '#00695c' }}>
-                    Additional Details
+                    Additional Details 
                   </Typography>
                 </Box>
                 
                 <Grid container spacing={3}>
-                  <Grid item xs={12} sm={4}>
+                  <Grid item xs={12} sm={6}>
                     <TextField
                       label="Container No."
                       name="containerNo"
                       value={form.containerNo}
                       onChange={handleFormChange}
                       fullWidth
-                      placeholder="Alphanumeric only"
+                      placeholder="Container number"
                       sx={{
                         '& .MuiInputBase-root': {
                           borderRadius: 2,
@@ -1993,14 +2827,14 @@ const LoadBoard = () => {
                       }}
                     />
                   </Grid>
-                  <Grid item xs={12} sm={4}>
+                  <Grid item xs={12} sm={6}>
                     <TextField
                       label="PO Number"
                       name="poNumber"
                       value={form.poNumber}
                       onChange={handleFormChange}
                       fullWidth
-                      placeholder="Alphanumeric only"
+                      placeholder="Purchase order number"
                       sx={{
                         '& .MuiInputBase-root': {
                           borderRadius: 2,
@@ -2011,25 +2845,25 @@ const LoadBoard = () => {
                       }}
                     />
                   </Grid>
-                  <Grid item xs={12} sm={4}>
-            <TextField
+                  <Grid item xs={12} sm={6}>
+                    <TextField
                       label="BOL Number"
                       name="bolNumber"
                       value={form.bolNumber}
-              onChange={handleFormChange}
-              fullWidth
-                      placeholder="Alphanumeric only"
-              sx={{
-                '& .MuiInputBase-root': {
+                      onChange={handleFormChange}
+                      fullWidth
+                      placeholder="Bill of lading number"
+                      sx={{
+                        '& .MuiInputBase-root': {
                           borderRadius: 2,
                           backgroundColor: '#f8f9fa',
                           '&:hover': { backgroundColor: '#e9ecef' },
                           '&.Mui-focused': { backgroundColor: 'white' }
-                },
-              }}
-            />
+                        },
+                      }}
+                    />
                   </Grid>
-                  <Grid item xs={12}>
+                  <Grid item xs={12} sm={6}>
                     <FormControl fullWidth>
                       <InputLabel>Rate Type</InputLabel>
                       <Select
@@ -2046,12 +2880,13 @@ const LoadBoard = () => {
                       >
                         <MenuItem value="Flat Rate">Flat Rate</MenuItem>
                         <MenuItem value="Per Mile">Per Mile</MenuItem>
-                        <MenuItem value="Per Hour">Per Hour</MenuItem>
                       </Select>
                     </FormControl>
                   </Grid>
                 </Grid>
               </Paper>
+
+              
 
             {/* Smart Rate Suggestion Button */}
               <Box sx={{ 
@@ -2183,7 +3018,7 @@ const LoadBoard = () => {
               }
             }}
           >
-            Add Load
+            Create Load
               </Button>
             </DialogActions>
       </Dialog>
@@ -3464,11 +4299,11 @@ const LoadBoard = () => {
                 OTR
               </Button>
               <Button
-                variant={editForm.loadType === 'Drayage' ? 'contained' : 'outlined'}
-                onClick={() => setEditForm({ ...editForm, loadType: 'Drayage' })}
+                variant={editForm.loadType === 'DRAYAGE' ? 'contained' : 'outlined'}
+                onClick={() => setEditForm({ ...editForm, loadType: 'DRAYAGE' })}
                 sx={{ borderRadius: 5, minWidth: 120 }}
               >
-                Drayage
+                DRAYAGE
               </Button>
             </Stack>
 
@@ -3692,7 +4527,7 @@ const LoadBoard = () => {
               </Grid>
 
               {/* Drayage specific fields */}
-              {editForm.loadType === 'Drayage' && (
+              {editForm.loadType === 'DRAYAGE' && (
                 <>
                   <Grid item xs={12} sm={6}>
                     <TextField
@@ -3719,8 +4554,8 @@ const LoadBoard = () => {
                   <Grid item xs={12} sm={6}>
                     <TextField
                       label="Drayage Location"
-                      name="drayageLocation"
-                      value={editForm.drayageLocation || ''}
+                      name="returnLocation"
+                      value={editForm.returnLocation || ''}
                       onChange={handleEditFormChange}
                       fullWidth
                       sx={{
@@ -3822,11 +4657,17 @@ const LoadBoard = () => {
                     <TableRow>
                       <TableCell sx={{ fontWeight: 600, background: '#f8f9fa' }}>Origin</TableCell>
                       <TableCell sx={{ fontWeight: 500 }}>
-                        {cmtData.loadDetails?.origin?.city}, {cmtData.loadDetails?.origin?.state}
+                        {(cmtData.loadDetails?.origins && cmtData.loadDetails.origins.length > 0) 
+                          ? `${cmtData.loadDetails.origins[0].city}, ${cmtData.loadDetails.origins[0].state}`
+                          : `${cmtData.loadDetails?.origin?.city || ''}, ${cmtData.loadDetails?.origin?.state || ''}`
+                        }
                       </TableCell>
                       <TableCell sx={{ fontWeight: 600, background: '#f8f9fa' }}>Destination</TableCell>
                       <TableCell sx={{ fontWeight: 500 }}>
-                        {cmtData.loadDetails?.destination?.city}, {cmtData.loadDetails?.destination?.state}
+                        {(cmtData.loadDetails?.destinations && cmtData.loadDetails.destinations.length > 0) 
+                          ? `${cmtData.loadDetails.destinations[0].city}, ${cmtData.loadDetails.destinations[0].state}`
+                          : `${cmtData.loadDetails?.destination?.city || ''}, ${cmtData.loadDetails?.destination?.state || ''}`
+                        }
                       </TableCell>
                     </TableRow>
                     <TableRow>

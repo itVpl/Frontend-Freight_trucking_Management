@@ -375,7 +375,7 @@ const Bills = () => {
   };
 
   const exportToCSV = () => {
-    const headers = ['Shipment #', 'PO Number', 'Container #', 'BOL Number', 'Rate ($)', 'Status', 'Verification Status'];
+    const headers = ['Shipment #', 'PO Number', 'Container #', 'BOL Number', 'Pickup Location', 'Drop Location', 'Rate ($)', 'Status', 'Verification Status'];
     const csvRows = [headers.join(',')];
 
     displayData.forEach((row) => {
@@ -384,6 +384,8 @@ const Bills = () => {
         row.chargeSetId, 
         row.containerId, 
         row.secondaryRef,
+        row.loadData?.origin?.city ? `${row.loadData.origin.city}, ${row.loadData.origin.state}` : 'N/A',
+        row.loadData?.destination?.city ? `${row.loadData.destination.city}, ${row.loadData.destination.state}` : 'N/A',
         row.amount,
         row.status,
         row.loadData?.verificationStatus || 'N/A'
@@ -470,6 +472,8 @@ const Bills = () => {
                 <th>PO Number</th>
                 <th>Container #</th>
                 <th>BOL Number</th>
+                <th>Pickup Location</th>
+                <th>Drop Location</th>
                 <th>Rate ($)</th>
                 <th>Status</th>
                 <th>Verification</th>
@@ -482,6 +486,8 @@ const Bills = () => {
                   <td>${bill.chargeSetId}</td>
                   <td>${bill.containerId}</td>
                   <td>${bill.secondaryRef}</td>
+                  <td>${bill.loadData?.origin?.city ? `${bill.loadData.origin.city}, ${bill.loadData.origin.state}` : 'N/A'}</td>
+                  <td>${bill.loadData?.destination?.city ? `${bill.loadData.destination.city}, ${bill.loadData.destination.state}` : 'N/A'}</td>
                   <td class="amount-0-30">$${bill.amount.toLocaleString()}</td>
                   <td>${bill.status}</td>
                   <td>${bill.loadData?.verificationStatus || 'N/A'}</td>
@@ -678,6 +684,253 @@ const Bills = () => {
     
     // Save the PDF
     doc.save(`bill_${bill.billId}.pdf`);
+  };
+
+  const generateInvoicePDF = (order) => {
+    try {
+      const printWindow = window.open('', '_blank');
+
+      // Find the matching load from API data to get complete information
+      const matchedLoad = (Array.isArray(apiData?.data?.allLoads) ? apiData.data.allLoads : []).find(
+        load => load.shipmentNumber === order.billId || load._id === order.billId
+      );
+      
+      // Debug logging
+      console.log('Order billId:', order.billId);
+      console.log('Matched load:', matchedLoad);
+      console.log('API data allLoads:', apiData?.data?.allLoads);
+      
+      // ---- Bill To + Address (from shippers list if available) ----
+      const deliveryOrder = matchedLoad?.deliveryOrder || order?.loadData?.deliveryOrder;
+      const cust = deliveryOrder?.customers?.[0] || {};
+      const companyName = (cust.billTo || '').trim();
+      
+      const billAddr = [
+        matchedLoad?.shipper?.compAdd,
+        matchedLoad?.shipper?.city,
+        matchedLoad?.shipper?.state,
+        matchedLoad?.shipper?.zipcode,
+      ].filter(Boolean).join(', ');
+      const billToDisplay = [companyName || 'N/A', billAddr].filter(Boolean).join('<br>');
+      const workOrderNo = cust.workOrderNo || 'N/A';
+      const invoiceNo = order.billId || cust.loadNo || 'N/A';
+      const todayStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
+
+      // ---- ONLY customer rates ----
+      const LH = Number(cust.lineHaul) || 0;
+      const FSC = Number(cust.fsc) || 0;
+      const OTH = Number(cust.other) || 0;
+      const CUSTOMER_TOTAL = LH + FSC + OTH;
+
+      // helpers
+      const fmtDate = (d) => {
+        if (!d) return 'N/A';
+        try {
+          const dt = new Date(d);
+          if (Number.isNaN(dt.getTime())) return 'Invalid Date';
+          // Sirf date; UTC use kiya to avoid timezone issues
+          return dt.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            timeZone: 'UTC'
+          });
+        } catch (error) {
+          console.error('Error formatting date:', error, d);
+          return 'Invalid Date';
+        }
+      };
+
+      const fullAddr = (loc) =>
+        [loc?.address, loc?.city, loc?.state, loc?.zipCode].filter(Boolean).join(', ') || 'N/A';
+
+      // Create pickup and drop location data from the matched load
+      const pickRows = matchedLoad ? [
+        {
+          name: matchedLoad.origin?.city || 'Pickup Location',
+          address: matchedLoad.origin?.city,
+          city: matchedLoad.origin?.city,
+          state: matchedLoad.origin?.state,
+          zipCode: matchedLoad.origin?.zipCode
+        }
+      ] : [];
+      
+      const dropRows = matchedLoad ? [
+        {
+          name: matchedLoad.destination?.city || 'Drop Location', 
+          address: matchedLoad.destination?.city,
+          city: matchedLoad.destination?.city,
+          state: matchedLoad.destination?.state,
+          zipCode: matchedLoad.destination?.zipCode
+        }
+      ] : [];
+      
+      // Debug logging for locations
+      console.log('Pick rows:', pickRows);
+      console.log('Drop rows:', dropRows);
+      console.log('Customer data:', cust);
+
+      // Logo source - using a placeholder or default logo
+      const logoSrc = '/images/logo_vpower.png';
+
+      const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Delivery Order Invoice</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:Arial,sans-serif;line-height:1.4;color:#333;background:#fff;font-size:12px}
+  .invoice{max-width:800px;margin:0 auto;background:#fff;padding:20px}
+  .header{display:flex;gap:16px;align-items:flex-start;margin-bottom:16px;border-bottom:1px solid #333;padding-bottom:12px}
+  .logo{width:140px;height:90px;object-fit:contain;flex:0 0 auto}
+  .header-right{flex:1 1 auto}
+  .billto{border-collapse:collapse;width:65%;font-size:12px;margin-left:auto}
+  .billto th,.billto td{border:1px solid #ddd;padding:6px;text-align:left;vertical-align:top}
+  .billto th{background:#f5f5f5;font-weight:bold;width:35%}
+  .section{margin-top:14px}
+  .tbl{width:100%;border-collapse:collapse;margin-top:8px}
+  .tbl th,.tbl td{border:1px solid #ddd;padding:8px;text-align:left;font-size:12px}
+  .amount{text-align:right;font-weight:bold}
+  .total-row{background:#fff;color:#000;font-weight:bold;font-size:14px}
+  .total-row td{border-top:2px solid #000;padding:12px}
+  @media print{@page{margin:0;size:A4}}
+</style>
+</head>
+<body>
+  <div class="invoice">
+    <!-- HEADER: logo (left) + Bill To table (right) -->
+    <div class="header">
+      <img src="${logoSrc}" alt="Company Logo" class="logo">
+      <div class="header-right">
+        <table class="billto">
+          <tr><th>Bill To</th><td>${billToDisplay}</td></tr>
+          <tr><th>W/O (Ref)</th><td>${workOrderNo}</td></tr>
+          <tr><th>Invoice Date</th><td>${todayStr}</td></tr>
+          <tr><th>Invoice No</th><td>${invoiceNo}</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- Pick Up Locations -->
+    <div class="section">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>Pick Up Location</th>
+            <th>Address</th>
+            <th>Weight (lbs)</th>
+            <th>Container No</th>
+            <th>Container Type</th>
+            <th>Qty</th>
+            <th>Pickup Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${pickRows.map(l => {
+        const weight = matchedLoad?.weight || 'N/A';
+        const contNo = matchedLoad?.containerNo || order?.containerId || 'N/A';
+        const contTp = matchedLoad?.vehicleType || order?.loadData?.vehicleType || 'N/A';
+        const qty = 1;
+        const dateSrc = matchedLoad?.pickupDate || order?.date;
+        return `
+              <tr>
+                <td>${l?.name || 'N/A'}</td>
+                <td>${fullAddr(l)}</td>
+                <td>${weight}</td>
+                <td>${contNo}</td>
+                <td>${contTp}</td>
+                <td>${qty}</td>
+                <td>${fmtDate(dateSrc)}</td>
+              </tr>
+            `;
+      }).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Drop Locations -->
+    <div class="section">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>Drop Location</th>
+            <th>Address</th>
+            <th>Weight (lbs)</th>
+            <th>Container No</th>
+            <th>Container Type</th>
+            <th>Qty</th>
+            <th>Drop Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${dropRows.map(l => {
+        const weight = matchedLoad?.weight || 'N/A';
+        const contNo = matchedLoad?.containerNo || order?.containerId || 'N/A';
+        const contTp = matchedLoad?.vehicleType || order?.loadData?.vehicleType || 'N/A';
+        const qty = 1;
+        const dateSrc = matchedLoad?.deliveryDate || order?.dueDate;
+        return `
+              <tr>
+                <td>${l?.name || 'N/A'}</td>
+                <td>${fullAddr(l)}</td>
+                <td>${weight}</td>
+                <td>${contNo}</td>
+                <td>${contTp}</td>
+                <td>${qty}</td>
+                <td>${fmtDate(dateSrc)}</td>
+              </tr>
+            `;
+      }).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Charges: ONLY customer information rates -->
+    <div class="section">
+      <table class="tbl">
+        <thead><tr><th>Description</th><th>Amount</th></tr></thead>
+        <tbody>
+          ${LH > 0 ? `<tr><td>Line Haul</td><td class="amount">$${LH.toLocaleString()}</td></tr>` : ''}
+          ${FSC > 0 ? `<tr><td>FSC</td><td class="amount">$${FSC.toLocaleString()}</td></tr>` : ''}
+          ${OTH > 0 ? `<tr><td>Other</td><td class="amount">$${OTH.toLocaleString()}</td></tr>` : ''}
+          <tr class="total-row">
+            <td><strong>TOTAL</strong></td>
+            <td class="amount"><strong>$${CUSTOMER_TOTAL.toLocaleString()} USD</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section">Thank you for your business!</div>
+  </div>
+</body>
+</html>
+    `;
+
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.onload = function () {
+        printWindow.print();
+        printWindow.close();
+      };
+      
+      // Show success message (you can replace alertify with your preferred notification system)
+      if (typeof alertify !== 'undefined') {
+        alertify.success('Invoice PDF generated successfully!');
+      } else {
+        alert('Invoice PDF generated successfully!');
+      }
+    } catch (err) {
+      console.error('Error generating PDF:', err);
+      if (typeof alertify !== 'undefined') {
+        alertify.error('Failed to generate PDF. Please try again.');
+      } else {
+        alert('Failed to generate PDF. Please try again.');
+      }
+    }
   };
 
   return (
@@ -883,28 +1136,7 @@ const Bills = () => {
               Download CSV
             </Button>
             
-            <Button
-              variant="outlined"
-              startIcon={<Receipt />}
-              onClick={handlePrint}
-              sx={{
-                borderRadius: 2,
-                fontSize: '0.875rem',
-                px: 3,
-                py: 1,
-                fontWeight: 500,
-                textTransform: 'none',
-                color: '#1976d2',
-                borderColor: '#1976d2',
-                '&:hover': {
-                  borderColor: '#0d47a1',
-                  color: '#0d47a1',
-                  backgroundColor: '#e3f2fd',
-                },
-              }}
-            >
-              Print
-            </Button>
+            
           </Stack>
         </Box>
 
@@ -1148,6 +1380,8 @@ const Bills = () => {
                 <TableCell sx={{ fontWeight: 600 }}>PO Number</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Container #</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>BOL Number</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Pickup Location</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Drop Location</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Rate ($)</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Verification</TableCell>
@@ -1180,6 +1414,18 @@ const Bills = () => {
                       <TableCell>{bill.chargeSetId}</TableCell>
                       <TableCell>{bill.containerId}</TableCell>
                       <TableCell>{bill.secondaryRef}</TableCell>
+                      <TableCell>
+                        {bill.loadData?.origin?.city ? 
+                          `${bill.loadData.origin.city}, ${bill.loadData.origin.state}` : 
+                          'N/A'
+                        }
+                      </TableCell>
+                      <TableCell>
+                        {bill.loadData?.destination?.city ? 
+                          `${bill.loadData.destination.city}, ${bill.loadData.destination.state}` : 
+                          'N/A'
+                        }
+                      </TableCell>
                       <TableCell sx={{ color: 'primary.main', fontWeight: 600 }}>
                         ${bill.amount.toLocaleString()}
                       </TableCell>
@@ -1214,7 +1460,7 @@ const Bills = () => {
                             size="small" 
                             variant="text" 
                             startIcon={<Download />}
-                            onClick={() => handleDownloadPDF(bill)}
+                            onClick={() => generateInvoicePDF(bill)}
                           >
                             Download
                           </Button>
@@ -1781,7 +2027,7 @@ const Bills = () => {
                    <Button 
             variant="contained"
             startIcon={<Download />}
-            onClick={() => selectedBill && handleDownloadPDF(selectedBill)}
+             onClick={() => selectedBill && generateInvoicePDF(selectedBill)}
             sx={{ 
               borderRadius: 2, 
               textTransform: 'none',

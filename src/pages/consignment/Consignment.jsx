@@ -29,6 +29,7 @@ import { Receipt, Download, Search, Clear, Close, Visibility, ExpandMore, Print,
 import { useAuth } from '../../context/AuthContext';
 import { BASE_API_URL } from '../../apiConfig';
 import SearchNavigationFeedback from '../../components/SearchNavigationFeedback';
+import LoadLocationMap from './LoadLocationMap';
 
 const Consignment = () => {
   const location = useLocation();
@@ -47,6 +48,9 @@ const Consignment = () => {
   const [loadDetails, setLoadDetails] = useState(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [detailsError, setDetailsError] = useState(null);
+  const [locationHistory, setLocationHistory] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [historyError, setHistoryError] = useState(null);
   
   // Handle search result from universal search
   useEffect(() => {
@@ -213,6 +217,7 @@ const Consignment = () => {
     }
   };
 
+
   // Fetch detailed load information
   const fetchLoadDetails = async (loadId) => {
     try {
@@ -243,6 +248,83 @@ const Consignment = () => {
       
       if (data.success && data.data && data.data.load) {
         setLoadDetails(data.data);
+        
+        // Use the same tracking API for location history
+        if (data.data.load.shipmentNumber) {
+          try {
+            setLoadingHistory(true);
+            setHistoryError(null);
+            
+            const trackingResponse = await fetch(`https://vpl-liveproject-1.onrender.com/api/v1/load/shipment/${data.data.load.shipmentNumber}`);
+            const trackingData = await trackingResponse.json();
+            
+            if (trackingData.success && trackingData.tracking) {
+              // Create location history from tracking data
+              const historyData = [];
+              
+              // Add origin location as first history point
+              if (trackingData.tracking.originLatLng && trackingData.tracking.originName) {
+                historyData.push({
+                  _id: `origin-${Date.now()}`,
+                  latitude: trackingData.tracking.originLatLng.lat,
+                  longitude: trackingData.tracking.originLatLng.lon,
+                  timestamp: trackingData.tracking.startedAt || new Date().toISOString(),
+                  status: 'completed',
+                  vehicleNumber: trackingData.tracking.vehicleNumber || 'N/A',
+                  locationName: trackingData.tracking.originName,
+                  locationType: 'Origin',
+                  locationQuality: {
+                    isAccurate: true,
+                    source: 'gps'
+                  }
+                });
+              }
+              
+              // Add current location as a history point
+              if (trackingData.tracking.currentLocation) {
+                historyData.push({
+                  _id: `current-${Date.now()}`,
+                  latitude: trackingData.tracking.currentLocation.lat,
+                  longitude: trackingData.tracking.currentLocation.lon,
+                  timestamp: trackingData.tracking.currentLocation.updatedAt,
+                  status: 'active',
+                  vehicleNumber: trackingData.tracking.vehicleNumber || 'N/A',
+                  locationName: 'Current Location',
+                  locationType: 'Current',
+                  locationQuality: {
+                    isAccurate: true,
+                    source: 'gps'
+                  }
+                });
+              }
+              
+              // Add destination location as last history point
+              if (trackingData.tracking.destinationLatLng && trackingData.tracking.destinationName) {
+                historyData.push({
+                  _id: `destination-${Date.now()}`,
+                  latitude: trackingData.tracking.destinationLatLng.lat,
+                  longitude: trackingData.tracking.destinationLatLng.lon,
+                  timestamp: trackingData.tracking.load?.deliveryDate || new Date().toISOString(),
+                  status: 'pending',
+                  vehicleNumber: trackingData.tracking.vehicleNumber || 'N/A',
+                  locationName: trackingData.tracking.destinationName,
+                  locationType: 'Destination',
+                  locationQuality: {
+                    isAccurate: true,
+                    source: 'gps'
+                  }
+                });
+              }
+              
+              setLocationHistory(historyData);
+            }
+          } catch (error) {
+            console.error('Error fetching tracking data for location history:', error);
+            setHistoryError('Failed to load location data');
+          } finally {
+            setLoadingHistory(false);
+          }
+        }
       } else {
         throw new Error('Invalid API response format');
       }
@@ -259,6 +341,8 @@ const Consignment = () => {
     setSelectedLoad(null);
     setLoadDetails(null);
     setDetailsError(null);
+    setLocationHistory([]);
+    setHistoryError(null);
     setActiveTab('Load Info'); // Reset to default tab
   };
 
@@ -757,233 +841,256 @@ const Consignment = () => {
                   </Typography>
                 </AccordionSummary>
                 <AccordionDetails>
-                  <Grid container spacing={1}>
-                    <Grid item xs={6}>
-                      <Typography variant="body2" color="text.secondary">
-                        Load Status:
+                  <Box sx={{ p: 2 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography variant="body2" component="span">
+                        <strong>Load Status:</strong>
                       </Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2">{loadDetails?.load?.status || 'Loading...'}</Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2" color="text.secondary">
-                        Load Type:
+                      <Typography variant="body2" component="span">
+                        {loadDetails?.load?.status || 'Loading...'}
                       </Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2">{loadDetails?.load?.loadType || 'Loading...'}</Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2" color="text.secondary">
-                        Created Date:
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography variant="body2" component="span">
+                        <strong>Load Type:</strong>
                       </Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2">
-                        {loadDetails?.load?.createdAt ? new Date(loadDetails.load.createdAt).toLocaleString() : 'Loading...'}
+                      <Typography variant="body2" component="span">
+                        {loadDetails?.load?.loadType || 'Loading...'}
                       </Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2" color="text.secondary">
-                        Container #:
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography variant="body2" component="span">
+                        <strong>Vehicle Type:</strong>
                       </Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2">{loadDetails?.load?.containerNo || 'N/A'}</Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2" color="text.secondary">
-                        Vehicle Type:
+                      <Typography variant="body2" component="span">
+                        {loadDetails?.load?.vehicleType || 'N/A'}
                       </Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2">{loadDetails?.load?.vehicleType || 'N/A'}</Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2" color="text.secondary">
-                        Total Weight:
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography variant="body2" component="span">
+                        <strong>Container #:</strong>
                       </Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2">{loadDetails?.load?.weight ? `${loadDetails.load.weight} LBS` : 'Loading...'}</Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2" color="text.secondary">
-                        Commodity:
+                      <Typography variant="body2" component="span">
+                        {loadDetails?.load?.containerNo || 'N/A'}
                       </Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2">{loadDetails?.load?.commodity || 'Loading...'}</Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2" color="text.secondary">
-                        Rate:
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography variant="body2" component="span">
+                        <strong>Total Weight:</strong>
                       </Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2">
+                      <Typography variant="body2" component="span">
+                        {loadDetails?.load?.weight ? `${loadDetails.load.weight} LBS` : 'Loading...'}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography variant="body2" component="span">
+                        <strong>Commodity:</strong>
+                      </Typography>
+                      <Typography variant="body2" component="span">
+                        {loadDetails?.load?.commodity || 'Loading...'}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography variant="body2" component="span">
+                        <strong>Rate:</strong>
+                      </Typography>
+                      <Typography variant="body2" component="span">
                         {loadDetails?.load?.rate ? `$${loadDetails.load.rate} (${loadDetails.load.rateType})` : 'Loading...'}
                       </Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2" color="text.secondary">
-                        Shipment #:
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography variant="body2" component="span">
+                        <strong>Shipment #:</strong>
                       </Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2">{loadDetails?.load?.shipmentNumber || 'N/A'}</Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2" color="text.secondary">
-                        PO Number:
+                      <Typography variant="body2" component="span">
+                        {loadDetails?.load?.shipmentNumber || 'N/A'}
                       </Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2">{loadDetails?.load?.poNumber || 'N/A'}</Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2" color="text.secondary">
-                        BOL Number:
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography variant="body2" component="span">
+                        <strong>PO Number:</strong>
                       </Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2">{loadDetails?.load?.bolNumber || 'N/A'}</Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2" color="text.secondary">
-                        Pickup Date:
+                      <Typography variant="body2" component="span">
+                        {loadDetails?.load?.poNumber || 'N/A'}
                       </Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2">
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography variant="body2" component="span">
+                        <strong>BOL Number:</strong>
+                      </Typography>
+                      <Typography variant="body2" component="span">
+                        {loadDetails?.load?.bolNumber || 'N/A'}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography variant="body2" component="span">
+                        <strong>Created Date:</strong>
+                      </Typography>
+                      <Typography variant="body2" component="span">
+                        {loadDetails?.load?.createdAt ? new Date(loadDetails.load.createdAt).toLocaleDateString() : 'Loading...'}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography variant="body2" component="span">
+                        <strong>Pickup Date:</strong>
+                      </Typography>
+                      <Typography variant="body2" component="span">
                         {loadDetails?.load?.pickupDate ? new Date(loadDetails.load.pickupDate).toLocaleDateString() : 'N/A'}
                       </Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2" color="text.secondary">
-                        Delivery Date:
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography variant="body2" component="span">
+                        <strong>Delivery Date:</strong>
                       </Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2">
+                      <Typography variant="body2" component="span">
                         {loadDetails?.load?.deliveryDate ? new Date(loadDetails.load.deliveryDate).toLocaleDateString() : 'N/A'}
                       </Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2" color="text.secondary">
-                        Return Date:
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography variant="body2" component="span">
+                        <strong>Return Date:</strong>
                       </Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2">
+                      <Typography variant="body2" component="span">
                         {loadDetails?.load?.returnDate ? new Date(loadDetails.load.returnDate).toLocaleDateString() : 'N/A'}
                       </Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2" color="text.secondary">
-                        Return Location:
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={6}>
-                      <Typography variant="body2">{loadDetails?.load?.returnLocation || 'N/A'}</Typography>
-                    </Grid>
-                  </Grid>
+                    </Box>
+                    {loadDetails?.load?.returnLocation && (
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                        <Typography variant="body2" component="span">
+                          <strong>Return Location:</strong>
+                        </Typography>
+                        <Typography variant="body2" component="span">
+                          {loadDetails.load.returnLocation}
+                        </Typography>
+                      </Box>
+                    )}
+                  </Box>
                 </AccordionDetails>
               </Accordion>
 
               {/* Map Section */}
-              <Box sx={{ mt: 2, mb: 2 }}>
-                <Box
-                  sx={{
-                    height: '200px',
-                    backgroundColor: '#e0e0e0',
-                    borderRadius: 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    border: '1px solid #ccc',
-                  }}
-                >
-                  <Typography variant="body2" color="text.secondary">
-                    Interactive Map
-                  </Typography>
-                </Box>
-              </Box>
-
-              {/* Tracking Section */}
-              <Accordion>
+              <Accordion defaultExpanded>
                 <AccordionSummary expandIcon={<ExpandMore />}>
                   <Typography variant="h6" fontWeight={600}>
-                    Tracking
+                    Load Location Map
                   </Typography>
                 </AccordionSummary>
                 <AccordionDetails>
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
-                      Container Match 1
-                    </Typography>
-                    <Box sx={{ pl: 2 }}>
-                      <Typography variant="body2" sx={{ mb: 0.5 }}>
-                        1 Pick Up Container
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                        1210 Corbin St, Elizabeth, NJ 07201, USA
-                      </Typography>
-                      <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
-                        <Chip label="Arrival" size="small" />
-                        <Chip label="Departure" size="small" />
-                        <Chip label="Empty" size="small" />
-                        <Chip label="Full" size="small" />
-                      </Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Distance: 12.4 mi
-                      </Typography>
-                    </Box>
-                  </Box>
-
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
-                      Container Match 2
-                    </Typography>
-                    <Box sx={{ pl: 2 }}>
-                      <Typography variant="body2" sx={{ mb: 0.5 }}>
-                        1 Fresh Container
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                        1995 Doremus Ave, Newark, NJ 07105, USA
-                      </Typography>
-                      <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
-                        <Chip label="Arrival" size="small" />
-                        <Chip label="Departure" size="small" />
-                        <Chip label="Empty" size="small" />
-                        <Chip label="Full" size="small" />
-                      </Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Distance: 54.1 mi
-                      </Typography>
-                    </Box>
-                  </Box>
-
-                  <Box>
-                    <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
-                      Return Container
-                    </Typography>
-                    <Box sx={{ pl: 2 }}>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                        Location: (Empty)
-                      </Typography>
-                      <Box sx={{ display: 'flex', gap: 1 }}>
-                        <Chip label="Arrival" size="small" />
-                        <Chip label="Departure" size="small" />
-                        <Chip label="Empty" size="small" />
-                        <Chip label="Full" size="small" />
-                      </Box>
-
-                    </Box>
+                  <Box sx={{ height: '400px', width: '100%', borderRadius: 1, overflow: 'hidden' }}>
+                    <LoadLocationMap loadDetails={loadDetails} />
                   </Box>
                 </AccordionDetails>
               </Accordion>
+
+              {/* Location History Section */}
+              <Accordion>
+                <AccordionSummary expandIcon={<ExpandMore />}>
+                  <Typography variant="h6" fontWeight={600}>
+                    Location History
+                  </Typography>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <Box sx={{ p: 2 }}>
+                    {loadingHistory ? (
+                      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
+                        <CircularProgress size={24} sx={{ mr: 2 }} />
+                        <Typography variant="body2">Loading location history...</Typography>
+                      </Box>
+                    ) : historyError ? (
+                      <Alert severity="error" sx={{ mb: 2 }}>
+                        Error loading location history: {historyError}
+                      </Alert>
+                    ) : locationHistory.length > 0 ? (
+                      <Box>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                          Total {locationHistory.length} location points found
+                        </Typography>
+                        <Box sx={{ maxHeight: '400px', overflowY: 'auto' }}>
+                          {locationHistory.map((location, index) => (
+                            <Paper 
+                              key={location._id} 
+                              elevation={1} 
+                              sx={{ 
+                                p: 2, 
+                                mb: 2, 
+                                borderRadius: 2,
+                                border: '1px solid #e0e0e0'
+                              }}
+                            >
+                              <Box sx={{ mb: 1 }}>
+                                <Typography variant="subtitle2" fontWeight={600}>
+                                  {location.locationType || `Point #${locationHistory.length - index}`}
+                                </Typography>
+                                {location.locationName && (
+                                  <Typography variant="body2" color="text.secondary">
+                                    {location.locationName}
+                                  </Typography>
+                                )}
+                              </Box>
+                              
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                <Typography variant="body2" component="span" color="text.secondary">
+                                  <strong>Coordinates:</strong>
+                                </Typography>
+                                <Typography variant="body2" component="span">
+                                  {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
+                                </Typography>
+                              </Box>
+                              
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                <Typography variant="body2" component="span" color="text.secondary">
+                                  <strong>Vehicle:</strong>
+                                </Typography>
+                                <Typography variant="body2" component="span">
+                                  {location.vehicleNumber}
+                                </Typography>
+                              </Box>
+                              
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                <Typography variant="body2" component="span" color="text.secondary">
+                                  <strong>Timestamp:</strong>
+                                </Typography>
+                                <Typography variant="body2" component="span">
+                                  {new Date(location.timestamp).toLocaleString()}
+                                </Typography>
+                              </Box>
+                              
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                <Typography variant="body2" component="span" color="text.secondary">
+                                  <strong>Quality:</strong>
+                                </Typography>
+                                <Typography variant="body2" component="span">
+                                  {location.locationQuality?.isAccurate ? 'Accurate' : 'Low Accuracy'} 
+                                  ({location.locationQuality?.source || 'Unknown'})
+                                </Typography>
+                              </Box>
+                              
+                              {location.notes && (
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                  <Typography variant="body2" component="span" color="text.secondary">
+                                    <strong>Notes:</strong>
+                                  </Typography>
+                                  <Typography variant="body2" component="span">
+                                    {location.notes}
+                                  </Typography>
+                                </Box>
+                              )}
+                            </Paper>
+                          ))}
+                        </Box>
+                      </Box>
+                    ) : (
+                      <Box sx={{ textAlign: 'center', py: 4 }}>
+                        <Typography variant="body2" color="text.secondary">
+                          No location history available for this shipment
+                        </Typography>
+                      </Box>
+                    )}
+                  </Box>
+                </AccordionDetails>
+              </Accordion>
+
+              
             </Box>
 
             {/* Main Content Area */}
@@ -3038,229 +3145,119 @@ const Consignment = () => {
               {!loadingDetails && !detailsError && activeTab === 'Tracking' && (
                 <Box>
                   <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
-                    Tracking Information
+                    Live Tracking & Location History
                   </Typography>
                   
-                  {/* Tracking Status Overview */}
-                  {loadDetails?.load?.trackingInfo && (
-                    <Paper sx={{ p: 2, mb: 3 }}>
-                      <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2 }}>
-                        Current Status
-                      </Typography>
-                      <Grid container spacing={2}>
-                        <Grid item xs={6}>
-                          <TextField
-                            fullWidth
-                            label="Current Status"
-                            value={loadDetails.load.trackingInfo.currentStatus}
-                            variant="outlined"
-                            size="small"
-                            InputProps={{ readOnly: true }}
-                          />
-                        </Grid>
-                        <Grid item xs={6}>
-                          <TextField
-                            fullWidth
-                            label="Last Location"
-                            value={loadDetails.load.trackingInfo.lastLocation}
-                            variant="outlined"
-                            size="small"
-                            InputProps={{ readOnly: true }}
-                          />
-                        </Grid>
-                        <Grid item xs={6}>
-                          <TextField
-                            fullWidth
-                            label="Last Updated"
-                            value={new Date(loadDetails.load.trackingInfo.lastUpdated).toLocaleString()}
-                            variant="outlined"
-                            size="small"
-                            InputProps={{ readOnly: true }}
-                          />
-                        </Grid>
-                        <Grid item xs={6}>
-                          <TextField
-                            fullWidth
-                            label="Estimated Delivery"
-                            value={new Date(loadDetails.load.trackingInfo.estimatedDelivery).toLocaleString()}
-                            variant="outlined"
-                            size="small"
-                            InputProps={{ readOnly: true }}
-                          />
-                        </Grid>
-                      </Grid>
-                    </Paper>
-                  )}
-
-                  {/* Origin and Destination Tracking */}
-                  <Grid container spacing={2}>
-                    <Grid item xs={6}>
-                      <Paper sx={{ p: 2 }}>
-                        <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2 }}>
-                          Origin Tracking
+                  {/* Location History Section */}
+                  <Paper sx={{ p: 2, mb: 3 }}>
+                    <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2 }}>
+                      Location History
+                    </Typography>
+                    {loadingHistory ? (
+                      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
+                        <CircularProgress size={24} sx={{ mr: 2 }} />
+                        <Typography variant="body2">Loading location history...</Typography>
+                      </Box>
+                    ) : historyError ? (
+                      <Alert severity="error" sx={{ mb: 2 }}>
+                        Error loading location history: {historyError}
+                      </Alert>
+                    ) : locationHistory.length > 0 ? (
+                      <Box>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                          Total {locationHistory.length} location points found
                         </Typography>
-                        {loadDetails?.load?.originPlace ? (
-                          <Box>
-                            <TextField
-                              fullWidth
-                              label="Status"
-                              value={loadDetails.load.originPlace.status === 1 ? 'Arrived' : 'Not Arrived'}
-                              variant="outlined"
-                              size="small"
-                              sx={{ mb: 2 }}
-                              InputProps={{ readOnly: true }}
-                            />
-                            {loadDetails.load.originPlace.arrivedAt && (
-                              <TextField
-                                fullWidth
-                                label="Arrived At"
-                                value={new Date(loadDetails.load.originPlace.arrivedAt).toLocaleString()}
-                                variant="outlined"
-                                size="small"
-                                sx={{ mb: 2 }}
-                                InputProps={{ readOnly: true }}
-                              />
-                            )}
-                            <TextField
-                              fullWidth
-                              label="Location"
-                              value={loadDetails.load.originPlace.location}
-                              variant="outlined"
-                              size="small"
-                              sx={{ mb: 2 }}
-                              InputProps={{ readOnly: true }}
-                            />
-                            {loadDetails.load.originPlace.notes && (
-                              <TextField
-                                fullWidth
-                                label="Notes"
-                                value={loadDetails.load.originPlace.notes}
-                                variant="outlined"
-                                size="small"
-                                multiline
-                                rows={2}
-                                InputProps={{ readOnly: true }}
-                              />
-                            )}
-                          </Box>
-                        ) : (
-                          <Typography variant="body2" color="text.secondary">
-                            No origin tracking data available
-                          </Typography>
-                        )}
-                      </Paper>
-                    </Grid>
-
-                    <Grid item xs={6}>
-                      <Paper sx={{ p: 2 }}>
-                        <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2 }}>
-                          Destination Tracking
+                        <Box sx={{ maxHeight: '300px', overflowY: 'auto' }}>
+                          {locationHistory.slice(0, 10).map((location, index) => (
+                            <Paper 
+                              key={location._id} 
+                              elevation={1} 
+                              sx={{ 
+                                p: 2, 
+                                mb: 2, 
+                                borderRadius: 2,
+                                border: '1px solid #e0e0e0'
+                              }}
+                            >
+                              <Box sx={{ mb: 1 }}>
+                                <Typography variant="subtitle2" fontWeight={600}>
+                                  {location.locationType || `Point #${locationHistory.length - index}`}
+                                </Typography>
+                                {location.locationName && (
+                                  <Typography variant="body2" color="text.secondary">
+                                    {location.locationName}
+                                  </Typography>
+                                )}
+                              </Box>
+                              
+                              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 2 }}>
+                                <Box>
+                                  <Typography variant="body2" color="text.secondary">
+                                    <strong>Coordinates:</strong>
+                                  </Typography>
+                                  <Typography variant="body2">
+                                    {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
+                                  </Typography>
+                                </Box>
+                                
+                                <Box>
+                                  <Typography variant="body2" color="text.secondary">
+                                    <strong>Vehicle:</strong>
+                                  </Typography>
+                                  <Typography variant="body2">
+                                    {location.vehicleNumber}
+                                  </Typography>
+                                </Box>
+                              </Box>
+                              
+                              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                                <Box>
+                                  <Typography variant="body2" color="text.secondary">
+                                    <strong>Timestamp:</strong>
+                                  </Typography>
+                                  <Typography variant="body2">
+                                    {new Date(location.timestamp).toLocaleString()}
+                                  </Typography>
+                                </Box>
+                                
+                                <Box>
+                                  <Typography variant="body2" color="text.secondary">
+                                    <strong>Quality:</strong>
+                                  </Typography>
+                                  <Typography variant="body2">
+                                    {location.locationQuality?.isAccurate ? 'Accurate' : 'Low Accuracy'} 
+                                    ({location.locationQuality?.source || 'Unknown'})
+                                  </Typography>
+                                </Box>
+                              </Box>
+                            </Paper>
+                          ))}
+                          {locationHistory.length > 10 && (
+                            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+                              Showing latest 10 locations. Total: {locationHistory.length} points
+                            </Typography>
+                          )}
+                        </Box>
+                      </Box>
+                    ) : (
+                      <Box sx={{ textAlign: 'center', py: 4 }}>
+                        <Typography variant="body2" color="text.secondary">
+                          No location history available for this shipment
                         </Typography>
-                        {loadDetails?.load?.destinationPlace ? (
-                          <Box>
-                            <TextField
-                              fullWidth
-                              label="Status"
-                              value={loadDetails.load.destinationPlace.status === 1 ? 'Arrived' : 'Not Arrived'}
-                              variant="outlined"
-                              size="small"
-                              sx={{ mb: 2 }}
-                              InputProps={{ readOnly: true }}
-                            />
-                            {loadDetails.load.destinationPlace.arrivedAt && (
-                              <TextField
-                                fullWidth
-                                label="Arrived At"
-                                value={new Date(loadDetails.load.destinationPlace.arrivedAt).toLocaleString()}
-                                variant="outlined"
-                                size="small"
-                                sx={{ mb: 2 }}
-                                InputProps={{ readOnly: true }}
-                              />
-                            )}
-                            <TextField
-                              fullWidth
-                              label="Location"
-                              value={loadDetails.load.destinationPlace.location || 'N/A'}
-                              variant="outlined"
-                              size="small"
-                              sx={{ mb: 2 }}
-                              InputProps={{ readOnly: true }}
-                            />
-                            {loadDetails.load.destinationPlace.notes && (
-                              <TextField
-                                fullWidth
-                                label="Notes"
-                                value={loadDetails.load.destinationPlace.notes}
-                                variant="outlined"
-                                size="small"
-                                multiline
-                                rows={2}
-                                InputProps={{ readOnly: true }}
-                              />
-                            )}
-                          </Box>
-                        ) : (
-                          <Typography variant="body2" color="text.secondary">
-                            No destination tracking data available
-                          </Typography>
-                        )}
-                      </Paper>
-                    </Grid>
-                  </Grid>
+                      </Box>
+                    )}
+                  </Paper>
 
-                  {/* Timer Information */}
-                  {loadDetails?.load?.timerStatus && (
-                    <Paper sx={{ p: 2, mt: 2 }}>
-                      <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2 }}>
-                        Timer Information
-                      </Typography>
-                      <Grid container spacing={2}>
-                        <Grid item xs={4}>
-                          <TextField
-                            fullWidth
-                            label="Has Timer"
-                            value={loadDetails.load.timerStatus.hasTimer ? 'Yes' : 'No'}
-                            variant="outlined"
-                            size="small"
-                            InputProps={{ readOnly: true }}
-                          />
-                        </Grid>
-                        <Grid item xs={4}>
-                          <TextField
-                            fullWidth
-                            label="Is Expired"
-                            value={loadDetails.load.timerStatus.isExpired ? 'Yes' : 'No'}
-                            variant="outlined"
-                            size="small"
-                            InputProps={{ readOnly: true }}
-                          />
-                        </Grid>
-                        <Grid item xs={4}>
-                          <TextField
-                            fullWidth
-                            label="Remaining Minutes"
-                            value={loadDetails.load.timerStatus.remainingMinutes || 'N/A'}
-                            variant="outlined"
-                            size="small"
-                            InputProps={{ readOnly: true }}
-                          />
-                        </Grid>
-                        {loadDetails.load.timerStatus.deadline && (
-                          <Grid item xs={12}>
-                            <TextField
-                              fullWidth
-                              label="Deadline"
-                              value={new Date(loadDetails.load.timerStatus.deadline).toLocaleString()}
-                              variant="outlined"
-                              size="small"
-                              InputProps={{ readOnly: true }}
-                            />
-                          </Grid>
-                        )}
-                      </Grid>
-                    </Paper>
-                  )}
+                  {/* Full Map Section */}
+                  <Paper sx={{ p: 2 }}>
+                    <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2 }}>
+                      Live Tracking Map
+                    </Typography>
+                    <Box sx={{ height: '500px', width: '100%', borderRadius: 1, overflow: 'hidden' }}>
+                      <LoadLocationMap loadDetails={loadDetails} />
+                    </Box>
+                  </Paper>
+
                 </Box>
               )}
               </Box>

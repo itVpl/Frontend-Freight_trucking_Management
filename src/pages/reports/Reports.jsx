@@ -1,13 +1,72 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box, Typography, ToggleButtonGroup, ToggleButton,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Chip, Paper, TextField, MenuItem, Select, FormControl, InputLabel
+  Chip, Paper, TextField, MenuItem, Select, FormControl, InputLabel,
+  CircularProgress, Alert, Button
 } from '@mui/material';
 import { Bar } from 'react-chartjs-2';
 import { CalendarMonth, TrendingUp, Assessment } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import { format } from 'date-fns';
+import { BASE_API_URL } from '../../apiConfig';
 import 'chart.js/auto';
+
+// API service function to fetch unverified loads
+const fetchUnverifiedLoads = async (shipperId, loadId = null) => {
+  try {
+    let url = `${BASE_API_URL}/api/v1/accountant/shipper/all-unverified-loads?shipperId=${shipperId}`;
+    if (loadId) {
+      url += `&loadId=${loadId}`;
+    }
+    
+    // Get token from various possible storage locations
+    const token = sessionStorage.getItem('token') || 
+                  localStorage.getItem('token') ||
+                  sessionStorage.getItem('authToken') ||
+                  localStorage.getItem('authToken') ||
+                  sessionStorage.getItem('accessToken') ||
+                  localStorage.getItem('accessToken');
+    
+    console.log('Token found:', token ? 'Yes' : 'No');
+    console.log('Available storage keys:', {
+      sessionStorage: Object.keys(sessionStorage),
+      localStorage: Object.keys(localStorage)
+    });
+    console.log('Making API request to:', url);
+    
+    const headers = {
+      'Content-Type': 'application/json',
+    };
+    
+    // Add authorization header if token exists
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    } else {
+      console.warn('No authentication token found. API call may fail.');
+    }
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: headers,
+    });
+    
+    console.log('API Response status:', response.status);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('API Error Response:', errorText);
+      throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+    }
+    
+    const data = await response.json();
+    console.log('API Response data:', data);
+    return data;
+  } catch (error) {
+    console.error('Error fetching unverified loads:', error);
+    throw error;
+  }
+};
 
 const Reports = () => {
   const navigate = useNavigate();
@@ -15,29 +74,183 @@ const Reports = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [apiData, setApiData] = useState(null);
+  const [reportsData, setReportsData] = useState([]);
 
-  // Dynamic chart data based on view
+  // Fetch API data on component mount
+  useEffect(() => {
+    const loadApiData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        // Using the shipperId from the API example
+        const shipperId = '68cd6ee176b6c23c1d2a87b3';
+        
+        // Try different API call approaches
+        let response;
+        try {
+          // First try without loadId
+          response = await fetchUnverifiedLoads(shipperId);
+        } catch (firstError) {
+          console.log('First attempt failed, trying with loadId...');
+          // If that fails, try with loadId
+          const loadId = '68e7eecea78740db1d29848e';
+          response = await fetchUnverifiedLoads(shipperId, loadId);
+        }
+        setApiData(response);
+        
+        // Transform API data to match reports structure
+        if (response.success && response.data.allLoads) {
+          const transformedData = response.data.allLoads.map(load => ({
+            id: load.shipmentNumber || load._id,
+            driver: load.carrier?.name || 'N/A',
+            type: load.vehicleType || 'N/A',
+            date: format(new Date(load.pickupDate), 'MM-dd-yyyy'),
+            status: load.status || 'Pending',
+            rate: load.rate || 0,
+            origin: load.origin,
+            destination: load.destination,
+            weight: load.weight,
+            commodity: load.commodity,
+            verificationStatus: load.verificationStatus
+          }));
+          
+          setReportsData(transformedData);
+        }
+      } catch (err) {
+        let errorMessage = `API Error: ${err.message}`;
+        
+        // Check if it's an authentication error
+        if (err.message.includes('Please login to access this resource')) {
+          errorMessage = 'Authentication required. Please login to access load data.';
+        }
+        
+        setError(errorMessage);
+        console.error('Failed to load API data:', err);
+        
+        // No fallback data - show empty state
+        setReportsData([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadApiData();
+  }, []);
+
+  // Dynamic chart data based on view and API data
   const getChartData = () => {
+    if (reportsData.length === 0) {
+      // Fallback to mock data if no API data
+      if (view === 'monthly') {
+        return {
+          labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+          data: [5000, 8000, 12000, 18000, 25000, 30000, 37000, 45000, 53000, 60000, 70000, 77000]
+        };
+      } else if (view === 'yearly') {
+        return {
+          labels: ['2020', '2021', '2022', '2023', '2024'],
+          data: [450000, 520000, 680000, 750000, 820000]
+        };
+      } else {
+        const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        return {
+          labels: days,
+          data: [12000, 15000, 18000, 22000, 25000, 19000, 16000]
+        };
+      }
+    }
+
+    // Use real API data
     if (view === 'monthly') {
-      return {
-        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-        data: [5000, 8000, 12000, 18000, 25000, 30000, 37000, 45000, 53000, 60000, 70000, 77000]
-      };
+      // Group by month and sum rates
+      const monthlyData = {};
+      reportsData.forEach(load => {
+        const date = new Date(load.date);
+        const month = date.toLocaleString('default', { month: 'short' });
+        monthlyData[month] = (monthlyData[month] || 0) + (load.rate || 0);
+      });
+      
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const data = months.map(month => monthlyData[month] || 0);
+      
+      return { labels: months, data };
     } else if (view === 'yearly') {
-      return {
-        labels: ['2020', '2021', '2022', '2023', '2024'],
-        data: [450000, 520000, 680000, 750000, 820000]
-      };
+      // Group by year and sum rates
+      const yearlyData = {};
+      reportsData.forEach(load => {
+        const date = new Date(load.date);
+        const year = date.getFullYear();
+        yearlyData[year] = (yearlyData[year] || 0) + (load.rate || 0);
+      });
+      
+      const years = Object.keys(yearlyData).sort();
+      const data = years.map(year => yearlyData[year]);
+      
+      return { labels: years, data };
     } else {
-      // Custom date range - show last 7 days
-      const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-      return {
-        labels: days,
-        data: [12000, 15000, 18000, 22000, 25000, 19000, 16000]
-      };
+      // Custom date range - use actual start and end dates
+      if (!startDate || !endDate) {
+        // If no dates selected, show last 7 days as fallback
+        const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        const dailyData = {};
+        
+        reportsData.forEach(load => {
+          const date = new Date(load.date);
+          const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+          dailyData[dayName] = (dailyData[dayName] || 0) + (load.rate || 0);
+        });
+        
+        const data = days.map(day => dailyData[day] || 0);
+        return { labels: days, data };
+      }
+
+      // Filter data based on selected date range
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      // Set end date to end of day to include the entire end date
+      end.setHours(23, 59, 59, 999);
+      
+      const filteredData = reportsData.filter(load => {
+        const loadDate = new Date(load.date);
+        return loadDate >= start && loadDate <= end;
+      });
+
+      // Group by date and sum rates
+      const dailyData = {};
+      filteredData.forEach(load => {
+        const date = new Date(load.date);
+        const dateKey = date.toLocaleDateString('en-US', { 
+          month: 'short', 
+          day: 'numeric' 
+        });
+        dailyData[dateKey] = (dailyData[dateKey] || 0) + (load.rate || 0);
+      });
+
+      // Sort dates and create labels and data arrays
+      const sortedDates = Object.keys(dailyData).sort((a, b) => {
+        const dateA = new Date(a + ', ' + new Date().getFullYear());
+        const dateB = new Date(b + ', ' + new Date().getFullYear());
+        return dateA - dateB;
+      });
+
+      const data = sortedDates.map(date => dailyData[date]);
+      
+      // If no data found in the selected range, show a message
+      if (sortedDates.length === 0) {
+        return { 
+          labels: ['No Data'], 
+          data: [0] 
+        };
+      }
+      
+      return { labels: sortedDates, data };
     }
   };
 
+  // Recalculate chart data when view, startDate, endDate, or reportsData changes
   const chartDataConfig = getChartData();
 
   const chartData = {
@@ -212,10 +425,18 @@ const Reports = () => {
   };
 
   const handleChange = (_, newView) => {
-    if (newView) setView(newView);
+    if (newView) {
+      setView(newView);
+      // Clear date inputs when switching away from custom view
+      if (newView !== 'custom') {
+        setStartDate('');
+        setEndDate('');
+      }
+    }
   };
 
-  const rows = [
+  // Use API data for table rows, fallback to mock data if no API data
+  const rows = reportsData.length > 0 ? reportsData : [
     { id: 'CNU1234567', driver: 'Hardy', type: 'OTR', date: '07-07-2025', status: 'Completed' },
     { id: 'CNU1234568', driver: 'Joseph', type: 'Drayage', date: '07-07-2025', status: 'Completed' },
     { id: 'CNU1234569', driver: 'Ronnie', type: 'OTR', date: '07-07-2025', status: 'Not-Completed' },
@@ -262,6 +483,7 @@ const handleRowClick = (status) => {
                 onChange={(e) => setStartDate(e.target.value)}
                 InputProps={{ startAdornment: <CalendarMonth /> }}
                 InputLabelProps={{ shrink: true }}
+                inputProps={{ max: endDate || undefined }}
               />
               <TextField 
                 size="small" 
@@ -271,6 +493,7 @@ const handleRowClick = (status) => {
                 onChange={(e) => setEndDate(e.target.value)}
                 InputProps={{ startAdornment: <CalendarMonth /> }}
                 InputLabelProps={{ shrink: true }}
+                inputProps={{ min: startDate || undefined }}
               />
             </>
           )}
@@ -307,18 +530,67 @@ const handleRowClick = (status) => {
         </ToggleButtonGroup>
       </Box>
 
+      {/* Loading State */}
+      {loading && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
+          <CircularProgress size={40} />
+          <Typography variant="body1" sx={{ ml: 2 }}>
+            Loading reports data...
+          </Typography>
+        </Box>
+      )}
+
+      {/* Error State */}
+      {error && (
+        <Alert 
+          severity="warning" 
+          sx={{ mb: 3 }}
+          action={
+            <Button 
+              color="inherit" 
+              size="small" 
+              onClick={() => window.location.reload()}
+            >
+              Retry
+            </Button>
+          }
+        >
+          {error}
+        </Alert>
+      )}
+
+      {/* Empty State */}
+      {!loading && !error && reportsData.length === 0 && (
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center', 
+          justifyContent: 'center', 
+          py: 8,
+          textAlign: 'center'
+        }}>
+          <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
+            No reports data available
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Please check your authentication or try refreshing the page
+          </Typography>
+        </Box>
+      )}
+
       {/* Bar Chart */}
-      <Paper 
-        elevation={4} 
-        sx={{ 
-          p: 4, 
-          mb: 3, 
-          borderRadius: 4,
-          background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
-          border: '1px solid rgba(99, 102, 241, 0.1)',
-          boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)'
-        }}
-      >
+      {!loading && !error && (
+        <Paper 
+          elevation={4} 
+          sx={{ 
+            p: 4, 
+            mb: 3, 
+            borderRadius: 4,
+            background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+            border: '1px solid rgba(99, 102, 241, 0.1)',
+            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)'
+          }}
+        >
         <Box sx={{ mb: 4 }}>
           <Typography 
             variant="h4" 
@@ -343,7 +615,11 @@ const handleRowClick = (status) => {
           >
             {view === 'monthly' && 'Monthly revenue trends for 2024'}
             {view === 'yearly' && `Yearly revenue comparison (${selectedYear})`}
-            {view === 'custom' && 'Custom date range revenue analysis'}
+            {view === 'custom' && (
+              startDate && endDate 
+                ? `Custom date range: ${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}`
+                : 'Custom date range revenue analysis - Please select start and end dates'
+            )}
           </Typography>
         </Box>
         
@@ -361,9 +637,11 @@ const handleRowClick = (status) => {
           <Bar data={chartData} options={chartOptions} />
         </Box>
       </Paper>
+      )}
 
       {/* Table */}
-      <Paper elevation={3}>
+      {!loading && !error && (
+        <Paper elevation={3}>
         <TableContainer>
           <Table>
             <TableHead>
@@ -396,6 +674,7 @@ const handleRowClick = (status) => {
           </Table>
         </TableContainer>
       </Paper>
+      )}
     </Box>
   );
 };
