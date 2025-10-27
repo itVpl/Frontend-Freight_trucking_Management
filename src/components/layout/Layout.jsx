@@ -91,7 +91,7 @@ const Layout = () => {
     menuItems = [
       { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
       { text: 'Live Tracker', icon: <LocationOn />, path: '/live-tracker' },
-      { text: 'Bills', icon: <Receipt />, path: '/bills' },
+      { text: 'Billing', icon: <Receipt />, path: '/bills' },
       { text: 'Consignment', icon: <Assignment />, path: '/consignment' },
       { text: 'Load Board', icon: <ListAlt />, path: '/loadboard' },
       { text: 'Email', icon: <EmailIcon />, path: '/email' },

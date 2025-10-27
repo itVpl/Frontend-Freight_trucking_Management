@@ -309,7 +309,7 @@ const Dashboard = () => {
           <TableHead>
             <TableRow sx={{ backgroundColor: '#f0f4f8' }}>
               <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>MC-Dot No</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>MC/Dot No</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>License No</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Gender</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Phone No</TableCell>
@@ -397,7 +397,7 @@ const Dashboard = () => {
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
-                <TextField label="MC-DOT No" name="mcDot" value={form.mcDot || ''} onChange={handleFormChange} fullWidth
+                <TextField label="MC/DOT No" name="mcDot" value={form.mcDot || ''} onChange={handleFormChange} fullWidth
                   error={!!errors.mcDot}
                   sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
                 />
@@ -661,7 +661,7 @@ const Dashboard = () => {
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <TextField 
-                    label="MC-DOT No" 
+                    label="MC/DOT No" 
                     name="mcDot" 
                     value={form.mcDot || ''} 
                     onChange={handleFormChange} 
