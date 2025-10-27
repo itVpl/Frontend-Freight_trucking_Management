@@ -80,6 +80,10 @@ const Dashboard = () => {
   const [tableData, setTableData] = useState([]);
   const [tableLoading, setTableLoading] = useState(false);
   
+  // State for pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(5);
+  
   // State for map data
   const [mapData, setMapData] = useState([]);
   const [mapLoading, setMapLoading] = useState(false);
@@ -202,28 +206,79 @@ const Dashboard = () => {
       
       if (data.success && data.data.loads) {
         // Format the API data for table display
-        const formattedData = data.data.loads.slice(0, 5).map(load => ({
+        const formattedData = data.data.loads.map(load => ({
           id: load.shipmentNumber || 'N/A',
           type: load.loadType || 'OTR',
-          from: `${load.origin.city}, ${load.origin.state}`,
-          to: `${load.destination.city}, ${load.destination.state}`,
+          from: load.origin ? `${load.origin.city || 'N/A'}, ${load.origin.state || 'N/A'}` : 'N/A',
+          to: load.destination ? `${load.destination.city || 'N/A'}, ${load.destination.state || 'N/A'}` : 'N/A',
           eta: load.deliveryDate ? new Date(load.deliveryDate).toLocaleDateString() : 'N/A',
-          status: load.status,
-          weight: load.weight,
-          rate: load.rate,
+          status: load.status || 'N/A',
+          weight: load.weight || 'N/A',
+          rate: load.rate || 'N/A',
           pickupDate: load.pickupDate ? new Date(load.pickupDate).toLocaleDateString() : 'N/A',
           driverName: load.acceptedBid?.driverName || 'N/A',
           vehicleNumber: load.acceptedBid?.vehicleNumber || 'N/A',
-          commodity: load.commodity,
-          vehicleType: load.vehicleType
+          commodity: load.commodity || 'N/A',
+          vehicleType: load.vehicleType || 'N/A'
         }));
         
         setTableData(formattedData);
+        setCurrentPage(1); // Reset to first page when new data loads
       } else {
         throw new Error(data.message || 'Failed to fetch detailed loads data');
       }
     } catch (err) {
       console.error('Error fetching detailed loads data:', err);
+      setTableData([]);
+    } finally {
+      setTableLoading(false);
+    }
+  };
+
+  // Fetch bills data from API
+  const fetchBillsData = async () => {
+    try {
+      setTableLoading(true);
+      const token = localStorage.getItem('token');
+      
+      const response = await fetch(`${BASE_API_URL}/api/v1/bills/shipper/my-bills`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success && data.data && data.data.bills) {
+        // Format the API data for table display
+        const formattedData = data.data.bills.map(bill => ({
+          id: bill.billNumber || bill._id || 'N/A',
+          type: bill.type || 'Invoice',
+          from: bill.from || 'JBL Logistics',
+          to: bill.to || bill.clientName || 'N/A',
+          eta: bill.dueDate ? new Date(bill.dueDate).toLocaleDateString() : 'N/A',
+          status: bill.status || 'Pending',
+          rate: bill.amount || bill.totalAmount || 0,
+          pickupDate: bill.createdDate ? new Date(bill.createdDate).toLocaleDateString() : 'N/A',
+          driverName: bill.status,
+          vehicleNumber: 'N/A',
+          commodity: 'N/A',
+          vehicleType: 'N/A'
+        }));
+        
+        setTableData(formattedData);
+        setCurrentPage(1); // Reset to first page when new data loads
+      } else {
+        setTableData([]);
+      }
+    } catch (err) {
+      console.error('Error fetching bills data:', err);
       setTableData([]);
     } finally {
       setTableLoading(false);
@@ -273,23 +328,24 @@ const Dashboard = () => {
       }
 
       // Format the combined data for table display
-      const formattedData = allLoads.slice(0, 5).map(load => ({
+      const formattedData = allLoads.map(load => ({
         id: load.shipmentNumber || 'N/A',
         type: load.loadType || 'OTR',
-        from: `${load.origin.city}, ${load.origin.state}`,
-        to: `${load.destination.city}, ${load.destination.state}`,
+        from: load.origin ? `${load.origin.city || 'N/A'}, ${load.origin.state || 'N/A'}` : 'N/A',
+        to: load.destination ? `${load.destination.city || 'N/A'}, ${load.destination.state || 'N/A'}` : 'N/A',
         eta: load.deliveryDate ? new Date(load.deliveryDate).toLocaleDateString() : 'N/A',
-        status: load.status,
-        weight: load.weight,
-        rate: load.rate,
+        status: load.status || 'N/A',
+        weight: load.weight || 'N/A',
+        rate: load.rate || 'N/A',
         pickupDate: load.pickupDate ? new Date(load.pickupDate).toLocaleDateString() : 'N/A',
         driverName: load.acceptedBid?.driverName || 'N/A',
         vehicleNumber: load.acceptedBid?.vehicleNumber || 'N/A',
-        commodity: load.commodity,
-        vehicleType: load.vehicleType
+        commodity: load.commodity || 'N/A',
+        vehicleType: load.vehicleType || 'N/A'
       }));
       
       setTableData(formattedData);
+      setCurrentPage(1); // Reset to first page when new data loads
     } catch (err) {
       console.error('Error fetching pending delivery data:', err);
       setTableData([]);
@@ -341,6 +397,21 @@ const Dashboard = () => {
     return sampleData[category] || [];
   };
 
+  // Pagination logic
+  const totalPages = Math.ceil(tableData.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentTableData = tableData.slice(startIndex, endIndex);
+
+  // Pagination handlers
+  const handlePreviousPage = () => {
+    setCurrentPage(prev => Math.max(prev - 1, 1));
+  };
+
+  const handleNextPage = () => {
+    setCurrentPage(prev => Math.min(prev + 1, totalPages));
+  };
+
   // Function to scroll to table
   const scrollToTable = () => {
     setTimeout(() => {
@@ -375,7 +446,7 @@ const Dashboard = () => {
 
   const handleBillsClick = () => {
     setSelectedCard('Bills');
-    setTableData(getTableDataForCategory('Bills'));
+    fetchBillsData(); // Call API to get real bills data
     scrollToTable();
   };
 
@@ -387,7 +458,7 @@ const Dashboard = () => {
 
   const handleBidsOnLoadsClick = () => {
     setSelectedCard('Bids On Loads');
-    setTableData(getTableDataForCategory('Bids On Loads'));
+    fetchDetailedLoadsData('Bidding'); // Call API with status=Bidding to get loads with bids
     scrollToTable();
   };
 
@@ -703,7 +774,7 @@ const Dashboard = () => {
         <Box sx={{ gridColumn: 'span 1', gridRow: 'span 2' }}>
           <StatCard 
             title="Bills" 
-            value={getDashboardValue('delayedLoads')} 
+            value={getDashboardValue('bills') || 0} 
             icon={group21} 
             image={group30}
             onClick={handleBillsClick}
@@ -721,7 +792,7 @@ const Dashboard = () => {
         <Box sx={{ gridColumn: 'span 1' }}>
           <StatCard 
             title="Bids On Loads" 
-            value={getDashboardValue('overdueLoads')} 
+            value={getDashboardValue('biddingLoads') || getDashboardValue('pendingDeliveries')} 
             icon={cancel} 
             image={localshipping}
             onClick={handleBidsOnLoadsClick}
@@ -795,7 +866,7 @@ const Dashboard = () => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  tableData.map((row, index) => (
+                  currentTableData.map((row, index) => (
                     <TableRow key={index}>
                       <TableCell>{row.id}</TableCell>
                       <TableCell>{row.type}</TableCell>
@@ -839,20 +910,56 @@ const Dashboard = () => {
             </Table>
           </TableContainer>
 
-          {/* <Box textAlign="center" py={2}>
-          <Button
-            variant="contained"
-            sx={{
-              borderRadius: 10,
-              textTransform: 'none',
-              backgroundColor: '#2196f3',
-              px: 4,
-              '&:hover': { backgroundColor: '#1976d2' },
-            }}
-          >
-            View all
-          </Button>
-        </Box> */}
+          {/* Pagination Controls */}
+          {tableData.length > itemsPerPage && (
+            <Box 
+              sx={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center', 
+                p: 2,
+                borderTop: '1px solid #e0e0e0'
+              }}
+            >
+              <Typography variant="body2" color="text.secondary">
+                Showing {startIndex + 1} to {Math.min(endIndex, tableData.length)} of {tableData.length} entries
+              </Typography>
+              
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={handlePreviousPage}
+                  disabled={currentPage === 1}
+                  sx={{ 
+                    borderRadius: 2,
+                    textTransform: 'none',
+                    minWidth: 80
+                  }}
+                >
+                  Previous
+                </Button>
+                
+                <Typography variant="body2" sx={{ mx: 2 }}>
+                  Page {currentPage} of {totalPages}
+                </Typography>
+                
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={handleNextPage}
+                  disabled={currentPage === totalPages}
+                  sx={{ 
+                    borderRadius: 2,
+                    textTransform: 'none',
+                    minWidth: 80
+                  }}
+                >
+                  Next
+                </Button>
+              </Box>
+            </Box>
+          )}
         </Paper>
       </Box>
     </Box>
