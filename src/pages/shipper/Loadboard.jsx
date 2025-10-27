@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { BASE_API_URL } from '../../apiConfig';
+import alertify from 'alertifyjs';
 import {
   Box,
   Typography,
@@ -175,7 +176,7 @@ const usCities = [
   'Hickory, NC', 'Lake Elsinore, CA', 'Burlington, NC', 'Mankato, MN', 'Mankato, MN'
 ];
 
-// Vehicle types based on load type
+// Vehicle types - Separate for DRAYAGE and OTR as per server enum
 const DRAYAGE_VEHICLE_TYPES = [
   "20' Standard (Dry Van)",
   "40' Standard (Dry Van)", 
@@ -213,7 +214,7 @@ const LoadBoard = () => {
   const [originalLoadData, setOriginalLoadData] = useState([]);
   const [isFiltered, setIsFiltered] = useState(false);
 
-  // Vehicle type options
+  // Vehicle type options - Separate for DRAYAGE and OTR as per server enum
   const DRAYAGE_VEHICLE_TYPES = [
     "20' Standard (Dry Van)",
     "40' Standard (Dry Van)", 
@@ -230,11 +231,9 @@ const LoadBoard = () => {
   const OTR_VEHICLE_TYPES = [
     "Dry Van",
     "Reefer (Refrigerated Van)",
-    "Flatbed",
     "Step Deck (Drop Deck)",
     "Double Drop / Lowboy",
     "Conestoga",
-    "Tanker",
     "Livestock Trailer",
     "Car Hauler",
     "Container Chassis",
@@ -377,23 +376,29 @@ const LoadBoard = () => {
   const getFilteredLoads = () => {
     if (!loadData || loadData.length === 0) return [];
     
+    let filteredLoads = [];
     switch (activeTab) {
       case 0: // Pending Approval
-        return loadData.filter(load => 
-          ['Pending', 'Approval'].includes(load.status)
+        filteredLoads = loadData.filter(load => 
+          ['Pending', 'Approval', 'Pending Approval', 'pending', 'approval', 'PENDING', 'APPROVAL', 'Posted'].includes(load.status)
         );
+        console.log('Pending Approval tab - Active tab:', activeTab, 'Filtered loads:', filteredLoads.length, 'All loads statuses:', loadData.map(l => ({ id: l._id, status: l.status })));
+        return filteredLoads;
       case 1: // Bidding
-        return loadData.filter(load => 
+        filteredLoads = loadData.filter(load => 
           ['Bidding', 'Bid Received', 'Posted'].includes(load.status)
         );
+        return filteredLoads;
       case 2: // Transit
-        return loadData.filter(load => 
+        filteredLoads = loadData.filter(load => 
           ['Assigned', 'In Transit', 'Picked Up'].includes(load.status)
         );
+        return filteredLoads;
       case 3: // Delivered
-        return loadData.filter(load => 
+        filteredLoads = loadData.filter(load => 
           ['Delivered', 'Completed'].includes(load.status)
         );
+        return filteredLoads;
       default:
         return loadData;
     }
@@ -404,8 +409,8 @@ const LoadBoard = () => {
     if (!loadData || loadData.length === 0) return [0, 0, 0, 0];
     
     return [
-      loadData.filter(load => ['Pending', 'Approval'].includes(load.status)).length,
-      loadData.filter(load => ['Bidding', 'Bid Received', 'Posted'].includes(load.status)).length,
+      loadData.filter(load => ['Pending', 'Approval', 'Pending Approval', 'Posted'].includes(load.status)).length,
+      loadData.filter(load => ['Bidding', 'Bid Received'].includes(load.status)).length,
       loadData.filter(load => ['Assigned', 'In Transit', 'Picked Up'].includes(load.status)).length,
       loadData.filter(load => ['Delivered', 'Completed'].includes(load.status)).length
     ];
@@ -443,34 +448,39 @@ const LoadBoard = () => {
     setSearchTerm('');
   };
 
-  useEffect(() => {
-    const fetchLoads = async () => {
-      setLoading(true);
-      try {
-        const token = localStorage.getItem('token');
-        const response = await axios.get(`${BASE_API_URL}/api/v1/load/shipper`, {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-        let data = response.data;
-        if (data && data.loads && Array.isArray(data.loads)) {
-          setLoadData(data.loads);
-          setOriginalLoadData(data.loads); // Store original data
-        } else if (Array.isArray(data)) {
-          setLoadData(data);
-          setOriginalLoadData(data); // Store original data
-        } else {
-          setLoadData([]);
-          setOriginalLoadData([]);
+  const fetchLoads = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${BASE_API_URL}/api/v1/load/shipper`, {
+        headers: {
+          Authorization: `Bearer ${token}`
         }
-      } catch (err) {
-        console.error('Error fetching loads:', err);
+      });
+      let data = response.data;
+      console.log('Fetched loads data:', data);
+      if (data && data.loads && Array.isArray(data.loads)) {
+        console.log('Loads with status:', data.loads.map(load => ({ id: load._id, status: load.status })));
+        setLoadData(data.loads);
+        setOriginalLoadData(data.loads); // Store original data
+      } else if (Array.isArray(data)) {
+        console.log('Loads with status (direct array):', data.map(load => ({ id: load._id, status: load.status })));
+        setLoadData(data);
+        setOriginalLoadData(data); // Store original data
+      } else {
         setLoadData([]);
-      } finally {
-        setLoading(false);
+        setOriginalLoadData([]);
       }
-    };
+    } catch (err) {
+      console.error('Error fetching loads:', err);
+      setLoadData([]);
+      setOriginalLoadData([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchLoads();
   }, []);
 
@@ -652,6 +662,8 @@ const LoadBoard = () => {
     }
     
     setErrors(newErrors);
+    console.log('Validation errors:', newErrors);
+    console.log('Form data:', form);
     if (Object.keys(newErrors).length === 0) {
       // Create payload based on load type
       let payload;
@@ -677,7 +689,8 @@ const LoadBoard = () => {
           poNumber: form.poNumber || '',
           bolNumber: form.bolNumber || '',
           returnDate: form.returnDate,
-          returnLocation: form.returnLocation
+          returnLocation: form.returnLocation,
+          status: 'Posted'
         };
       } else {
         payload = {
@@ -686,6 +699,7 @@ const LoadBoard = () => {
           rate: Number(form.rate),
           rateType: form.rateType || 'Flat Rate',
           bidDeadline: form.bidDeadline || '',
+          status: 'Posted',
           origins: form.origins.map(origin => ({
             addressLine1: origin.addressLine1,
             addressLine2: origin.addressLine2 || '',
@@ -711,11 +725,15 @@ const LoadBoard = () => {
       }
              try {
          const token = localStorage.getItem('token');
-         await axios.post(`${BASE_API_URL}/api/v1/load/create`, payload, {
+         console.log('Making API call with payload:', payload);
+         console.log('API URL:', `${BASE_API_URL}/api/v1/load/create`);
+         const response = await axios.post(`${BASE_API_URL}/api/v1/load/create`, payload, {
            headers: {
              Authorization: `Bearer ${token}`
            }
          });
+         console.log('API response:', response);
+         console.log('Created load status:', response.data?.load?.status || response.data?.status);
          alertify.success('Load created successfully!');
          handleCloseModal();
          // Reset form
@@ -764,26 +782,12 @@ const LoadBoard = () => {
          });
          setErrors({});
          // Refresh loads
-         setLoading(true);
-         const response = await axios.get(`${BASE_API_URL}/api/v1/load/shipper`, {
-           headers: {
-             Authorization: `Bearer ${token}`
-           }
-         });
-         let data = response.data;
-         console.log('Load data received from API:', data);
-         if (data && data.loads && Array.isArray(data.loads)) {
-           console.log('First load structure:', data.loads[0]);
-           setLoadData(data.loads);
-         } else if (Array.isArray(data)) {
-           console.log('First load structure (direct array):', data[0]);
-           setLoadData(data);
-         } else {
-           setLoadData([]);
-         }
-         setLoading(false);
+         console.log('Refreshing loads after successful creation...');
+         await fetchLoads();
+         console.log('Updated load data:', loadData);
        } catch (err) {
-         setLoading(false);
+         console.error('Error creating load:', err);
+         console.error('Error response:', err.response);
          alertify.error(err.response?.data?.message || 'Failed to create load');
        }
     }
@@ -1079,17 +1083,7 @@ const LoadBoard = () => {
 
       if (response.data.success) {
         // Refresh the loads data
-        const loadsResponse = await axios.get(`${BASE_API_URL}/api/v1/load/shipper`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        let data = loadsResponse.data;
-        if (data && data.loads && Array.isArray(data.loads)) {
-          setLoadData(data.loads);
-        } else if (Array.isArray(data)) {
-          setLoadData(data);
-        } else {
-          setLoadData([]);
-        }
+        await fetchLoads();
         
         handleCloseEditModal();
         // Show success notification
@@ -1255,17 +1249,7 @@ const LoadBoard = () => {
         }
         
         // Refresh the loads data
-        const loadsResponse = await axios.get(`${BASE_API_URL}/api/v1/load/shipper`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        let data = loadsResponse.data;
-        if (data && data.loads && Array.isArray(data.loads)) {
-          setLoadData(data.loads);
-        } else if (Array.isArray(data)) {
-          setLoadData(data);
-        } else {
-          setLoadData([]);
-        }
+        await fetchLoads();
       } else {
         // Show error notification
         if (window.alertify) {
@@ -1640,10 +1624,10 @@ const LoadBoard = () => {
                             size="small" 
                             variant="outlined" 
                             onClick={() => handleEditLoad(load)}
-                            disabled={!['Pending', 'Approval', 'Posted'].includes(load.status)}
+                            disabled={!['Pending', 'Approval', 'Pending Approval', 'Posted'].includes(load.status)}
                             sx={{
-                              opacity: !['Pending', 'Approval', 'Posted'].includes(load.status) ? 0.5 : 1,
-                              cursor: !['Pending', 'Approval', 'Posted'].includes(load.status) ? 'not-allowed' : 'pointer'
+                              opacity: !['Pending', 'Approval', 'Pending Approval', 'Posted'].includes(load.status) ? 0.5 : 1,
+                              cursor: !['Pending', 'Approval', 'Pending Approval', 'Posted'].includes(load.status) ? 'not-allowed' : 'pointer'
                             }}
                           >
                             Edit
@@ -2604,7 +2588,7 @@ Drayage Details
                       minWidth: 300
                     }}
                   >
-                    {(loadType === 'Drayage' ? DRAYAGE_VEHICLE_TYPES : OTR_VEHICLE_TYPES).map((vehicleType) => (
+                    {(loadType === 'DRAYAGE' ? DRAYAGE_VEHICLE_TYPES : OTR_VEHICLE_TYPES).map((vehicleType) => (
                       <MenuItem key={vehicleType} value={vehicleType} sx={{ whiteSpace: 'normal', wordWrap: 'break-word' }}>
                         {vehicleType}
                       </MenuItem>
@@ -2615,11 +2599,11 @@ Drayage Details
               <Grid item xs={12} sm={6}>
                 <TextField
                       label="Target Rate ($)"
-                      name="price"
-                      value={form.price}
+                      name="rate"
+                      value={form.rate}
                   onChange={handleFormChange}
                   fullWidth
-                      error={!!errors.price}
+                      error={!!errors.rate}
                       placeholder="e.g., 7500 or 7500/60"
                       InputProps={{
                         startAdornment: <AttachMoney sx={{ color: '#666' }} />
