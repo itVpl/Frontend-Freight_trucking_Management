@@ -175,6 +175,34 @@ const usCities = [
   'Hickory, NC', 'Lake Elsinore, CA', 'Burlington, NC', 'Mankato, MN', 'Mankato, MN'
 ];
 
+// Vehicle types based on load type
+const DRAYAGE_VEHICLE_TYPES = [
+  "20' Standard (Dry Van)",
+  "40' Standard (Dry Van)", 
+  "45' Standard (Dry Van)",
+  "20' Reefer",
+  "40' Reefer (High Cube or Standard)",
+  "Open Top Container",
+  "Flat Rack Container",
+  "Tank Container (ISO Tank)",
+  "40' High Cube (HC)",
+  "45' High Cube (HC)"
+];
+
+const OTR_VEHICLE_TYPES = [
+  "Dry Van",
+  "Reefer (Refrigerated Van)",
+  "Step Deck (Drop Deck)",
+  "Double Drop / Lowboy",
+  "Conestoga",
+  "Livestock Trailer",
+  "Car Hauler",
+  "Container Chassis",
+  "End Dump",
+  "Side Dump",
+  "Hopper Bottom"
+];
+
 const LoadBoard = () => {
   const location = useLocation();
   const [page, setPage] = useState(0);
@@ -470,7 +498,9 @@ const LoadBoard = () => {
 
   const handleOpenModal = () => {
     setModalOpen(true);
-    setForm({ ...form, loadType: loadType, rateType: 'Flat Rate' });
+    // Convert to uppercase for API compatibility
+    const apiLoadType = loadType === 'Drayage' ? 'DRAYAGE' : 'OTR';
+    setForm({ ...form, loadType: apiLoadType, rateType: 'Flat Rate' });
   };
   const handleCloseModal = () => {
     setModalOpen(false);
@@ -574,6 +604,9 @@ const LoadBoard = () => {
 
   const handleSubmit = async (e) => {
     console.log('Form submit triggered', form);
+    console.log('loadType being sent to API:', form.loadType);
+    console.log('returnDate:', form.returnDate);
+    console.log('drayageLocation:', form.drayageLocation);
     e.preventDefault();
     const newErrors = {};
     
@@ -738,9 +771,12 @@ const LoadBoard = () => {
            }
          });
          let data = response.data;
+         console.log('Load data received from API:', data);
          if (data && data.loads && Array.isArray(data.loads)) {
+           console.log('First load structure:', data.loads[0]);
            setLoadData(data.loads);
          } else if (Array.isArray(data)) {
+           console.log('First load structure (direct array):', data[0]);
            setLoadData(data);
          } else {
            setLoadData([]);
@@ -1571,15 +1607,15 @@ const LoadBoard = () => {
                      <TableCell>{load.shipmentNumber}</TableCell>
                      <TableCell>{load.weight !== undefined && load.weight !== null && load.weight !== '' ? `${load.weight} Kg` : '-'}</TableCell>
                      <TableCell>
-                       {load.origins && load.origins.length > 0 
-                         ? load.origins[0].city || '-'
-                         : (load.origin && load.origin.city) ? load.origin.city : '-'
+                       {load.origins && load.origins.length > 0 && load.origins[0].city ? 
+                         `${load.origins[0].city}${load.origins[0].state ? `, ${load.origins[0].state}` : ''}` : 
+                         '-'
                        }
                      </TableCell>
                      <TableCell>
-                       {load.destinations && load.destinations.length > 0 
-                         ? load.destinations[0].city || '-'
-                         : (load.destination && load.destination.city) ? load.destination.city : '-'
+                       {load.destinations && load.destinations.length > 0 && load.destinations[0].city ? 
+                         `${load.destinations[0].city}${load.destinations[0].state ? `, ${load.destinations[0].state}` : ''}` : 
+                         '-'
                        }
                      </TableCell>
                      <TableCell>{load.vehicleType || '-'}</TableCell>
@@ -2552,38 +2588,39 @@ Drayage Details
                 </Box>
                 
                 <Grid container spacing={3}>
-                  <Grid item xs={12} sm={6}>
-                    <FormControl fullWidth error={!!errors.vehicleType}>
-                      <InputLabel>Vehicle Type *</InputLabel>
-                      <Select
-                        name="vehicleType"
-                        value={form.vehicleType}
-                        onChange={handleFormChange}
-                        label="Vehicle Type *"
-                        sx={{
-                          borderRadius: 2,
-                          backgroundColor: '#f8f9fa',
-                          '&:hover': { backgroundColor: '#e9ecef' },
-                          '&.Mui-focused': { backgroundColor: 'white' }
-                        }}
-                      >
-                        {(loadType === 'DRAYAGE' ? DRAYAGE_VEHICLE_TYPES : OTR_VEHICLE_TYPES).map((type) => (
-                          <MenuItem key={type} value={type}>
-                            {type}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      label="Rate ($) *"
-                      name="rate"
-                      value={form.rate}
-                      onChange={handleFormChange}
-                      fullWidth
-                      error={!!errors.rate}
-                      placeholder="e.g., 7500"
+              <Grid item xs={12} sm={8}>
+                <FormControl fullWidth error={!!errors.vehicleType}>
+                  <InputLabel>Vehicle Type *</InputLabel>
+                  <Select
+                    name="vehicleType"
+                    value={form.vehicleType}
+                    onChange={handleFormChange}
+                    label="Vehicle Type *"
+                    sx={{
+                      borderRadius: 2,
+                      backgroundColor: '#f8f9fa',
+                      '&:hover': { backgroundColor: '#e9ecef' },
+                      '&.Mui-focused': { backgroundColor: 'white' },
+                      minWidth: 300
+                    }}
+                  >
+                    {(loadType === 'Drayage' ? DRAYAGE_VEHICLE_TYPES : OTR_VEHICLE_TYPES).map((vehicleType) => (
+                      <MenuItem key={vehicleType} value={vehicleType} sx={{ whiteSpace: 'normal', wordWrap: 'break-word' }}>
+                        {vehicleType}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                      label="Target Rate ($)"
+                      name="price"
+                      value={form.price}
+                  onChange={handleFormChange}
+                  fullWidth
+                      error={!!errors.price}
+                      placeholder="e.g., 7500 or 7500/60"
                       InputProps={{
                         startAdornment: <AttachMoney sx={{ color: '#666' }} />
                       }}
@@ -4293,14 +4330,14 @@ Drayage Details
             <Stack direction="row" spacing={1} sx={{ mb: 3 }} justifyContent="center">
               <Button
                 variant={editForm.loadType === 'OTR' ? 'contained' : 'outlined'}
-                onClick={() => setEditForm({ ...editForm, loadType: 'OTR' })}
+                onClick={() => setEditForm({ ...editForm, loadType: 'OTR', vehicleType: '' })}
                 sx={{ borderRadius: 5, minWidth: 120 }}
               >
                 OTR
               </Button>
               <Button
                 variant={editForm.loadType === 'DRAYAGE' ? 'contained' : 'outlined'}
-                onClick={() => setEditForm({ ...editForm, loadType: 'DRAYAGE' })}
+                onClick={() => setEditForm({ ...editForm, loadType: 'DRAYAGE', vehicleType: '' })}
                 sx={{ borderRadius: 5, minWidth: 120 }}
               >
                 DRAYAGE
@@ -4428,21 +4465,27 @@ Drayage Details
               </Grid>
 
               {/* Vehicle Type - Commodity */}
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Vehicle Type"
-                  name="vehicleType"
-                  value={editForm.vehicleType}
-                  onChange={handleEditFormChange}
-                  fullWidth
-                  error={!!editErrors.vehicleType}
-                  sx={{
-                    '& .MuiInputBase-root': {
+              <Grid item xs={12} sm={8}>
+                <FormControl fullWidth error={!!editErrors.vehicleType}>
+                  <InputLabel>Vehicle Type</InputLabel>
+                  <Select
+                    name="vehicleType"
+                    value={editForm.vehicleType}
+                    onChange={handleEditFormChange}
+                    label="Vehicle Type"
+                    sx={{
                       borderRadius: '12px',
                       paddingRight: 3,
-                    },
-                  }}
-                />
+                      minWidth: 300
+                    }}
+                  >
+                    {(editForm.loadType === 'DRAYAGE' ? DRAYAGE_VEHICLE_TYPES : OTR_VEHICLE_TYPES).map((vehicleType) => (
+                      <MenuItem key={vehicleType} value={vehicleType} sx={{ whiteSpace: 'normal', wordWrap: 'break-word' }}>
+                        {vehicleType}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField
@@ -4657,16 +4700,16 @@ Drayage Details
                     <TableRow>
                       <TableCell sx={{ fontWeight: 600, background: '#f8f9fa' }}>Origin</TableCell>
                       <TableCell sx={{ fontWeight: 500 }}>
-                        {(cmtData.loadDetails?.origins && cmtData.loadDetails.origins.length > 0) 
-                          ? `${cmtData.loadDetails.origins[0].city}, ${cmtData.loadDetails.origins[0].state}`
-                          : `${cmtData.loadDetails?.origin?.city || ''}, ${cmtData.loadDetails?.origin?.state || ''}`
+                        {cmtData.loadDetails?.origins && cmtData.loadDetails.origins.length > 0 ? 
+                          `${cmtData.loadDetails.origins[0].city}, ${cmtData.loadDetails.origins[0].state}` : 
+                          'N/A'
                         }
                       </TableCell>
                       <TableCell sx={{ fontWeight: 600, background: '#f8f9fa' }}>Destination</TableCell>
                       <TableCell sx={{ fontWeight: 500 }}>
-                        {(cmtData.loadDetails?.destinations && cmtData.loadDetails.destinations.length > 0) 
-                          ? `${cmtData.loadDetails.destinations[0].city}, ${cmtData.loadDetails.destinations[0].state}`
-                          : `${cmtData.loadDetails?.destination?.city || ''}, ${cmtData.loadDetails?.destination?.state || ''}`
+                        {cmtData.loadDetails?.destinations && cmtData.loadDetails.destinations.length > 0 ? 
+                          `${cmtData.loadDetails.destinations[0].city}, ${cmtData.loadDetails.destinations[0].state}` : 
+                          'N/A'
                         }
                       </TableCell>
                     </TableRow>
