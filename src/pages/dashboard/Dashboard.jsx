@@ -84,6 +84,16 @@ const Dashboard = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(5);
   
+  // State for actual counts from API calls
+  const [actualCounts, setActualCounts] = useState({
+    totalLoads: 0,
+    pendingDeliveries: 0,
+    delivered: 0,
+    inTransit: 0,
+    bidding: 0,
+    bills: 0
+  });
+  
   // State for map data
   const [mapData, setMapData] = useState([]);
   const [mapLoading, setMapLoading] = useState(false);
@@ -205,25 +215,74 @@ const Dashboard = () => {
       const data = await response.json();
       
       if (data.success && data.data.loads) {
+        // Debug logging to understand API response structure
+        console.log('=== API Response for loads ===');
+        console.log('Full API Response:', data);
+        console.log('Loads Array:', data.data.loads);
+        
+        // Log first load to see structure
+        if (data.data.loads.length > 0) {
+          console.log('First Load Object:', data.data.loads[0]);
+          console.log('Origin Structure:', data.data.loads[0].origin);
+          console.log('Destination Structure:', data.data.loads[0].destination);
+          console.log('Origin Type:', typeof data.data.loads[0].origin);
+          console.log('Destination Type:', typeof data.data.loads[0].destination);
+          console.log('Is Origin Array:', Array.isArray(data.data.loads[0].origin));
+          console.log('Is Destination Array:', Array.isArray(data.data.loads[0].destination));
+        }
+        
         // Format the API data for table display
-        const formattedData = data.data.loads.map(load => ({
-          id: load.shipmentNumber || 'N/A',
-          type: load.loadType || 'OTR',
-          from: load.origin ? `${load.origin.city || 'N/A'}, ${load.origin.state || 'N/A'}` : 'N/A',
-          to: load.destination ? `${load.destination.city || 'N/A'}, ${load.destination.state || 'N/A'}` : 'N/A',
-          eta: load.deliveryDate ? new Date(load.deliveryDate).toLocaleDateString() : 'N/A',
-          status: load.status || 'N/A',
-          weight: load.weight || 'N/A',
-          rate: load.rate || 'N/A',
-          pickupDate: load.pickupDate ? new Date(load.pickupDate).toLocaleDateString() : 'N/A',
-          driverName: load.acceptedBid?.driverName || 'N/A',
-          vehicleNumber: load.acceptedBid?.vehicleNumber || 'N/A',
-          commodity: load.commodity || 'N/A',
-          vehicleType: load.vehicleType || 'N/A'
-        }));
+        const formattedData = data.data.loads.map(load => {
+          // Helper function to format location from origins/destinations array
+          const formatLocationFromArray = (locationArray) => {
+            if (!locationArray || !Array.isArray(locationArray) || locationArray.length === 0) {
+              return 'N/A';
+            }
+            
+            // Take the first location from the array
+            const firstLocation = locationArray[0];
+            if (firstLocation.city && firstLocation.state) {
+              return `${firstLocation.city}, ${firstLocation.state}`;
+            }
+            if (firstLocation.city) {
+              return firstLocation.city;
+            }
+            if (firstLocation.extractedCity) {
+              return firstLocation.extractedCity;
+            }
+            return 'N/A';
+          };
+          
+          return {
+            id: load.shipmentNumber || load._id || 'N/A',
+            type: load.loadType || 'OTR',
+            from: formatLocationFromArray(load.origins),
+            to: formatLocationFromArray(load.destinations),
+            eta: load.deliveryDate ? new Date(load.deliveryDate).toLocaleDateString() : 'N/A',
+            status: load.status || 'N/A',
+            weight: load.weight || 'N/A',
+            rate: load.rate || 'N/A',
+            pickupDate: load.pickupDate ? new Date(load.pickupDate).toLocaleDateString() : 'N/A',
+            driverName: load.acceptedBid?.driverName || 'N/A',
+            vehicleNumber: load.acceptedBid?.vehicleNumber || 'N/A',
+            commodity: load.commodity || 'N/A',
+            vehicleType: load.vehicleType || 'N/A'
+          };
+        });
         
         setTableData(formattedData);
         setCurrentPage(1); // Reset to first page when new data loads
+        
+        // Update actual counts based on status
+        if (status === 'Bidding') {
+          setActualCounts(prev => ({ ...prev, bidding: data.data.loads.length }));
+        } else if (status === 'Delivered') {
+          setActualCounts(prev => ({ ...prev, delivered: data.data.loads.length }));
+        } else if (status === 'In Transit') {
+          setActualCounts(prev => ({ ...prev, inTransit: data.data.loads.length }));
+        } else if (!status) {
+          setActualCounts(prev => ({ ...prev, totalLoads: data.data.loads.length }));
+        }
       } else {
         throw new Error(data.message || 'Failed to fetch detailed loads data');
       }
@@ -328,24 +387,49 @@ const Dashboard = () => {
       }
 
       // Format the combined data for table display
-      const formattedData = allLoads.map(load => ({
-        id: load.shipmentNumber || 'N/A',
-        type: load.loadType || 'OTR',
-        from: load.origin ? `${load.origin.city || 'N/A'}, ${load.origin.state || 'N/A'}` : 'N/A',
-        to: load.destination ? `${load.destination.city || 'N/A'}, ${load.destination.state || 'N/A'}` : 'N/A',
-        eta: load.deliveryDate ? new Date(load.deliveryDate).toLocaleDateString() : 'N/A',
-        status: load.status || 'N/A',
-        weight: load.weight || 'N/A',
-        rate: load.rate || 'N/A',
-        pickupDate: load.pickupDate ? new Date(load.pickupDate).toLocaleDateString() : 'N/A',
-        driverName: load.acceptedBid?.driverName || 'N/A',
-        vehicleNumber: load.acceptedBid?.vehicleNumber || 'N/A',
-        commodity: load.commodity || 'N/A',
-        vehicleType: load.vehicleType || 'N/A'
-      }));
+      const formattedData = allLoads.map(load => {
+        // Helper function to format location from origins/destinations array
+        const formatLocationFromArray = (locationArray) => {
+          if (!locationArray || !Array.isArray(locationArray) || locationArray.length === 0) {
+            return 'N/A';
+          }
+          
+          // Take the first location from the array
+          const firstLocation = locationArray[0];
+          if (firstLocation.city && firstLocation.state) {
+            return `${firstLocation.city}, ${firstLocation.state}`;
+          }
+          if (firstLocation.city) {
+            return firstLocation.city;
+          }
+          if (firstLocation.extractedCity) {
+            return firstLocation.extractedCity;
+          }
+          return 'N/A';
+        };
+        
+        return {
+          id: load.shipmentNumber || load._id || 'N/A',
+          type: load.loadType || 'OTR',
+          from: formatLocationFromArray(load.origins),
+          to: formatLocationFromArray(load.destinations),
+          eta: load.deliveryDate ? new Date(load.deliveryDate).toLocaleDateString() : 'N/A',
+          status: load.status || 'N/A',
+          weight: load.weight || 'N/A',
+          rate: load.rate || 'N/A',
+          pickupDate: load.pickupDate ? new Date(load.pickupDate).toLocaleDateString() : 'N/A',
+          driverName: load.acceptedBid?.driverName || 'N/A',
+          vehicleNumber: load.acceptedBid?.vehicleNumber || 'N/A',
+          commodity: load.commodity || 'N/A',
+          vehicleType: load.vehicleType || 'N/A'
+        };
+      });
       
       setTableData(formattedData);
       setCurrentPage(1); // Reset to first page when new data loads
+      
+      // Update pending delivery count
+      setActualCounts(prev => ({ ...prev, pendingDeliveries: allLoads.length }));
     } catch (err) {
       console.error('Error fetching pending delivery data:', err);
       setTableData([]);
@@ -462,6 +546,49 @@ const Dashboard = () => {
     scrollToTable();
   };
 
+  // Load actual counts for all categories
+  const loadActualCounts = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      
+      // Load all counts in parallel
+      const [totalResponse, biddingResponse, deliveredResponse, inTransitResponse] = await Promise.all([
+        fetch(`${BASE_API_URL}/api/v1/load/shipper/my-loads-detailed`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        fetch(`${BASE_API_URL}/api/v1/load/shipper/my-loads-detailed?status=Bidding`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        fetch(`${BASE_API_URL}/api/v1/load/shipper/my-loads-detailed?status=Delivered`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        fetch(`${BASE_API_URL}/api/v1/load/shipper/my-loads-detailed?status=In Transit`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+      ]);
+
+      const [totalData, biddingData, deliveredData, inTransitData] = await Promise.all([
+        totalResponse.json(),
+        biddingResponse.json(),
+        deliveredResponse.json(),
+        inTransitResponse.json()
+      ]);
+
+      // Update actual counts
+      setActualCounts({
+        totalLoads: totalData.success ? totalData.data.loads.length : 0,
+        bidding: biddingData.success ? biddingData.data.loads.length : 0,
+        delivered: deliveredData.success ? deliveredData.data.loads.length : 0,
+        inTransit: inTransitData.success ? inTransitData.data.loads.length : 0,
+        pendingDeliveries: 0, // Will be calculated separately
+        bills: 0 // Will be calculated separately
+      });
+
+    } catch (err) {
+      console.error('Error loading actual counts:', err);
+    }
+  };
+
   // Fetch dashboard data based on user type
   const fetchDashboardData = async () => {
     try {
@@ -507,6 +634,7 @@ const Dashboard = () => {
     if (userType === 'shipper' || userType === 'trucker') {
       fetchDashboardData();
       fetchMapData(); // Fetch map data
+      loadActualCounts(); // Load actual counts for accurate card display
     } else {
       setLoading(false);
     }
@@ -589,6 +717,11 @@ const Dashboard = () => {
 
   // Get dashboard values from API data or use defaults
   const getDashboardValue = (key) => {
+    // Use actual counts if available (more accurate)
+    if (actualCounts[key] > 0) {
+      return actualCounts[key];
+    }
+    
     if ((userType === 'shipper' || userType === 'trucker') && dashboardData?.dashboard) {
       // Handle statusBreakdown data
       if (key === 'delivered') {
@@ -792,7 +925,7 @@ const Dashboard = () => {
         <Box sx={{ gridColumn: 'span 1' }}>
           <StatCard 
             title="Bids On Loads" 
-            value={getDashboardValue('biddingLoads') || getDashboardValue('pendingDeliveries')} 
+            value={actualCounts.bidding || getDashboardValue('biddingLoads') || getDashboardValue('pendingDeliveries')} 
             icon={cancel} 
             image={localshipping}
             onClick={handleBidsOnLoadsClick}

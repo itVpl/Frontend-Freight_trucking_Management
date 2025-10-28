@@ -150,12 +150,39 @@ const Consignment = () => {
   // Transform API data to table format with error handling
   const transformedData = loadsData.map((load) => {
     try {
+      // Helper function to get pickup location
+      const getPickupLocation = () => {
+        if (load.origins && load.origins.length > 0) {
+          const origin = load.origins[0]; // Take first origin
+          return `${origin.city || 'N/A'}, ${origin.state || 'N/A'}`;
+        } else if (load.originPlace?.location) {
+          return load.originPlace.location;
+        } else if (load.destination?.city) {
+          // Fallback to destination city if origin not available
+          return `${load.destination.city || 'N/A'}, ${load.destination.state || 'N/A'}`;
+        }
+        return 'N/A';
+      };
+
+      // Helper function to get drop location
+      const getDropLocation = () => {
+        if (load.destinations && load.destinations.length > 0) {
+          const destination = load.destinations[0]; // Take first destination
+          return `${destination.city || 'N/A'}, ${destination.state || 'N/A'}`;
+        } else if (load.destination?.city) {
+          return `${load.destination.city || 'N/A'}, ${load.destination.state || 'N/A'}`;
+        } else if (load.destinationPlace?.location) {
+          return load.destinationPlace.location;
+        }
+        return 'N/A';
+      };
+
       return {
         loadId: `L-${load._id ? load._id.slice(-5) : 'N/A'}`, // L- followed by last 5 digits
         consignmentNo: load.shipmentNumber || 'N/A',
         weight: `${load.weight || 0} lbs`,
-        pickup: load.origin ? `${load.origin.city || 'N/A'}, ${load.origin.state || 'N/A'}` : 'N/A',
-        drop: load.destination ? `${load.destination.city || 'N/A'}, ${load.destination.state || 'N/A'}` : 'N/A',
+        pickup: getPickupLocation(),
+        drop: getDropLocation(),
         vehicle: load.acceptedBid?.vehicleNumber || 'N/A',
         loadType: load.loadType || 'N/A',
         driver: load.acceptedBid?.driverName || 'N/A',
