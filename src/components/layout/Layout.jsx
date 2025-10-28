@@ -36,6 +36,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Email as EmailIcon,
+  PersonAdd,
 } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
 import UniversalSearch from '../UniversalSearch';
@@ -83,6 +84,7 @@ const Layout = () => {
       { text: 'Driver', icon: <Person />, path: '/driver' },
       { text: 'Consignment', icon: <Assignment />, path: '/consignment' },
       { text: 'Bid Management', icon: <ListAlt />, path: '/bid-management' },
+      { text: 'Add Customer', icon: <PersonAdd />, path: '/add-customer' },
       { text: 'Email', icon: <EmailIcon />, path: '/email' },
       { text: 'Report', icon: <Assessment />, path: '/reports' },
       { text: 'Load Calculator', icon: <AccountBalance />, path: '/loadcalculator' },
