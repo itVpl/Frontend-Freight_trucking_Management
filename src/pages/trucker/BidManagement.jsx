@@ -31,7 +31,7 @@ const Dashboard = () => {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
   const [bidData, setBidData] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); 
   const [bidModalOpen, setBidModalOpen] = useState(false);
   const [selectedLoad, setSelectedLoad] = useState(null);
   const [bidForm, setBidForm] = useState({
@@ -320,8 +320,8 @@ const Dashboard = () => {
                 <TableRow sx={{ backgroundColor: '#f0f4f8' }}>
                   <TableCell sx={{ fontWeight: 600 }}>Load ID</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>shipper Name</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>From</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>To</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Pickup</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Drop</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>ETA</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Bid Status</TableCell>
                 </TableRow>
@@ -346,8 +346,18 @@ const Dashboard = () => {
                       >
                         <TableCell>{formatLoadId(row._id || row.loadId)}</TableCell>
                         <TableCell>{row.shipper?.compName || row.shipperName || '-'}</TableCell>
-                        <TableCell>{row.origin?.city || row.from || '-'}</TableCell>
-                        <TableCell>{row.destination?.city || row.to || '-'}</TableCell>
+                        <TableCell>
+                          {row.origins && row.origins.length > 0 
+                            ? `${row.origins[0].city || ''}${row.origins[0].state ? `, ${row.origins[0].state}` : ''}` 
+                            : (row.origin?.city || row.from || '-')
+                          }
+                        </TableCell>
+                        <TableCell>
+                          {row.destinations && row.destinations.length > 0 
+                            ? `${row.destinations[0].city || ''}${row.destinations[0].state ? `, ${row.destinations[0].state}` : ''}` 
+                            : (row.destination?.city || row.to || '-')
+                          }
+                        </TableCell>
                         <TableCell>{row.pickupDate ? new Date(row.pickupDate).toLocaleDateString() : (row.eta || '-')}</TableCell>
                         <TableCell>
                           <Button
@@ -386,8 +396,8 @@ const Dashboard = () => {
               <TableHead>
                 <TableRow sx={{ backgroundColor: '#f0f4f8' }}>
                   <TableCell sx={{ fontWeight: 600 }}>Shipment No</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>From</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>To</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Pickup Location</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Drop Location</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Pickup Date</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Drop Date</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
@@ -413,8 +423,18 @@ const Dashboard = () => {
                         sx={{ transition: '0.3s', '&:hover': { backgroundColor: '#e3f2fd' } }}
                       >
                         <TableCell>{row.shipmentNumber}</TableCell>
-                        <TableCell>{row.origin?.city}</TableCell>
-                        <TableCell>{row.destination?.city}</TableCell>
+                        <TableCell>
+                          {row.origins && row.origins.length > 0 
+                            ? `${row.origins[0].city || ''}${row.origins[0].state ? `, ${row.origins[0].state}` : ''}` 
+                            : (row.origin?.city || '-')
+                          }
+                        </TableCell>
+                        <TableCell>
+                          {row.destinations && row.destinations.length > 0 
+                            ? `${row.destinations[0].city || ''}${row.destinations[0].state ? `, ${row.destinations[0].state}` : ''}` 
+                            : (row.destination?.city || '-')
+                          }
+                        </TableCell>
                         <TableCell>{row.pickupDate}</TableCell>
                         <TableCell>{row.deliveryDate}</TableCell>
                         <TableCell>
@@ -500,8 +520,18 @@ const Dashboard = () => {
                   </TableHead>
                   <TableBody>
                     <TableRow>
-                      <TableCell>{selectedLoad.origin?.city || '-'}</TableCell>
-                      <TableCell>{selectedLoad.destination?.city || '-'}</TableCell>
+                      <TableCell>
+                        {selectedLoad.origins && selectedLoad.origins.length > 0 
+                          ? `${selectedLoad.origins[0].city || ''}${selectedLoad.origins[0].state ? `, ${selectedLoad.origins[0].state}` : ''}` 
+                          : (selectedLoad.origin?.city || '-')
+                        }
+                      </TableCell>
+                      <TableCell>
+                        {selectedLoad.destinations && selectedLoad.destinations.length > 0 
+                          ? `${selectedLoad.destinations[0].city || ''}${selectedLoad.destinations[0].state ? `, ${selectedLoad.destinations[0].state}` : ''}` 
+                          : (selectedLoad.destination?.city || '-')
+                        }
+                      </TableCell>
                       <TableCell>{selectedLoad.weight ? `${selectedLoad.weight} Kg` : '-'}</TableCell>
                       <TableCell>{selectedLoad.commodity || '-'}</TableCell>
                       <TableCell>{selectedLoad.vehicleType || '-'}</TableCell>

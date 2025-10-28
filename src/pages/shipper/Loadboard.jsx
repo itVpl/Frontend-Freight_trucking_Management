@@ -991,6 +991,71 @@ const LoadBoard = () => {
     setEditModalOpen(true);
   };
 
+  const handleDuplicateLoad = (load) => {
+    // Set load type first
+    setLoadType(load.loadType || 'OTR');
+    
+    // Populate form with existing load data for duplication
+    if (load.loadType === 'DRAYAGE') {
+      setForm({
+        loadType: 'DRAYAGE',
+        fromAddress: load.fromAddress || '',
+        fromCity: load.fromCity || '',
+        fromState: load.fromState || '',
+        toAddress: load.toAddress || '',
+        toCity: load.toCity || '',
+        toState: load.toState || '',
+        weight: load.weight || '',
+        commodity: load.commodity || '',
+        vehicleType: load.vehicleType || '',
+        pickupDate: load.pickupDate ? new Date(load.pickupDate).toISOString().split('T')[0] : '',
+        deliveryDate: load.deliveryDate ? new Date(load.deliveryDate).toISOString().split('T')[0] : '',
+        rate: load.rate || '',
+        rateType: load.rateType || 'Flat Rate',
+        bidDeadline: load.bidDeadline || '',
+        containerNo: load.containerNo || '',
+        poNumber: load.poNumber || '',
+        bolNumber: load.bolNumber || '',
+        returnDate: load.returnDate ? new Date(load.returnDate).toISOString().split('T')[0] : '',
+        returnLocation: load.returnLocation || '',
+        drayageLocation: load.drayageLocation || ''
+      });
+    } else {
+      // OTR load duplication
+      setForm({
+        loadType: 'OTR',
+        vehicleType: load.vehicleType || '',
+        rate: load.rate || '',
+        rateType: load.rateType || 'Flat Rate',
+        bidDeadline: load.bidDeadline || '',
+        origins: load.origins ? load.origins.map(origin => ({
+          addressLine1: origin.addressLine1 || '',
+          addressLine2: origin.addressLine2 || '',
+          city: origin.city || '',
+          state: origin.state || '',
+          zip: origin.zip || '',
+          weight: origin.weight || '',
+          commodity: origin.commodity || '',
+          pickupDate: origin.pickupDate ? new Date(origin.pickupDate).toISOString().split('T')[0] : '',
+          deliveryDate: origin.deliveryDate ? new Date(origin.deliveryDate).toISOString().split('T')[0] : ''
+        })) : [],
+        destinations: load.destinations ? load.destinations.map(destination => ({
+          addressLine1: destination.addressLine1 || '',
+          addressLine2: destination.addressLine2 || '',
+          city: destination.city || '',
+          state: destination.state || '',
+          zip: destination.zip || '',
+          weight: destination.weight || '',
+          commodity: destination.commodity || '',
+          deliveryDate: destination.deliveryDate ? new Date(destination.deliveryDate).toISOString().split('T')[0] : ''
+        })) : []
+      });
+    }
+    
+    setErrors({});
+    setModalOpen(true);
+  };
+
   const handleCloseEditModal = () => {
     setEditModalOpen(false);
     setSelectedLoad(null);
@@ -1631,6 +1696,20 @@ const LoadBoard = () => {
                             }}
                           >
                             Edit
+                          </Button>
+                          <Button 
+                            size="small" 
+                            variant="outlined" 
+                            onClick={() => handleDuplicateLoad(load)}
+                            sx={{
+                              backgroundColor: '#e3f2fd',
+                              color: '#1976d2',
+                              '&:hover': {
+                                backgroundColor: '#bbdefb'
+                              }
+                            }}
+                          >
+                            Duplicate
                           </Button>
                           <Button 
                             size="small" 

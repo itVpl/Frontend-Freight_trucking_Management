@@ -107,6 +107,7 @@ const Login = () => {
           height: '100vh',
           objectFit: 'cover',
           zIndex: 0,
+          filter: 'blur(2px)',
         }}
       />
 
@@ -115,7 +116,7 @@ const Login = () => {
         sx={{
           position: 'fixed',
           inset: 0,
-          bgcolor: 'rgba(0,0,0,0.35)',
+          bgcolor: 'rgba(0,0,0,0.6)',
           zIndex: 0,
         }}
       />
