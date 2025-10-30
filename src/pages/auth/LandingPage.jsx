@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 // Logo is served from public directory, so we use it as a URL
 const logo = "/images/logo_vpower.png";
 import groupphoto from "../../assets/Icons super admin/Groupphoto.png"; // <- aapka image import
+import { BASE_API_URL } from "../../apiConfig.js";
 
 /** ====== TUNING ====== **/
 const SPEED_SLOW = 22;  // seconds per loop (bigger = slower)
@@ -164,6 +165,8 @@ const LandingPage = () => {
 const DemoModal = ({ open, onClose }) => {
   const [revealExtra, setRevealExtra] = useState(false);
   const [companyType, setCompanyType] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   // Country/State (FREE)
   const [countries, setCountries] = useState([]);     // [{name, iso2}]
@@ -253,11 +256,55 @@ const DemoModal = ({ open, onClose }) => {
 
   if (!open) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // const payload = Object.fromEntries(new FormData(e.currentTarget)); // if needed
-    alert("Thanks! We'll reach out shortly.");
-    onClose();
+    setIsSubmitting(true);
+    setSubmitError("");
+
+    try {
+      const formData = new FormData(e.currentTarget);
+      const payload = {
+        email: formData.get("email"),
+        firstName: formData.get("firstName"),
+        lastName: formData.get("lastName"),
+        phoneNumber: formData.get("phone"),
+        companyName: formData.get("company"),
+        companyType: formData.get("companyType"),
+        country: countryName,
+        state: stateVal || undefined,
+        notes: formData.get("hearAbout"),
+        noOfDrivers: formData.get("numberOfDrivers") ? parseInt(formData.get("numberOfDrivers")) : undefined,
+        loadsInPastYear: formData.get("loadsLastYear") ? parseInt(formData.get("loadsLastYear")) : undefined
+      };
+
+      // Remove undefined values
+      Object.keys(payload).forEach(key => {
+        if (payload[key] === undefined) {
+          delete payload[key];
+        }
+      });
+
+      const response = await fetch(`${BASE_API_URL}/api/v1/schedule-demo/submit`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      alert("Thanks! We'll reach out shortly.");
+      onClose();
+    } catch (error) {
+      console.error("Error submitting demo request:", error);
+      setSubmitError("Failed to submit demo request. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const isCarrier = companyType === "Carrier" || companyType === "Carrier + Broker";
@@ -500,12 +547,29 @@ const DemoModal = ({ open, onClose }) => {
               </div>
             </div>
 
+            {/* Error message */}
+            {submitError && (
+              <div className="pt-2">
+                <div className="rounded-xl bg-red-50 border border-red-200 p-3 text-red-700 text-sm">
+                  {submitError}
+                </div>
+              </div>
+            )}
+
             <div className="pt-2">
               <button
                 type="submit"
-                className="w-full rounded-xl bg-gradient-to-b from-[#2f6af0] to-[#1f53d8] py-3 font-semibold text-white shadow-[0_8px_20px_rgba(37,99,235,0.35)] active:translate-y-[1px]"
+                disabled={isSubmitting}
+                className="w-full rounded-xl bg-gradient-to-b from-[#2f6af0] to-[#1f53d8] py-3 font-semibold text-white shadow-[0_8px_20px_rgba(37,99,235,0.35)] active:translate-y-[1px] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:translate-y-0"
               >
-                Schedule a Demo
+                {isSubmitting ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Submitting...
+                  </div>
+                ) : (
+                  "Schedule a Demo"
+                )}
               </button>
             </div>
           </form>

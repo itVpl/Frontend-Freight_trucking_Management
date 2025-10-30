@@ -295,8 +295,8 @@ const AddCustomer = () => {
       setLoading(true);
       
       if (editModalOpen) {
-        // Update existing customer - only send status for now as per API
-        await updateCustomer(selectedCustomer.customerId, { status: 'active' });
+        // Update existing customer with form data
+        await updateCustomer(selectedCustomer.customerId, formData);
         setSuccess('Customer updated successfully');
       } else {
         // Add new customer
@@ -317,16 +317,6 @@ const AddCustomer = () => {
     }
   };
 
-  const handleInputChange = useCallback((e) => {
-    const { name, value } = e.target;
-    setFormData(prev => {
-      if (prev[name] === value) return prev; // Prevent unnecessary updates
-      return {
-        ...prev,
-        [name]: value
-      };
-    });
-  }, []);
 
   // Filter customers based on search term - memoized for performance
   const filteredData = useMemo(() => {
@@ -342,130 +332,13 @@ const AddCustomer = () => {
     );
   }, [customersData, searchTerm]);
 
-  const CustomerForm = memo(({ isEdit = false }) => (
-    <DialogContent sx={{ pb: 4, maxHeight: '70vh', overflowY: 'auto', background: '#fff', borderRadius: 0 }}>
-      <Box component="form" onSubmit={handleSaveCustomer} sx={{ mt: 1, px: 2 }}>
-        <Grid container spacing={2} sx={{ mb: 2, justifyContent: 'center' }}>
-          {/* Company Name | MC/DOT No */}
-          <Grid item xs={12} sm={6}>
-            <TextField 
-              label="Company Name" 
-              name="companyName" 
-              value={formData.companyName || ''} 
-              onChange={handleInputChange} 
-              fullWidth
-              sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField 
-              label="MC/DOT No" 
-              name="mcDotNo" 
-              value={formData.mcDotNo || ''} 
-              onChange={handleInputChange} 
-              fullWidth
-              sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
-            />
-          </Grid>
-
-          {/* Email | Mobile */}
-          <Grid item xs={12} sm={6}>
-            <TextField 
-              label="Email" 
-              name="email" 
-              value={formData.email || ''} 
-              onChange={handleInputChange} 
-              fullWidth
-              sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField 
-              label="Mobile" 
-              name="mobile" 
-              value={formData.mobile || ''} 
-              onChange={handleInputChange} 
-              fullWidth
-              sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
-            />
-          </Grid>
-
-          {/* Company Address | City */}
-          <Grid item xs={12} sm={6}>
-            <TextField 
-              label="Company Address" 
-              name="companyAddress" 
-              value={formData.companyAddress || ''} 
-              onChange={handleInputChange} 
-              fullWidth
-              sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField 
-              label="City" 
-              name="city" 
-              value={formData.city || ''} 
-              onChange={handleInputChange} 
-              fullWidth
-              sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
-            />
-          </Grid>
-
-          {/* State | Country */}
-          <Grid item xs={12} sm={6}>
-            <TextField 
-              label="State" 
-              name="state" 
-              value={formData.state || ''} 
-              onChange={handleInputChange} 
-              fullWidth
-              sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField 
-              label="Country" 
-              name="country" 
-              value={formData.country || ''} 
-              onChange={handleInputChange} 
-              fullWidth
-              sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
-            />
-          </Grid>
-
-          {/* Zip Code | Notes */}
-          <Grid item xs={12} sm={6}>
-            <TextField 
-              label="Zip Code" 
-              name="zipCode" 
-              value={formData.zipCode || ''} 
-              onChange={handleInputChange} 
-              fullWidth
-              sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField 
-              label="Notes" 
-              name="notes" 
-              value={formData.notes || ''} 
-              onChange={handleInputChange} 
-              fullWidth
-              multiline
-              rows={3}
-              placeholder="Additional notes about the customer..."
-              sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
-            />
-          </Grid>
-        </Grid>
-        <DialogActions sx={{ mt: 4, justifyContent: 'center', gap: 1 }}>
-          <Button onClick={() => setAddModalOpen(false)} variant="contained" sx={{ borderRadius: 3, backgroundColor: '#f0f0f0', color: '#000', textTransform: 'none', px: 4, '&:hover': { backgroundColor: '#e0e0e0' } }}>Cancel</Button>
-          <Button type="submit" variant="contained" color="primary" sx={{ borderRadius: 3, textTransform: 'none', px: 4 }}>Submit</Button>
-        </DialogActions>
-      </Box>
-    </DialogContent>
-  ));
+  const handleFormInputChange = useCallback((e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  }, []);
 
   if (loading && customersData.length === 0) {
     return (
@@ -693,7 +566,128 @@ const AddCustomer = () => {
           </Typography>
           <Divider sx={{ mt: 1, mb: 0.5, width: '100%', borderColor: '#e0e0e0', borderBottomWidth: 2, borderRadius: 2 }} />
         </DialogTitle>
-        <CustomerForm key="add-customer-form" />
+        <DialogContent sx={{ pb: 4, maxHeight: '70vh', overflowY: 'auto', background: '#fff', borderRadius: 0 }}>
+          <Box component="form" onSubmit={handleSaveCustomer} sx={{ mt: 1, px: 2 }}>
+            <Grid container spacing={2} sx={{ mb: 2, justifyContent: 'center' }}>
+              {/* Company Name | MC/DOT No */}
+              <Grid item xs={12} sm={6}>
+                <TextField 
+                  label="Company Name" 
+                  name="companyName" 
+                  value={formData.companyName || ''} 
+                  onChange={handleFormInputChange} 
+                  fullWidth
+                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField 
+                  label="MC/DOT No" 
+                  name="mcDotNo" 
+                  value={formData.mcDotNo || ''} 
+                  onChange={handleFormInputChange} 
+                  fullWidth
+                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
+                />
+              </Grid>
+
+              {/* Email | Mobile */}
+              <Grid item xs={12} sm={6}>
+                <TextField 
+                  label="Email" 
+                  name="email" 
+                  value={formData.email || ''} 
+                  onChange={handleFormInputChange} 
+                  fullWidth
+                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField 
+                  label="Mobile" 
+                  name="mobile" 
+                  value={formData.mobile || ''} 
+                  onChange={handleFormInputChange} 
+                  fullWidth
+                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
+                />
+              </Grid>
+
+              {/* Company Address | City */}
+              <Grid item xs={12} sm={6}>
+                <TextField 
+                  label="Company Address" 
+                  name="companyAddress" 
+                  value={formData.companyAddress || ''} 
+                  onChange={handleFormInputChange} 
+                  fullWidth
+                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField 
+                  label="City" 
+                  name="city" 
+                  value={formData.city || ''} 
+                  onChange={handleFormInputChange} 
+                  fullWidth
+                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
+                />
+              </Grid>
+
+              {/* State | Country */}
+              <Grid item xs={12} sm={6}>
+                <TextField 
+                  label="State" 
+                  name="state" 
+                  value={formData.state || ''} 
+                  onChange={handleFormInputChange} 
+                  fullWidth
+                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField 
+                  label="Country" 
+                  name="country" 
+                  value={formData.country || ''} 
+                  onChange={handleFormInputChange} 
+                  fullWidth
+                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
+                />
+              </Grid>
+
+              {/* Zip Code | Notes */}
+              <Grid item xs={12} sm={6}>
+                <TextField 
+                  label="Zip Code" 
+                  name="zipCode" 
+                  value={formData.zipCode || ''} 
+                  onChange={handleFormInputChange} 
+                  fullWidth
+                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField 
+                  label="Notes" 
+                  name="notes" 
+                  value={formData.notes || ''} 
+                  onChange={handleFormInputChange} 
+                  fullWidth
+                  multiline
+                  rows={3}
+                  placeholder="Additional notes about the customer..."
+                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
+                />
+              </Grid>
+            </Grid>
+            <DialogActions sx={{ mt: 4, justifyContent: 'center', gap: 1 }}>
+              <Button onClick={() => setAddModalOpen(false)} variant="contained" sx={{ borderRadius: 3, backgroundColor: '#f0f0f0', color: '#000', textTransform: 'none', px: 4, '&:hover': { backgroundColor: '#e0e0e0' } }}>Cancel</Button>
+              <Button type="submit" variant="contained" color="primary" sx={{ borderRadius: 3, textTransform: 'none', px: 4 }}>Submit</Button>
+            </DialogActions>
+          </Box>
+        </DialogContent>
       </Dialog>
 
       {/* Edit Customer Modal */}
@@ -741,59 +735,171 @@ const AddCustomer = () => {
               </IconButton>
             </Box>
           </Box>
-          <CustomerForm key="edit-customer-form" isEdit={true} />
-          <Box sx={{ 
-            p: 3, 
-            borderTop: '1px solid #e0e0e0', 
-            display: 'flex', 
-            justifyContent: 'flex-end', 
-            gap: 2,
-            backgroundColor: '#f8f9fa',
-            borderRadius: '0 0 12px 12px'
-          }}>
-            <Button
-              variant="outlined"
-              onClick={() => setEditModalOpen(false)}
-              sx={{
-                borderRadius: '8px',
-                borderColor: '#e0e0e0',
-                color: '#666',
-                backgroundColor: 'white',
-                px: 3,
-                py: 1,
-                textTransform: 'none',
-                fontWeight: 500,
-                '&:hover': {
-                  borderColor: '#1976d2',
-                  backgroundColor: '#f5f5f5'
-                }
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="contained"
-              onClick={handleSaveCustomer}
-              disabled={loading}
-              sx={{
-                borderRadius: '8px',
-                backgroundColor: '#1976d2',
-                color: 'white',
-                px: 3,
-                py: 1,
-                textTransform: 'none',
-                fontWeight: 500,
-                '&:hover': {
-                  backgroundColor: '#1565c0'
-                },
-                '&:disabled': {
-                  backgroundColor: '#e0e0e0',
-                  color: '#999'
-                }
-              }}
-            >
-              {loading ? <CircularProgress size={20} color="inherit" /> : 'Update Customer'}
-            </Button>
+          <Box component="form" onSubmit={handleSaveCustomer} sx={{ p: 3 }}>
+            <Grid container spacing={2} sx={{ mb: 2, justifyContent: 'center' }}>
+              {/* Company Name | MC/DOT No */}
+              <Grid item xs={12} sm={6}>
+                <TextField 
+                  label="Company Name" 
+                  name="companyName" 
+                  value={formData.companyName || ''} 
+                  onChange={handleFormInputChange} 
+                  fullWidth
+                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField 
+                  label="MC/DOT No" 
+                  name="mcDotNo" 
+                  value={formData.mcDotNo || ''} 
+                  onChange={handleFormInputChange} 
+                  fullWidth
+                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
+                />
+              </Grid>
+
+              {/* Email | Mobile */}
+              <Grid item xs={12} sm={6}>
+                <TextField 
+                  label="Email" 
+                  name="email" 
+                  value={formData.email || ''} 
+                  onChange={handleFormInputChange} 
+                  fullWidth
+                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField 
+                  label="Mobile" 
+                  name="mobile" 
+                  value={formData.mobile || ''} 
+                  onChange={handleFormInputChange} 
+                  fullWidth
+                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
+                />
+              </Grid>
+
+              {/* Company Address | City */}
+              <Grid item xs={12} sm={6}>
+                <TextField 
+                  label="Company Address" 
+                  name="companyAddress" 
+                  value={formData.companyAddress || ''} 
+                  onChange={handleFormInputChange} 
+                  fullWidth
+                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField 
+                  label="City" 
+                  name="city" 
+                  value={formData.city || ''} 
+                  onChange={handleFormInputChange} 
+                  fullWidth
+                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
+                />
+              </Grid>
+
+              {/* State | Country */}
+              <Grid item xs={12} sm={6}>
+                <TextField 
+                  label="State" 
+                  name="state" 
+                  value={formData.state || ''} 
+                  onChange={handleFormInputChange} 
+                  fullWidth
+                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField 
+                  label="Country" 
+                  name="country" 
+                  value={formData.country || ''} 
+                  onChange={handleFormInputChange} 
+                  fullWidth
+                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
+                />
+              </Grid>
+
+              {/* Zip Code | Notes */}
+              <Grid item xs={12} sm={6}>
+                <TextField 
+                  label="Zip Code" 
+                  name="zipCode" 
+                  value={formData.zipCode || ''} 
+                  onChange={handleFormInputChange} 
+                  fullWidth
+                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField 
+                  label="Notes" 
+                  name="notes" 
+                  value={formData.notes || ''} 
+                  onChange={handleFormInputChange} 
+                  fullWidth
+                  multiline
+                  rows={3}
+                  placeholder="Additional notes about the customer..."
+                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
+                />
+              </Grid>
+            </Grid>
+            <Box sx={{ 
+              display: 'flex', 
+              justifyContent: 'flex-end', 
+              gap: 2,
+              mt: 3
+            }}>
+              <Button
+                variant="outlined"
+                onClick={() => setEditModalOpen(false)}
+                sx={{
+                  borderRadius: '8px',
+                  borderColor: '#e0e0e0',
+                  color: '#666',
+                  backgroundColor: 'white',
+                  px: 3,
+                  py: 1,
+                  textTransform: 'none',
+                  fontWeight: 500,
+                  '&:hover': {
+                    borderColor: '#1976d2',
+                    backgroundColor: '#f5f5f5'
+                  }
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="contained"
+                disabled={loading}
+                sx={{
+                  borderRadius: '8px',
+                  backgroundColor: '#1976d2',
+                  color: 'white',
+                  px: 3,
+                  py: 1,
+                  textTransform: 'none',
+                  fontWeight: 500,
+                  '&:hover': {
+                    backgroundColor: '#1565c0'
+                  },
+                  '&:disabled': {
+                    backgroundColor: '#e0e0e0',
+                    color: '#999'
+                  }
+                }}
+              >
+                {loading ? <CircularProgress size={20} color="inherit" /> : 'Update Customer'}
+              </Button>
+            </Box>
           </Box>
         </Box>
       </Modal>
@@ -811,31 +917,34 @@ const AddCustomer = () => {
             left: '50%',
             transform: 'translate(-50%, -50%)',
             width: '90%',
-            maxWidth: 850,
+            maxWidth: 800,
             bgcolor: 'white',
             borderRadius: '12px',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
-            maxHeight: '90vh',
-            overflow: 'auto',
+            boxShadow: '0 10px 40px rgba(0, 0, 0, 0.1)',
+            maxHeight: '85vh',
+            display: 'flex',
+            flexDirection: 'column',
             border: '1px solid #e0e0e0'
           }}
         >
+          {/* Header */}
           <Box sx={{ 
             p: 3, 
-            borderBottom: '1px solid #e0e0e0',
-            backgroundColor: '#f8f9fa',
-            borderRadius: '12px 12px 0 0'
+            backgroundColor: '#1976d2',
+            color: 'white',
+            borderRadius: '12px 12px 0 0',
+            flexShrink: 0
           }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="h6" fontWeight={700} sx={{ color: '#333' }}>
+              <Typography variant="h5" fontWeight={600} sx={{ color: 'white' }}>
                 Customer Details
               </Typography>
               <IconButton 
                 onClick={() => setViewModalOpen(false)}
                 sx={{
-                  backgroundColor: '#f5f5f5',
+                  color: 'white',
                   '&:hover': {
-                    backgroundColor: '#e0e0e0'
+                    backgroundColor: 'rgba(255,255,255,0.1)'
                   }
                 }}
               >
@@ -843,82 +952,156 @@ const AddCustomer = () => {
               </IconButton>
             </Box>
           </Box>
+          {/* Content Area - Scrollable */}
           {selectedCustomer && (
-            <Box sx={{ p: 3 }}>
-              <Grid container spacing={3}>
-                <Grid item xs={12}>
-                  <Typography variant="h6" fontWeight={600} color="primary">
-                    {selectedCustomer.companyInfo?.companyName}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Created: {new Date(selectedCustomer.createdAt).toLocaleDateString()}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12}>
-                  <Divider />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="subtitle2" fontWeight={600}>MC/DOT Number</Typography>
-                  <Typography variant="body1">{selectedCustomer.companyInfo?.mcDotNo}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="subtitle2" fontWeight={600}>Email</Typography>
-                  <Typography variant="body1">{selectedCustomer.contactInfo?.email}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="subtitle2" fontWeight={600}>Mobile</Typography>
-                  <Typography variant="body1">{selectedCustomer.contactInfo?.mobile}</Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="subtitle2" fontWeight={600}>Status</Typography>
+            <Box sx={{ 
+              flex: 1,
+              overflowY: 'auto',
+              p: 3
+            }}>
+              {/* Company Name Header */}
+              <Box sx={{ mb: 3, pb: 2, borderBottom: '2px solid #e0e0e0' }}>
+                <Typography variant="h6" fontWeight={700} color="primary" sx={{ mb: 1 }}>
+                  {selectedCustomer.companyInfo?.companyName}
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                   <Chip
                     label={selectedCustomer.status}
                     color={selectedCustomer.status === 'active' ? 'success' : 'default'}
                     size="small"
                   />
-                </Grid>
-                <Grid item xs={12}>
-                  <Typography variant="subtitle2" fontWeight={600}>Address</Typography>
-                  <Typography variant="body1">
-                    {selectedCustomer.locationDetails?.companyAddress}<br />
-                    {selectedCustomer.locationDetails?.city}, {selectedCustomer.locationDetails?.state} {selectedCustomer.locationDetails?.zipCode}<br />
-                    {selectedCustomer.locationDetails?.country}
+                  <Typography variant="body2" color="text.secondary">
+                    Created: {new Date(selectedCustomer.createdAt).toLocaleDateString()}
                   </Typography>
+                </Box>
+              </Box>
+
+              {/* Details Grid */}
+              <Grid container spacing={3}>
+                {/* Company Info */}
+                <Grid item xs={12} sm={6}>
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="subtitle1" fontWeight={600} color="primary" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Business fontSize="small" />
+                      Company Information
+                    </Typography>
+                    <Box sx={{ pl: 2 }}>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                        MC/DOT Number:
+                      </Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                        {selectedCustomer.companyInfo?.mcDotNo || 'N/A'}
+                      </Typography>
+                    </Box>
+                  </Box>
                 </Grid>
+
+                {/* Contact Info */}
+                <Grid item xs={12} sm={6}>
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="subtitle1" fontWeight={600} color="primary" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Phone fontSize="small" />
+                      Contact Information
+                    </Typography>
+                    <Box sx={{ pl: 2 }}>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                        Email:
+                      </Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 500, mb: 1 }}>
+                        {selectedCustomer.contactInfo?.email || 'N/A'}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                        Mobile:
+                      </Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                        {selectedCustomer.contactInfo?.mobile || 'N/A'}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Grid>
+
+                {/* Location */}
+                <Grid item xs={12}>
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="subtitle1" fontWeight={600} color="primary" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <LocationOn fontSize="small" />
+                      Location Details
+                    </Typography>
+                    <Box sx={{ pl: 2 }}>
+                      <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                        {selectedCustomer.locationDetails?.companyAddress || 'N/A'}
+                      </Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                        {selectedCustomer.locationDetails?.city}, {selectedCustomer.locationDetails?.state} {selectedCustomer.locationDetails?.zipCode}
+                      </Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                        {selectedCustomer.locationDetails?.country}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Grid>
+
+                {/* Notes */}
                 {selectedCustomer.notes && (
                   <Grid item xs={12}>
-                    <Typography variant="subtitle2" fontWeight={600}>Notes</Typography>
-                    <Typography variant="body1">{selectedCustomer.notes}</Typography>
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="subtitle1" fontWeight={600} color="primary" sx={{ mb: 1 }}>
+                        Additional Notes
+                      </Typography>
+                      <Box sx={{ pl: 2 }}>
+                        <Typography variant="body1" sx={{ 
+                          fontWeight: 500,
+                          fontStyle: 'italic',
+                          backgroundColor: '#f5f5f5',
+                          p: 2,
+                          borderRadius: '8px',
+                          border: '1px solid #e0e0e0'
+                        }}>
+                          {selectedCustomer.notes}
+                        </Typography>
+                      </Box>
+                    </Box>
                   </Grid>
                 )}
+
+                {/* Added By */}
                 <Grid item xs={12}>
-                  <Typography variant="subtitle2" fontWeight={600}>Added By</Typography>
-                  <Typography variant="body1">
-                    {selectedCustomer.addedByTrucker?.truckerName} ({selectedCustomer.addedByTrucker?.truckerEmail})
-                  </Typography>
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="subtitle1" fontWeight={600} color="primary" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <PersonAdd fontSize="small" />
+                      Added By
+                    </Typography>
+                    <Box sx={{ pl: 2 }}>
+                      <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                        {selectedCustomer.addedByTrucker?.truckerName} ({selectedCustomer.addedByTrucker?.truckerEmail})
+                      </Typography>
+                    </Box>
+                  </Box>
                 </Grid>
               </Grid>
             </Box>
           )}
+          {/* Footer */}
           <Box sx={{ 
             p: 3, 
-            borderTop: '1px solid #e0e0e0', 
+            backgroundColor: '#f5f5f5',
             display: 'flex', 
-            justifyContent: 'flex-end',
-            backgroundColor: '#f8f9fa',
-            borderRadius: '0 0 12px 12px'
+            justifyContent: 'center',
+            borderRadius: '0 0 12px 12px',
+            borderTop: '1px solid #e0e0e0',
+            flexShrink: 0
           }}>
             <Button
               variant="contained"
               onClick={() => setViewModalOpen(false)}
               sx={{
-                borderRadius: '8px',
                 backgroundColor: '#1976d2',
                 color: 'white',
                 px: 3,
                 py: 1,
                 textTransform: 'none',
                 fontWeight: 500,
+                borderRadius: '8px',
                 '&:hover': {
                   backgroundColor: '#1565c0'
                 }
