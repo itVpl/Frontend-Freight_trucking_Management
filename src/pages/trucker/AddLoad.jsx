@@ -58,15 +58,29 @@ const AddLoad = () => {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [loadType, setLoadType] = useState('OTR');
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [selectedLoad, setSelectedLoad] = useState(null);
   const [formData, setFormData] = useState(() => ({
     customerId: '',
-    loadType: '',
+    loadType: 'OTR',
     vehicleType: 'Dry Van',
     rate: '',
     rateType: 'Flat Rate',
+    lineHaul: '',
+    fsc: '',
+    other: '',
+    total: '',
+    bidDeadline: '',
+    // DRAYAGE single fields
+    fromAddress: '',
+    fromCity: '',
+    fromState: '',
+    toAddress: '',
+    toCity: '',
+    toState: '',
+    // Common single pickup/delivery (backward compat)
     pickupLocation: '',
     pickupCity: '',
     pickupState: '',
@@ -77,6 +91,29 @@ const AddLoad = () => {
     deliveryZip: '',
     pickupDate: '',
     deliveryDate: '',
+    // OTR arrays (preferred)
+    origins: [{
+      addressLine1: '',
+      addressLine2: '',
+      city: '',
+      state: '',
+      zip: '',
+      weight: '',
+      commodity: '',
+      pickupDate: '',
+      deliveryDate: ''
+    }],
+    destinations: [{
+      addressLine1: '',
+      addressLine2: '',
+      city: '',
+      state: '',
+      zip: '',
+      weight: '',
+      commodity: '',
+      deliveryDate: ''
+    }],
+    // Common
     weight: '',
     commodity: '',
     containerNo: '',
@@ -87,6 +124,8 @@ const AddLoad = () => {
     customerPhone: '',
     customerEmail: '',
     specialInstructions: '',
+    returnDate: '',
+    returnLocation: ''
   }));
 
   // Fetch all loads on component mount
@@ -140,33 +179,61 @@ const AddLoad = () => {
       }
 
       // Transform form data to match API structure
-      const apiPayload = {
-        customerId: loadData.customerId,
-        loadType: loadData.loadType,
-        vehicleType: loadData.vehicleType || 'Dry Van',
-        rate: parseFloat(loadData.rate),
-        rateType: loadData.rateType || 'Flat Rate',
-        origins: [{
+      const hasArrays = Array.isArray(loadData.origins) && loadData.origins.length > 0 && Array.isArray(loadData.destinations) && loadData.destinations.length > 0;
+      const fallbackOrigin = {
           addressLine1: loadData.pickupLocation,
           addressLine2: loadData.pickupLocation,
           city: loadData.pickupCity || '',
           state: loadData.pickupState || '',
           zip: loadData.pickupZip || '',
-          weight: parseFloat(loadData.weight),
+        weight: loadData.weight ? parseFloat(loadData.weight) : undefined,
           commodity: loadData.commodity || '',
           pickupDate: loadData.pickupDate ? new Date(loadData.pickupDate).toISOString() : '',
           deliveryDate: loadData.deliveryDate ? new Date(loadData.deliveryDate).toISOString() : ''
-        }],
-        destinations: [{
+      };
+      const fallbackDestination = {
           addressLine1: loadData.deliveryLocation,
           addressLine2: loadData.deliveryLocation,
           city: loadData.deliveryCity || '',
           state: loadData.deliveryState || '',
           zip: loadData.deliveryZip || '',
-          weight: parseFloat(loadData.weight),
+        weight: loadData.weight ? parseFloat(loadData.weight) : undefined,
           commodity: loadData.commodity || '',
           deliveryDate: loadData.deliveryDate ? new Date(loadData.deliveryDate).toISOString() : ''
-        }],
+      };
+
+      const computedTotal =
+        (loadData.total && parseFloat(loadData.total)) ||
+        ((loadData.lineHaul ? parseFloat(loadData.lineHaul) : 0) + (loadData.fsc ? parseFloat(loadData.fsc) : 0) + (loadData.other ? parseFloat(loadData.other) : 0)) ||
+        (loadData.rate ? parseFloat(loadData.rate) : 0);
+
+      const apiPayload = {
+        ...(loadData.customerId ? { customerId: loadData.customerId } : {}),
+        loadType: loadData.loadType,
+        vehicleType: loadData.vehicleType || 'Dry Van',
+        rate: computedTotal,
+        rateType: loadData.rateType || 'Flat Rate',
+        origins: hasArrays ? loadData.origins.map(o => ({
+          addressLine1: o.addressLine1 || '',
+          addressLine2: o.addressLine2 || '',
+          city: o.city || '',
+          state: o.state || '',
+          zip: o.zip || '',
+          weight: o.weight ? parseFloat(o.weight) : undefined,
+          commodity: o.commodity || '',
+          pickupDate: o.pickupDate ? new Date(o.pickupDate).toISOString() : '',
+          deliveryDate: o.deliveryDate ? new Date(o.deliveryDate).toISOString() : ''
+        })) : [fallbackOrigin],
+        destinations: hasArrays ? loadData.destinations.map(d => ({
+          addressLine1: d.addressLine1 || '',
+          addressLine2: d.addressLine2 || '',
+          city: d.city || '',
+          state: d.state || '',
+          zip: d.zip || '',
+          weight: d.weight ? parseFloat(d.weight) : undefined,
+          commodity: d.commodity || '',
+          deliveryDate: d.deliveryDate ? new Date(d.deliveryDate).toISOString() : ''
+        })) : [fallbackDestination],
         containerNo: loadData.containerNo || '',
         poNumber: loadData.poNumber || '',
         bolNumber: loadData.bolNumber || '',
@@ -278,12 +345,20 @@ const AddLoad = () => {
   }, []);
 
   const handleAddLoad = useCallback(() => {
+    setLoadType('OTR');
     setFormData({
       customerId: '',
-      loadType: '',
+      loadType: 'OTR',
       vehicleType: 'Dry Van',
       rate: '',
       rateType: 'Flat Rate',
+      bidDeadline: '',
+      fromAddress: '',
+      fromCity: '',
+      fromState: '',
+      toAddress: '',
+      toCity: '',
+      toState: '',
       pickupLocation: '',
       pickupCity: '',
       pickupState: '',
@@ -294,6 +369,12 @@ const AddLoad = () => {
       deliveryZip: '',
       pickupDate: '',
       deliveryDate: '',
+      origins: [{
+        addressLine1: '', addressLine2: '', city: '', state: '', zip: '', weight: '', commodity: '', pickupDate: '', deliveryDate: ''
+      }],
+      destinations: [{
+        addressLine1: '', addressLine2: '', city: '', state: '', zip: '', weight: '', commodity: '', deliveryDate: ''
+      }],
       weight: '',
       commodity: '',
       containerNo: '',
@@ -304,6 +385,8 @@ const AddLoad = () => {
       customerPhone: '',
       customerEmail: '',
       specialInstructions: '',
+      returnDate: '',
+      returnLocation: ''
     });
     setAddModalOpen(true);
   }, []);
@@ -648,370 +731,494 @@ const AddLoad = () => {
         />
       </Paper>
 
-      {/* Add Load Dialog */}
+      {/* Add Load Dialog - Styled like Shipper Loadboard */}
       <Dialog open={addModalOpen} onClose={() => setAddModalOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ textAlign: 'left', pb: 0 }}>
-          <Typography variant="h5" color="primary" fontWeight={700} sx={{ textAlign: 'left' }}>
-            Add Load
-          </Typography>
-          <Divider sx={{ mt: 1, mb: 0.5, width: '100%', borderColor: '#e0e0e0', borderBottomWidth: 2, borderRadius: 2 }} />
+        <DialogTitle sx={{ fontWeight: 700, color: '#1976d2', fontSize: 22, borderBottom: '1px solid #e0e0e0' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography variant="h6" sx={{ fontWeight: 700 }}>Add New Load</Typography>
+            <Stack direction="row" spacing={1}>
+              <Button
+                variant={loadType === 'OTR' ? 'contained' : 'outlined'}
+                onClick={() => { setLoadType('OTR'); setFormData(prev => ({ ...prev, loadType: 'OTR' })); }}
+                sx={{ borderRadius: 5, minWidth: 88 }}
+              >
+                OTR
+              </Button>
+              <Button
+                variant={loadType === 'DRAYAGE' ? 'contained' : 'outlined'}
+                onClick={() => { setLoadType('DRAYAGE'); setFormData(prev => ({ ...prev, loadType: 'DRAYAGE' })); }}
+                sx={{ borderRadius: 5, minWidth: 110 }}
+              >
+                DRAYAGE
+              </Button>
+            </Stack>
+          </Box>
         </DialogTitle>
-        <DialogContent sx={{ pb: 4, maxHeight: '80vh', overflowY: 'auto', background: '#fff', borderRadius: 0 }}>
-          <Box component="form" onSubmit={handleSaveLoad} sx={{ mt: 1, px: 2 }}>
-            <Grid container spacing={2} sx={{ mb: 2, justifyContent: 'center' }}>
-              {/* Customer Selection */}
-              <Grid item xs={12}>
+        <DialogContent sx={{ pb: 3, background: '#fff' }}>
+          <Box sx={{ mt: 2 }}>
+            {/* Customer Name */}
+            <Paper elevation={2} sx={{ p: 3, borderRadius: 3, mb: 2 }}>
+              <Typography sx={{ fontWeight: 700, mb: 1 }}>Customer Name</Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <TextField
+                    label="Customer Name"
+                    name="customerName"
+                    value={formData.customerName}
+                    onChange={handleFormInputChange}
+                    fullWidth
+                    sx={{ '& .MuiInputBase-root': { borderRadius: 2 } }}
+                  />
+                </Grid>
+              </Grid>
+            </Paper>
+
+            {/* Customer ID removed as requested */}
+
+            {/* OTR: Origins/Destinations; DRAYAGE: From/To */}
+            {loadType === 'OTR' ? (
+              <>
+                {/* Location Details */}
+                <Paper elevation={2} sx={{ p: 3, borderRadius: 3, mb: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                    <Box sx={{ p: 1, borderRadius: '8px', background: '#e3f2fd', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <LocationOn color="primary" />
+                    </Box>
+                    <Typography variant="h6" sx={{ fontWeight: 700, color: 'primary.main' }}>
+                      Location Details
+                    </Typography>
+                  </Box>
+                  {formData.origins.map((origin, index) => (
+                    <Box key={index} sx={{ mb: 2, p: 2, border: '1px solid #e0e0e0', borderRadius: 2, position: 'relative' }}>
+                      {formData.origins.length > 1 && (
+                        <IconButton aria-label="remove" size="small" onClick={() => setFormData(prev => ({ ...prev, origins: prev.origins.filter((_, i) => i !== index) }))} sx={{ position: 'absolute', top: 6, right: 6 }}>
+                          <Close fontSize="small" />
+                        </IconButton>
+                      )}
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>Pickup Locations {index + 1}</Typography>
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} sm={4}>
                 <TextField 
-                  label="Customer ID" 
-                  name="customerId" 
-                  value={formData.customerId || ''} 
-                  onChange={handleFormInputChange} 
+                            label="Address Line 1 *"
+                            value={origin.addressLine1}
+                            onChange={(e) => {
+                              const arr = [...formData.origins];
+                              arr[index].addressLine1 = e.target.value;
+                              setFormData(prev => ({ ...prev, origins: arr }));
+                            }}
                   fullWidth
+                            sx={{ '& .MuiInputBase-root': { borderRadius: 2 } }}
                   required
-                  placeholder="Enter customer ID (e.g., d543f360-53a7-47f6-b37b-1b1d1dde46f6)"
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
                 />
               </Grid>
-
-              {/* Load Type | Vehicle Type */}
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Load Type</InputLabel>
-                  <Select
-                    name="loadType"
-                    value={formData.loadType || ''}
-                    onChange={handleFormInputChange}
-                    label="Load Type"
-                    sx={{ '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
-                  >
-                    <MenuItem value="OTR">OTR</MenuItem>
-                    <MenuItem value="Local">Local</MenuItem>
-                    <MenuItem value="Regional">Regional</MenuItem>
-                    <MenuItem value="Intermodal">Intermodal</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Vehicle Type</InputLabel>
-                  <Select
-                    name="vehicleType"
-                    value={formData.vehicleType || ''}
-                    onChange={handleFormInputChange}
-                    label="Vehicle Type"
-                    sx={{ '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
-                  >
-                    <MenuItem value="Dry Van">Dry Van</MenuItem>
-                    <MenuItem value="Refrigerated">Refrigerated</MenuItem>
-                    <MenuItem value="Flatbed">Flatbed</MenuItem>
-                    <MenuItem value="Container">Container</MenuItem>
-                    <MenuItem value="Tanker">Tanker</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-
-              {/* Rate | Rate Type */}
-              <Grid item xs={12} sm={6}>
+                        <Grid item xs={12} sm={4}>
                 <TextField 
-                  label="Rate ($)" 
-                  name="rate" 
-                  type="number"
-                  value={formData.rate || ''} 
-                  onChange={handleFormInputChange} 
+                            label="Address Line 2"
+                            value={origin.addressLine2}
+                            onChange={(e) => {
+                              const arr = [...formData.origins];
+                              arr[index].addressLine2 = e.target.value;
+                              setFormData(prev => ({ ...prev, origins: arr }));
+                            }}
                   fullWidth
-                  required
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Rate Type</InputLabel>
-                  <Select
-                    name="rateType"
-                    value={formData.rateType || ''}
-                    onChange={handleFormInputChange}
-                    label="Rate Type"
-                    sx={{ '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
-                  >
-                    <MenuItem value="Flat Rate">Flat Rate</MenuItem>
-                    <MenuItem value="Per Mile">Per Mile</MenuItem>
-                    <MenuItem value="Per Hour">Per Hour</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-
-              {/* Pickup Address */}
-              <Grid item xs={12}>
-                <Typography variant="h6" sx={{ mb: 1, color: 'primary.main' }}>Pickup Location</Typography>
-              </Grid>
-              <Grid item xs={12} sm={6}>
+                        <Grid item xs={12} sm={4}>
                 <TextField 
-                  label="Address Line 1" 
-                  name="pickupLocation" 
-                  value={formData.pickupLocation || ''} 
-                  onChange={handleFormInputChange} 
+                            label="City *"
+                            value={origin.city}
+                            onChange={(e) => {
+                              const arr = [...formData.origins];
+                              arr[index].city = e.target.value;
+                              setFormData(prev => ({ ...prev, origins: arr }));
+                            }}
                   fullWidth
-                  required
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField 
-                  label="City" 
-                  name="pickupCity" 
-                  value={formData.pickupCity || ''} 
-                  onChange={handleFormInputChange} 
-                  fullWidth
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
+                            required
                 />
               </Grid>
               <Grid item xs={12} sm={4}>
                 <TextField 
                   label="State" 
-                  name="pickupState" 
-                  value={formData.pickupState || ''} 
-                  onChange={handleFormInputChange} 
+                            value={origin.state}
+                            onChange={(e) => {
+                              const arr = [...formData.origins];
+                              arr[index].state = e.target.value;
+                              setFormData(prev => ({ ...prev, origins: arr }));
+                            }}
                   fullWidth
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
                 />
               </Grid>
               <Grid item xs={12} sm={4}>
                 <TextField 
-                  label="ZIP Code" 
-                  name="pickupZip" 
-                  value={formData.pickupZip || ''} 
-                  onChange={handleFormInputChange} 
+                            label="ZIP"
+                            value={origin.zip}
+                            onChange={(e) => {
+                              const arr = [...formData.origins];
+                              arr[index].zip = e.target.value;
+                              setFormData(prev => ({ ...prev, origins: arr }));
+                            }}
                   fullWidth
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
                 />
               </Grid>
               <Grid item xs={12} sm={4}>
                 <TextField 
-                  label="Pickup Date" 
-                  name="pickupDate" 
-                  type="datetime-local"
-                  value={formData.pickupDate || ''} 
-                  onChange={handleFormInputChange} 
+                            label="Weight (lbs) *"
+                            value={origin.weight}
+                            onChange={(e) => {
+                              const arr = [...formData.origins];
+                              arr[index].weight = e.target.value;
+                              setFormData(prev => ({ ...prev, origins: arr }));
+                            }}
                   fullWidth
-                  InputLabelProps={{ shrink: true }}
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
+                            required
+                            InputProps={{ startAdornment: <InputAdornment position="start">⏳</InputAdornment> }}
                 />
               </Grid>
-
-              {/* Delivery Address */}
-              <Grid item xs={12}>
-                <Typography variant="h6" sx={{ mb: 1, color: 'primary.main' }}>Delivery Location</Typography>
-              </Grid>
-              <Grid item xs={12} sm={6}>
+                        <Grid item xs={12} sm={4}>
                 <TextField 
-                  label="Address Line 1" 
-                  name="deliveryLocation" 
-                  value={formData.deliveryLocation || ''} 
-                  onChange={handleFormInputChange} 
+                            label="Commodity *"
+                            value={origin.commodity}
+                            onChange={(e) => {
+                              const arr = [...formData.origins];
+                              arr[index].commodity = e.target.value;
+                              setFormData(prev => ({ ...prev, origins: arr }));
+                            }}
                   fullWidth
                   required
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+                        <Grid item xs={12} sm={4}>
                 <TextField 
-                  label="City" 
-                  name="deliveryCity" 
-                  value={formData.deliveryCity || ''} 
-                  onChange={handleFormInputChange} 
+                            type="date"
+                            label="Pickup Date *"
+                            value={origin.pickupDate}
+                            onChange={(e) => {
+                              const arr = [...formData.origins];
+                              arr[index].pickupDate = e.target.value;
+                              setFormData(prev => ({ ...prev, origins: arr }));
+                            }}
                   fullWidth
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
+                            InputLabelProps={{ shrink: true }}
+                            required
                 />
               </Grid>
               <Grid item xs={12} sm={4}>
                 <TextField 
-                  label="State" 
-                  name="deliveryState" 
-                  value={formData.deliveryState || ''} 
-                  onChange={handleFormInputChange} 
+                            type="date"
+                            label="Delivery Date"
+                            value={origin.deliveryDate || ''}
+                            onChange={(e) => {
+                              const arr = [...formData.origins];
+                              arr[index].deliveryDate = e.target.value;
+                              setFormData(prev => ({ ...prev, origins: arr }));
+                            }}
                   fullWidth
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
+                            InputLabelProps={{ shrink: true }}
                 />
               </Grid>
-              <Grid item xs={12} sm={4}>
-                <TextField 
-                  label="ZIP Code" 
-                  name="deliveryZip" 
-                  value={formData.deliveryZip || ''} 
-                  onChange={handleFormInputChange} 
-                  fullWidth
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                <TextField 
-                  label="Delivery Date" 
-                  name="deliveryDate" 
-                  type="datetime-local"
-                  value={formData.deliveryDate || ''} 
-                  onChange={handleFormInputChange} 
-                  fullWidth
-                  InputLabelProps={{ shrink: true }}
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
-                />
-              </Grid>
+                      </Grid>
+                    </Box>
+                  ))}
+                  <Button
+                    variant="outlined"
+                    onClick={() => setFormData(prev => ({ ...prev, origins: [...prev.origins, { addressLine1: '', addressLine2: '', city: '', state: '', zip: '', weight: '', commodity: '', pickupDate: '', deliveryDate: '' }] }))}
+                  >
+                    Add Pickup Location
+                  </Button>
+                </Paper>
 
-              {/* Weight | Commodity */}
-              <Grid item xs={12} sm={6}>
+                {/* Destinations */}
+                <Paper elevation={2} sx={{ p: 3, borderRadius: 3, mb: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                    <Box sx={{ p: 1, borderRadius: '8px', background: '#e8f5e8', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <LocalShipping sx={{ color: '#2e7d32' }} />
+                    </Box>
+                    <Typography variant="h6" sx={{ fontWeight: 600, color: '#2e7d32' }}>
+                      Delivery Locations
+                    </Typography>
+                  </Box>
+                  {formData.destinations.map((destination, index) => (
+                    <Box key={index} sx={{ mb: 2, p: 2, border: '1px solid #e0e0e0', borderRadius: 2, position: 'relative' }}>
+                      {formData.destinations.length > 1 && (
+                        <IconButton aria-label="remove" size="small" onClick={() => setFormData(prev => ({ ...prev, destinations: prev.destinations.filter((_, i) => i !== index) }))} sx={{ position: 'absolute', top: 6, right: 6 }}>
+                          <Close fontSize="small" />
+                        </IconButton>
+                      )}
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>Delivery Location {index + 1}</Typography>
+                      <Grid container spacing={2}>
+              <Grid item xs={12} sm={4}>
                 <TextField 
-                  label="Weight (lbs)" 
-                  name="weight" 
-                  type="number"
-                  value={formData.weight || ''} 
-                  onChange={handleFormInputChange} 
+                            label="Address Line 1 *"
+                            value={destination.addressLine1}
+                            onChange={(e) => {
+                              const arr = [...formData.destinations];
+                              arr[index].addressLine1 = e.target.value;
+                              setFormData(prev => ({ ...prev, destinations: arr }));
+                            }}
+                  fullWidth
+                            required
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField 
+                            label="Address Line 2"
+                            value={destination.addressLine2}
+                            onChange={(e) => {
+                              const arr = [...formData.destinations];
+                              arr[index].addressLine2 = e.target.value;
+                              setFormData(prev => ({ ...prev, destinations: arr }));
+                            }}
+                  fullWidth
+                />
+              </Grid>
+                        <Grid item xs={12} sm={4}>
+                <TextField 
+                            label="City *"
+                            value={destination.city}
+                            onChange={(e) => {
+                              const arr = [...formData.destinations];
+                              arr[index].city = e.target.value;
+                              setFormData(prev => ({ ...prev, destinations: arr }));
+                            }}
                   fullWidth
                   required
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+                        <Grid item xs={12} sm={4}>
                 <TextField 
-                  label="Commodity" 
-                  name="commodity" 
-                  value={formData.commodity || ''} 
-                  onChange={handleFormInputChange} 
+                            label="State"
+                            value={destination.state}
+                            onChange={(e) => {
+                              const arr = [...formData.destinations];
+                              arr[index].state = e.target.value;
+                              setFormData(prev => ({ ...prev, destinations: arr }));
+                            }}
                   fullWidth
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
                 />
               </Grid>
-
-              {/* Document Numbers */}
+                        <Grid item xs={12} sm={4}>
+                <TextField 
+                            label="ZIP"
+                            value={destination.zip}
+                            onChange={(e) => {
+                              const arr = [...formData.destinations];
+                              arr[index].zip = e.target.value;
+                              setFormData(prev => ({ ...prev, destinations: arr }));
+                            }}
+                  fullWidth
+                />
+              </Grid>
+                        <Grid item xs={12} sm={4}>
+                <TextField 
+                            label="Weight (lbs) *"
+                            value={destination.weight}
+                            onChange={(e) => {
+                              const arr = [...formData.destinations];
+                              arr[index].weight = e.target.value;
+                              setFormData(prev => ({ ...prev, destinations: arr }));
+                            }}
+                  fullWidth
+                            required
+                            InputProps={{ startAdornment: <InputAdornment position="start">⏳</InputAdornment> }}
+                />
+              </Grid>
+                        <Grid item xs={12} sm={4}>
+                <TextField 
+                            label="Commodity *"
+                            value={destination.commodity}
+                            onChange={(e) => {
+                              const arr = [...formData.destinations];
+                              arr[index].commodity = e.target.value;
+                              setFormData(prev => ({ ...prev, destinations: arr }));
+                            }}
+                  fullWidth
+                            required
+                />
+              </Grid>
+                        <Grid item xs={12} sm={4}>
+                <TextField 
+                            type="date"
+                            label="Delivery Date *"
+                            value={destination.deliveryDate}
+                            onChange={(e) => {
+                              const arr = [...formData.destinations];
+                              arr[index].deliveryDate = e.target.value;
+                              setFormData(prev => ({ ...prev, destinations: arr }));
+                            }}
+                  fullWidth
+                            InputLabelProps={{ shrink: true }}
+                            required
+                />
+              </Grid>
+                      </Grid>
+                    </Box>
+                  ))}
+                  <Button
+                    variant="outlined"
+                    onClick={() => setFormData(prev => ({ ...prev, destinations: [...prev.destinations, { addressLine1: '', addressLine2: '', city: '', state: '', zip: '', weight: '', commodity: '', deliveryDate: '' }] }))}
+                  >
+                    Add Delivery Location
+                  </Button>
+                </Paper>
+              </>
+            ) : (
+              <Paper elevation={2} sx={{ p: 3, borderRadius: 3, mb: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                  <Box sx={{ p: 1.5, borderRadius: 2, background: '#e0f2f1' }}>
+                    <LocationOn sx={{ color: '#00695c' }} />
+                  </Box>
+                  <Typography variant="h6" sx={{ fontWeight: 600, color: '#00695c' }}>
+                    Drayage Route
+                  </Typography>
+                </Box>
+                <Grid container spacing={2}>
               <Grid item xs={12}>
-                <Typography variant="h6" sx={{ mb: 1, color: 'primary.main' }}>Document Numbers</Typography>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField 
-                  label="Container Number" 
-                  name="containerNo" 
-                  value={formData.containerNo || ''} 
-                  onChange={handleFormInputChange} 
-                  fullWidth
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField 
-                  label="PO Number" 
-                  name="poNumber" 
-                  value={formData.poNumber || ''} 
-                  onChange={handleFormInputChange} 
-                  fullWidth
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField 
-                  label="BOL Number" 
-                  name="bolNumber" 
-                  value={formData.bolNumber || ''} 
-                  onChange={handleFormInputChange} 
-                  fullWidth
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField 
-                  label="Shipment Number" 
-                  name="shipmentNo" 
-                  value={formData.shipmentNo || ''} 
-                  onChange={handleFormInputChange} 
-                  fullWidth
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
-                />
-              </Grid>
-
-              {/* Customer Information */}
-              <Grid item xs={12}>
-                <Typography variant="h6" sx={{ mb: 1, color: 'primary.main' }}>Customer Information</Typography>
+                    <TextField label="From Address" name="fromAddress" value={formData.fromAddress} onChange={handleFormInputChange} fullWidth />
               </Grid>
               <Grid item xs={12} sm={4}>
-                <TextField 
-                  label="Customer Name" 
-                  name="customerName" 
-                  value={formData.customerName || ''} 
-                  onChange={handleFormInputChange} 
-                  fullWidth
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
-                />
+                    <TextField label="From City" name="fromCity" value={formData.fromCity} onChange={handleFormInputChange} fullWidth />
               </Grid>
               <Grid item xs={12} sm={4}>
-                <TextField 
-                  label="Customer Phone" 
-                  name="customerPhone" 
-                  value={formData.customerPhone || ''} 
-                  onChange={handleFormInputChange} 
-                  fullWidth
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
-                />
+                    <TextField label="From State" name="fromState" value={formData.fromState} onChange={handleFormInputChange} fullWidth />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField label="To Address" name="toAddress" value={formData.toAddress} onChange={handleFormInputChange} fullWidth />
               </Grid>
               <Grid item xs={12} sm={4}>
-                <TextField 
-                  label="Customer Email" 
-                  name="customerEmail" 
-                  type="email"
-                  value={formData.customerEmail || ''} 
-                  onChange={handleFormInputChange} 
-                  fullWidth
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
-                />
-              </Grid>
+                    <TextField label="To City" name="toCity" value={formData.toCity} onChange={handleFormInputChange} fullWidth />
+                  </Grid>
+                  <Grid item xs={12} sm={4}>
+                    <TextField label="To State" name="toState" value={formData.toState} onChange={handleFormInputChange} fullWidth />
+                  </Grid>
+                  <Grid item xs={12} sm={4}>
+                    <TextField type="date" label="Pickup Date" name="pickupDate" value={formData.pickupDate} onChange={handleFormInputChange} fullWidth InputLabelProps={{ shrink: true }} />
+                  </Grid>
+                  <Grid item xs={12} sm={4}>
+                    <TextField type="date" label="Delivery Date" name="deliveryDate" value={formData.deliveryDate} onChange={handleFormInputChange} fullWidth InputLabelProps={{ shrink: true }} />
+                  </Grid>
+                </Grid>
+              </Paper>
+            )}
 
-              {/* Special Instructions */}
+            {/* Load Details */}
+            <Paper elevation={2} sx={{ p: 3, borderRadius: 3, mb: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                <Box sx={{ p: 1.5, borderRadius: 2, background: '#f3e5f5' }}>
+                  <Description sx={{ color: '#7b1fa2' }} />
+                </Box>
+                <Typography variant="h6" sx={{ fontWeight: 600, color: '#7b1fa2' }}>
+                  Load Details
+                </Typography>
+              </Box>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={8}>
+                  <FormControl fullWidth>
+                    <InputLabel>Vehicle Type</InputLabel>
+                    <Select name="vehicleType" value={formData.vehicleType} onChange={handleFormInputChange} label="Vehicle Type" sx={{ borderRadius: 2 }}>
+                      <MenuItem value="Dry Van">Dry Van</MenuItem>
+                      <MenuItem value="Refrigerated">Refrigerated</MenuItem>
+                      <MenuItem value="Flatbed">Flatbed</MenuItem>
+                      <MenuItem value="Container">Container</MenuItem>
+                      <MenuItem value="Tanker">Tanker</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={3}>
+                  <TextField label="Line Haul" name="lineHaul" value={formData.lineHaul} onChange={handleFormInputChange} fullWidth InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} />
+                </Grid>
+                <Grid item xs={12} sm={3}>
+                  <TextField label="FSC" name="fsc" value={formData.fsc} onChange={handleFormInputChange} fullWidth InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} />
+                </Grid>
+                <Grid item xs={12} sm={3}>
+                  <TextField label="Other" name="other" value={formData.other} onChange={handleFormInputChange} fullWidth InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} />
+                </Grid>
+                <Grid item xs={12} sm={3}>
+                  <TextField label="Total" name="total" value={String(((Number(formData.lineHaul)||0) + (Number(formData.fsc)||0) + (Number(formData.other)||0)).toFixed ? ((Number(formData.lineHaul)||0) + (Number(formData.fsc)||0) + (Number(formData.other)||0)).toFixed(2) : (Number(formData.lineHaul)||0) + (Number(formData.fsc)||0) + (Number(formData.other)||0))} fullWidth disabled InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Rate Type</InputLabel>
+                    <Select name="rateType" value={formData.rateType} onChange={handleFormInputChange} label="Rate Type">
+                      <MenuItem value="Flat Rate">Flat Rate</MenuItem>
+                      <MenuItem value="Per Mile">Per Mile</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                {loadType === 'DRAYAGE' && (
+                  <>
+                    <Grid item xs={12} sm={6}>
+                      <TextField label="Weight (lbs)" name="weight" value={formData.weight} onChange={handleFormInputChange} fullWidth />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField label="Commodity" name="commodity" value={formData.commodity} onChange={handleFormInputChange} fullWidth />
+                    </Grid>
+                  </>
+                )}
+              </Grid>
+            </Paper>
+
+            {/* Schedule & Timeline */}
+            <Paper elevation={2} sx={{ p: 3, borderRadius: 3, mb: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                <Box sx={{ p: 1.5, borderRadius: 2, background: '#e8f5e8' }}>
+                  <CalendarToday sx={{ color: '#2e7d32' }} />
+                </Box>
+                <Typography variant="h6" sx={{ fontWeight: 600, color: '#2e7d32' }}>
+                  Schedule & Timeline
+                </Typography>
+              </Box>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField type="date" label="Bid Deadline" name="bidDeadline" value={formData.bidDeadline} onChange={handleFormInputChange} fullWidth InputLabelProps={{ shrink: true }} />
+                </Grid>
+              </Grid>
+            </Paper>
+
+            {/* Additional Details */}
+            <Paper elevation={2} sx={{ p: 3, borderRadius: 3 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                <Box sx={{ p: 1.5, borderRadius: 2, background: '#e0f2f1' }}>
+                  <Description sx={{ color: '#00695c' }} />
+                </Box>
+                <Typography variant="h6" sx={{ fontWeight: 600, color: '#00695c' }}>
+                  Additional Details
+                </Typography>
+              </Box>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField label="Container No." name="containerNo" value={formData.containerNo} onChange={handleFormInputChange} fullWidth />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField label="PO Number" name="poNumber" value={formData.poNumber} onChange={handleFormInputChange} fullWidth />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField label="BOL Number" name="bolNumber" value={formData.bolNumber} onChange={handleFormInputChange} fullWidth />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField label="Shipment Number" name="shipmentNo" value={formData.shipmentNo} onChange={handleFormInputChange} fullWidth />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField label="Customer Name" name="customerName" value={formData.customerName} onChange={handleFormInputChange} fullWidth />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField label="Customer Phone" name="customerPhone" value={formData.customerPhone} onChange={handleFormInputChange} fullWidth />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField label="Customer Email" name="customerEmail" type="email" value={formData.customerEmail} onChange={handleFormInputChange} fullWidth />
+                </Grid>
               <Grid item xs={12}>
-                <TextField 
-                  label="Special Instructions" 
-                  name="specialInstructions" 
-                  multiline
-                  rows={3}
-                  value={formData.specialInstructions || ''} 
-                  onChange={handleFormInputChange} 
-                  fullWidth
-                  placeholder="Any special handling requirements, delivery instructions, etc."
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
-                />
+                  <TextField label="Special Instructions" name="specialInstructions" multiline rows={3} value={formData.specialInstructions} onChange={handleFormInputChange} fullWidth />
               </Grid>
             </Grid>
+            </Paper>
           </Box>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3, justifyContent: 'flex-end', gap: 1 }}>
-          <Button
-            onClick={() => setAddModalOpen(false)}
-            variant="outlined"
-            startIcon={<Cancel />}
-            sx={{
-              borderRadius: 2,
-              textTransform: 'none',
-              fontWeight: 600,
-              px: 3,
-              py: 1,
-            }}
-          >
+          <Button onClick={() => setAddModalOpen(false)} variant="outlined" startIcon={<Cancel />} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600, px: 3, py: 1 }}>
             Cancel
           </Button>
-          <Button
-            onClick={handleSaveLoad}
-            variant="contained"
-            startIcon={loading ? <CircularProgress size={20} /> : <Save />}
-            disabled={loading}
-            sx={{
-              backgroundColor: '#1976d2',
-              color: 'white',
-              borderRadius: 2,
-              textTransform: 'none',
-              fontWeight: 600,
-              px: 3,
-              py: 1,
-              '&:hover': {
-                backgroundColor: '#0d47a1',
-              },
-            }}
-          >
-            {loading ? 'Adding...' : 'Add Load'}
+          <Button onClick={handleSaveLoad} variant="contained" startIcon={loading ? <CircularProgress size={20} /> : <Save />} disabled={loading} sx={{ backgroundColor: '#1976d2', color: 'white', borderRadius: 2, textTransform: 'none', fontWeight: 600, px: 3, py: 1 }}>
+            {loading ? 'Adding...' : 'Create Load'}
           </Button>
         </DialogActions>
       </Dialog>

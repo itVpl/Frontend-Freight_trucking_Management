@@ -256,7 +256,9 @@ const Consignment = () => {
         throw new Error('No authentication token found');
       }
 
-      const apiUrl = `${BASE_API_URL}/api/v1/load/shipper/load/${loadId}`;
+      const apiUrl = userType === 'trucker'
+        ? `${BASE_API_URL}/api/v1/load/trucker/load/${loadId}`
+        : `${BASE_API_URL}/api/v1/load/shipper/load/${loadId}`;
       
       const response = await fetch(apiUrl, {
         method: 'GET',

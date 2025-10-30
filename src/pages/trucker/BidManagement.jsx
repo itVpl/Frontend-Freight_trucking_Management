@@ -21,6 +21,8 @@ import {
   Grid,
   Tabs,
   Tab,
+  MenuItem,
+  Autocomplete,
 } from '@mui/material';
 import { Receipt, Download, Search, Send } from '@mui/icons-material';
 import axios from 'axios';
@@ -49,8 +51,52 @@ const Dashboard = () => {
   const [acceptedBids, setAcceptedBids] = useState([]);
   const handleTabChange = (event, newValue) => setTab(newValue);
   const [assignModalOpen, setAssignModalOpen] = useState(false);
-  const [assignForm, setAssignForm] = useState({ driverId: '', vehicleNumber: '', vehicleType: '' });
+  const [assignForm, setAssignForm] = useState({ driverId: '', vehicleNumber: '' });
   const [assignBidId, setAssignBidId] = useState(null);
+  const [drivers, setDrivers] = useState([]);
+
+  const formatCityState = (obj) => {
+    if (!obj) return '';
+    const city = obj.city || '';
+    const state = obj.state || '';
+    if (!city && !state) return '';
+    return `${city}${state ? `, ${state}` : ''}`;
+  };
+
+  const formatLatLng = (latLng) => {
+    if (!latLng || (latLng.lat == null && latLng.lon == null)) return '';
+    const lat = latLng.lat;
+    const lon = latLng.lon;
+    if (lat === 0 && lon === 0) return '';
+    return `${lat.toFixed ? lat.toFixed(4) : lat}, ${lon.toFixed ? lon.toFixed(4) : lon}`;
+  };
+
+  const resolvePickupLocation = (row) => {
+    // Prefer array structure
+    if (row.origins && row.origins.length > 0) {
+      const loc = formatCityState(row.origins[0]) || row.origins[0]?.addressLine1 || '';
+      if (loc) return loc;
+    }
+    // Fallback: single origin object
+    const single = formatCityState(row.origin) || row.origin?.addressLine1 || '';
+    if (single) return single;
+    // Fallback: tracking coordinates
+    const coords = formatLatLng(row.tracking?.originLatLng);
+    if (coords) return coords;
+    return '-';
+  };
+
+  const resolveDropLocation = (row) => {
+    if (row.destinations && row.destinations.length > 0) {
+      const loc = formatCityState(row.destinations[0]) || row.destinations[0]?.addressLine1 || '';
+      if (loc) return loc;
+    }
+    const single = formatCityState(row.destination) || row.destination?.addressLine1 || '';
+    if (single) return single;
+    const coords = formatLatLng(row.tracking?.destinationLatLng);
+    if (coords) return coords;
+    return '-';
+  };
 
   // Function to format Load ID as "L-last 4 digits"
   const formatLoadId = (loadId) => {
@@ -62,7 +108,7 @@ const Dashboard = () => {
 
   const handleAssignDriver = (bid) => {
     setAssignBidId(bid.bidId || bid._id);
-    setAssignForm({ driverId: '', vehicleNumber: '', vehicleType: bid.vehicleType || '' });
+    setAssignForm({ driverId: '', vehicleNumber: '' });
     setAssignModalOpen(true);
   };
   const handleCloseAssignModal = () => {
@@ -73,11 +119,60 @@ const Dashboard = () => {
     const { name, value } = e.target;
     setAssignForm((prev) => ({ ...prev, [name]: value }));
   };
-  const handleAssignSubmit = (e) => {
+  const handleAssignSubmit = async (e) => {
     e.preventDefault();
-    // TODO: API call to assign driver
-    setAssignModalOpen(false);
-    setAssignBidId(null);
+    if (!assignForm.driverId || !assignForm.vehicleNumber) {
+      if (window.alertify) {
+        window.alertify.error('Please select driver and enter vehicle number');
+      }
+      return;
+    }
+    try {
+      const token = localStorage.getItem('token');
+      // Try to include origin/destination if backend expects them
+      const currentBid = acceptedBids.find(b => (b.bidId || b._id) === assignBidId) || {};
+      const parseCityState = (str) => {
+        if (!str || str === '-' || typeof str !== 'string') return { city: '', state: '' };
+        const parts = str.split(',').map(s => s.trim());
+        return { city: parts[0] || '', state: parts[1] || '' };
+      };
+      const originText = resolvePickupLocation(currentBid);
+      const destText = resolveDropLocation(currentBid);
+      const originObj = parseCityState(originText);
+      const destObj = parseCityState(destText);
+      await axios.post(
+        `${BASE_API_URL}/api/v1/bid/${assignBidId}/assign-driver`,
+        {
+          driverId: assignForm.driverId,
+          vehicleNumber: assignForm.vehicleNumber,
+          origin: originObj,
+          destination: destObj,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      if (window.alertify) {
+        window.alertify.success('Driver assigned successfully');
+      }
+      setAssignModalOpen(false);
+      setAssignBidId(null);
+      setAssignForm({ driverId: '', vehicleNumber: '' });
+      // refresh accepted bids list
+      try {
+        const refresh = await axios.get(`${BASE_API_URL}/api/v1/bid/accepted`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setAcceptedBids(Array.isArray(refresh.data.acceptedBids) ? refresh.data.acceptedBids : []);
+      } catch (_) {}
+    } catch (err) {
+      if (window.alertify) {
+        window.alertify.error(err.response?.data?.message || 'Failed to assign driver');
+      }
+    }
   };
 
   useEffect(() => {
@@ -99,6 +194,17 @@ const Dashboard = () => {
         setPendingBids([]);
       } finally {
         setLoading(false);
+      }
+    };
+    const fetchDrivers = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await axios.get(`${BASE_API_URL}/api/v1/driver/my-drivers`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setDrivers(Array.isArray(response.data) ? response.data : (response.data.drivers || []));
+      } catch (err) {
+        setDrivers([]);
       }
     };
     const fetchAcceptedBids = async () => {
@@ -126,6 +232,7 @@ const Dashboard = () => {
     } else if (tab === 1) {
       fetchAcceptedBids();
     }
+    fetchDrivers();
   }, [tab]);
 
   const filteredData = bidData.filter((row) =>
@@ -423,20 +530,10 @@ const Dashboard = () => {
                         sx={{ transition: '0.3s', '&:hover': { backgroundColor: '#e3f2fd' } }}
                       >
                         <TableCell>{row.shipmentNumber}</TableCell>
-                        <TableCell>
-                          {row.origins && row.origins.length > 0 
-                            ? `${row.origins[0].city || ''}${row.origins[0].state ? `, ${row.origins[0].state}` : ''}` 
-                            : (row.origin?.city || '-')
-                          }
-                        </TableCell>
-                        <TableCell>
-                          {row.destinations && row.destinations.length > 0 
-                            ? `${row.destinations[0].city || ''}${row.destinations[0].state ? `, ${row.destinations[0].state}` : ''}` 
-                            : (row.destination?.city || '-')
-                          }
-                        </TableCell>
-                        <TableCell>{row.pickupDate}</TableCell>
-                        <TableCell>{row.deliveryDate}</TableCell>
+                        <TableCell>{resolvePickupLocation(row)}</TableCell>
+                        <TableCell>{resolveDropLocation(row)}</TableCell>
+                        <TableCell>{row.pickupDate ? new Date(row.pickupDate).toLocaleDateString() : '-'}</TableCell>
+                        <TableCell>{row.deliveryDate ? new Date(row.deliveryDate).toLocaleDateString() : '-'}</TableCell>
                         <TableCell>
                           <Chip label={row.status} color="success" />
                         </TableCell>
@@ -826,32 +923,44 @@ const Dashboard = () => {
         </DialogTitle>
         <DialogContent sx={{ px: 4, py: 3, background: '#f8fafc' }}>
           <Box component="form" onSubmit={handleAssignSubmit}>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Driver ID"
-                  name="driverId"
-                  value={assignForm.driverId}
-                  onChange={handleAssignFormChange}
-                  fullWidth
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12}>
+                <Autocomplete
+                  options={drivers}
+                  getOptionLabel={(d) => d?.fullName || d?.name || d?.email || 'Driver'}
+                  value={drivers.find((d) => d._id === assignForm.driverId) || null}
+                  onChange={(e, newVal) => setAssignForm((prev) => ({ ...prev, driverId: newVal?._id || '' }))}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Driver Name"
+                      size="medium"
+                    />
+                  )}
+                  sx={{
+                    width: '180px',
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      backgroundColor: '#ffffff',
+                    }
+                  }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12}>
                 <TextField
                   label="Vehicle Number"
                   name="vehicleNumber"
                   value={assignForm.vehicleNumber}
                   onChange={handleAssignFormChange}
                   fullWidth
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  label="Vehicle Type"
-                  name="vehicleType"
-                  value={assignForm.vehicleType}
-                  onChange={handleAssignFormChange}
-                  fullWidth
+                  size="medium"
+                  sx={{
+                    width: '180px',
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      backgroundColor: '#ffffff',
+                    }
+                  }}
                 />
               </Grid>
             </Grid>
