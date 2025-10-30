@@ -21,6 +21,7 @@ import { MapContainer, TileLayer, Marker, useMap, Polyline, useMapEvents, Toolti
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import truckIconPng from "../../assets/Icons super admin/truck.png";
+import { useAuth } from "../../context/AuthContext";
 
 // Fix for Leaflet default icons
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
@@ -82,6 +83,7 @@ function RecenterMap({ lat, lng, mapView, routeData }) {
 }
 
 export default function LiveTracker() {
+  const { user, userType, isAuthenticated } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedId, setExpandedId] = useState(null);
   const [consignments, setConsignments] = useState([]);
@@ -305,7 +307,14 @@ export default function LiveTracker() {
           return;
         }
         
-        res = await axios.get(`https://vpl-liveproject-1.onrender.com/api/v1/load/shipper/in-transit-loads-with-location`, {
+        // Use different API endpoints based on user type
+        const apiEndpoint = userType === 'trucker' 
+          ? 'https://vpl-liveproject-1.onrender.com/api/v1/load/trucker/in-transit-loads-with-location'
+          : 'https://vpl-liveproject-1.onrender.com/api/v1/load/shipper/in-transit-loads-with-location';
+        
+        console.log(`Using API endpoint for ${userType}:`, apiEndpoint);
+        
+        res = await axios.get(apiEndpoint, {
           headers: headers
         });
         console.log('Full API Response:', res);
@@ -318,26 +327,43 @@ export default function LiveTracker() {
           console.log('Processing loads data:', loads);
           
           const shipments = loads.map(load => {
+            // Handle different data structures for shipper vs trucker APIs
+            let originData, destinationData, currentLocationData, trackingData;
+            
+            if (userType === 'trucker') {
+              // Trucker API structure
+              originData = load.origins?.[0] || {};
+              destinationData = load.destinations?.[0] || {};
+              currentLocationData = load.tracking?.currentLocation || load.currentLocation || {};
+              trackingData = load.tracking || {};
+            } else {
+              // Shipper API structure (existing)
+              originData = load.origin || {};
+              destinationData = load.destination || {};
+              currentLocationData = load.currentLocation || {};
+              trackingData = load.tracking || {};
+            }
+            
             // Ensure coordinates are numbers with better parsing
-            const originLat = parseFloat(load.origin?.lat) || parseFloat(load.origin?.latitude) || 0;
-            const originLng = parseFloat(load.origin?.lon) || parseFloat(load.origin?.longitude) || 0;
-            const destLat = parseFloat(load.destination?.lat) || parseFloat(load.destination?.latitude) || 0;
-            const destLng = parseFloat(load.destination?.lon) || parseFloat(load.destination?.longitude) || 0;
-            const currentLat = parseFloat(load.currentLocation?.latitude) || parseFloat(load.currentLocation?.lat) || originLat;
-            const currentLng = parseFloat(load.currentLocation?.longitude) || parseFloat(load.currentLocation?.lon) || originLng;
+            const originLat = parseFloat(originData.lat) || parseFloat(originData.latitude) || 0;
+            const originLng = parseFloat(originData.lon) || parseFloat(originData.longitude) || 0;
+            const destLat = parseFloat(destinationData.lat) || parseFloat(destinationData.latitude) || 0;
+            const destLng = parseFloat(destinationData.lon) || parseFloat(destinationData.longitude) || 0;
+            const currentLat = parseFloat(currentLocationData.latitude) || parseFloat(currentLocationData.lat) || originLat;
+            const currentLng = parseFloat(currentLocationData.longitude) || parseFloat(currentLocationData.lon) || originLng;
             
             console.log('Load coordinates:', { 
-              loadNumber: load.loadNumber,
-              origin: load.origin,
-              destination: load.destination,
-              currentLocation: load.currentLocation,
+              loadNumber: load.loadNumber || load._id,
+              origin: originData,
+              destination: destinationData,
+              currentLocation: currentLocationData,
               parsed: { originLat, originLng, destLat, destLng, currentLat, currentLng }
             });
             
             const shipment = {
               id: load._id,
-              number: load.loadNumber,
-              location: `${load.origin?.city || 'Origin'} → ${load.destination?.city || 'Destination'}`,
+              number: load.loadNumber || load.tracking?.shipmentNumber || load._id,
+              location: `${originData.city || 'Origin'} → ${destinationData.city || 'Destination'}`,
               lat: currentLat,
               lng: currentLng,
               originLat: originLat,
@@ -349,20 +375,20 @@ export default function LiveTracker() {
               status: [
                 {
                   label: "Loading",
-                  name: load.assignedTo?.contactPerson || "Driver",
-                  time: new Date(load.timeInfo?.daysSincePickup ? Date.now() - (load.timeInfo.daysSincePickup * 24 * 60 * 60 * 1000) : Date.now()).toLocaleString(),
+                  name: load.acceptedBid?.driverName || "Driver",
+                  time: new Date(load.pickupDate || load.timeInfo?.daysSincePickup ? Date.now() - (load.timeInfo.daysSincePickup * 24 * 60 * 60 * 1000) : Date.now()).toLocaleString(),
                   done: true,
                 },
                 {
                   label: "In-Transit",
                   name: load.acceptedBid?.driverName || "Driver",
-                  time: new Date(load.currentLocation?.lastUpdated || Date.now()).toLocaleString(),
+                  time: new Date(trackingData.startedAt || load.currentLocation?.lastUpdated || Date.now()).toLocaleString(),
                   done: load.status === "In Transit",
                 },
                 {
                   label: "Delivered",
                   name: load.acceptedBid?.driverName || "Driver",
-                  time: new Date(load.timeInfo?.daysUntilDelivery ? Date.now() + (load.timeInfo.daysUntilDelivery * 24 * 60 * 60 * 1000) : Date.now()).toLocaleString(),
+                  time: new Date(load.deliveryDate || load.timeInfo?.daysUntilDelivery ? Date.now() + (load.timeInfo.daysUntilDelivery * 24 * 60 * 60 * 1000) : Date.now()).toLocaleString(),
                   done: load.status === "Delivered",
                 },
               ],
@@ -392,10 +418,23 @@ export default function LiveTracker() {
           
           // Use Promise.all to fetch all routes in parallel for better performance
           const routePromises = loads.map(async (load) => {
-            const originLat = parseFloat(load.origin?.lat) || parseFloat(load.origin?.latitude) || 0;
-            const originLng = parseFloat(load.origin?.lon) || parseFloat(load.origin?.longitude) || 0;
-            const destLat = parseFloat(load.destination?.lat) || parseFloat(load.destination?.latitude) || 0;
-            const destLng = parseFloat(load.destination?.lon) || parseFloat(load.destination?.longitude) || 0;
+            // Handle different data structures for shipper vs trucker APIs
+            let originData, destinationData;
+            
+            if (userType === 'trucker') {
+              // Trucker API structure
+              originData = load.origins?.[0] || {};
+              destinationData = load.destinations?.[0] || {};
+            } else {
+              // Shipper API structure (existing)
+              originData = load.origin || {};
+              destinationData = load.destination || {};
+            }
+            
+            const originLat = parseFloat(originData.lat) || parseFloat(originData.latitude) || 0;
+            const originLng = parseFloat(originData.lon) || parseFloat(originData.longitude) || 0;
+            const destLat = parseFloat(destinationData.lat) || parseFloat(destinationData.latitude) || 0;
+            const destLng = parseFloat(destinationData.lon) || parseFloat(destinationData.longitude) || 0;
             
             console.log(`Load ${load.loadNumber} coordinates:`, { 
               originLat, originLng, destLat, destLng,
@@ -512,22 +551,42 @@ export default function LiveTracker() {
             // Try one more alternative endpoint
             console.log('Trying alternative endpoint...');
             try {
-              const altRes = await axios.get(`https://vpl-liveproject-1.onrender.com/api/v1/load/shipper/loads`, {
+              const altEndpoint = userType === 'trucker' 
+                ? 'https://vpl-liveproject-1.onrender.com/api/v1/load/trucker/loads'
+                : 'https://vpl-liveproject-1.onrender.com/api/v1/load/shipper/loads';
+              
+              const altRes = await axios.get(altEndpoint, {
                 headers: headers
               });
               console.log('Alternative API response:', altRes.data);
               
               if (altRes.data?.data && Array.isArray(altRes.data.data)) {
-                const shipments = altRes.data.data.map(load => ({
-                  id: load._id,
-                  number: load.loadNumber || load.shipmentNumber,
-                  location: `${load.origin?.city || load.originName || 'Origin'} → ${load.destination?.city || load.destinationName || 'Destination'}`,
-                  lat: load.currentLocation?.latitude || load.currentLocation?.lat || 0,
-                  lng: load.currentLocation?.longitude || load.currentLocation?.lon || 0,
-                  originLat: load.origin?.lat || load.originLatLng?.lat || 0,
-                  originLng: load.origin?.lon || load.originLatLng?.lon || 0,
-                  destLat: load.destination?.lat || load.destinationLatLng?.lat || 0,
-                  destLng: load.destination?.lon || load.destinationLatLng?.lon || 0,
+                const shipments = altRes.data.data.map(load => {
+                  // Handle different data structures for shipper vs trucker APIs
+                  let originData, destinationData, currentLocationData;
+                  
+                  if (userType === 'trucker') {
+                    // Trucker API structure
+                    originData = load.origins?.[0] || {};
+                    destinationData = load.destinations?.[0] || {};
+                    currentLocationData = load.tracking?.currentLocation || load.currentLocation || {};
+                  } else {
+                    // Shipper API structure (existing)
+                    originData = load.origin || {};
+                    destinationData = load.destination || {};
+                    currentLocationData = load.currentLocation || {};
+                  }
+                  
+                  return {
+                    id: load._id,
+                    number: load.loadNumber || load.tracking?.shipmentNumber || load.shipmentNumber,
+                    location: `${originData.city || load.originName || 'Origin'} → ${destinationData.city || load.destinationName || 'Destination'}`,
+                    lat: currentLocationData.latitude || currentLocationData.lat || 0,
+                    lng: currentLocationData.longitude || currentLocationData.lon || 0,
+                    originLat: originData.lat || load.originLatLng?.lat || 0,
+                    originLng: originData.lon || load.originLatLng?.lon || 0,
+                    destLat: destinationData.lat || load.destinationLatLng?.lat || 0,
+                    destLng: destinationData.lon || load.destinationLatLng?.lon || 0,
                   weight: load.weight,
                   commodity: load.commodity,
                   status: [
@@ -554,7 +613,8 @@ export default function LiveTracker() {
                   driverName: load.acceptedBid?.driverName || load.driverName,
                   driverPhone: load.acceptedBid?.driverPhone,
                   hasLocationData: load.hasLocationData,
-                }));
+                };
+                });
                 
                 setConsignments(shipments);
                 console.log('Alternative API successful, loaded', shipments.length, 'loads');
@@ -898,15 +958,16 @@ export default function LiveTracker() {
                         setHelpLoading(prev => ({ ...prev, [truck.id]: true }));
                         
                         try {
-                          // Make authenticated request to help API
-                          const response = await axios.get(
-                            `https://vpl-liveproject-1.onrender.com/api/v1/load/shipper/load/${truck.id}/help-auto`,
-                            {
-                              headers: {
-                                'Authorization': `Bearer ${token}`
-                              }
+                          // Make authenticated request to help API based on user type
+                          const helpEndpoint = userType === 'trucker' 
+                            ? `https://vpl-liveproject-1.onrender.com/api/v1/load/trucker/load/${truck.id}/help-auto`
+                            : `https://vpl-liveproject-1.onrender.com/api/v1/load/shipper/load/${truck.id}/help-auto`;
+                          
+                          const response = await axios.get(helpEndpoint, {
+                            headers: {
+                              'Authorization': `Bearer ${token}`
                             }
-                          );
+                          });
                           
                           // If successful, open the help page
                           if (response.data) {
