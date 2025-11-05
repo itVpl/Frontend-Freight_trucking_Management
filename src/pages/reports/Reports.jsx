@@ -3,10 +3,11 @@ import {
   Box, Typography, ToggleButtonGroup, ToggleButton,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Chip, Paper, TextField, MenuItem, Select, FormControl, InputLabel,
-  CircularProgress, Alert, Button
+  CircularProgress, Alert, Button, Dialog, DialogTitle, DialogContent,
+  IconButton, Divider, Grid
 } from '@mui/material';
 import { Bar } from 'react-chartjs-2';
-import { CalendarMonth, TrendingUp, Assessment } from '@mui/icons-material';
+import { CalendarMonth, TrendingUp, Assessment, Visibility, Close, LocalShipping, LocationOn, AttachMoney, Scale, Description, Person, DirectionsCar, DateRange, Business, CheckCircle, Photo, Note, Verified, Assignment } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { BASE_API_URL } from '../../apiConfig';
@@ -78,6 +79,8 @@ const Reports = () => {
   const [error, setError] = useState(null);
   const [apiData, setApiData] = useState(null);
   const [reportsData, setReportsData] = useState([]);
+  const [viewModalOpen, setViewModalOpen] = useState(false);
+  const [selectedConsignment, setSelectedConsignment] = useState(null);
 
   // Fetch API data on component mount
   useEffect(() => {
@@ -114,7 +117,9 @@ const Reports = () => {
             destination: load.destination,
             weight: load.weight,
             commodity: load.commodity,
-            verificationStatus: load.verificationStatus
+            verificationStatus: load.verificationStatus,
+            // Store full load object for detailed view
+            fullLoad: load
           }));
           
           setReportsData(transformedData);
@@ -468,6 +473,17 @@ const handleRowClick = (status) => {
   else if (status === 'Not-Completed') navigate('not-complete');
   else if (status === 'Transit') navigate('transit');
 };
+
+const handleViewClick = (e, row) => {
+  e.stopPropagation(); // Prevent row click
+  setSelectedConsignment(row);
+  setViewModalOpen(true);
+};
+
+const handleCloseModal = () => {
+  setViewModalOpen(false);
+  setSelectedConsignment(null);
+};
   return (
     <Box sx={{ p: 2 }}>
       {/* Top Filter */}
@@ -651,6 +667,7 @@ const handleRowClick = (status) => {
                 <TableCell>Load Type</TableCell>
                 <TableCell>Assign Date</TableCell>
                 <TableCell>Status</TableCell>
+                <TableCell align="center">Action</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -659,7 +676,7 @@ const handleRowClick = (status) => {
                   key={row.id}
                   hover
                   sx={{ cursor: 'pointer' }}
-                  onClick={() => handleRowClick(row.status, row.id)} // ✅ handle click
+                  onClick={() => handleRowClick(row.status, row.id)}
                 >
                   <TableCell>{row.id}</TableCell>
                   <TableCell>{row.driver}</TableCell>
@@ -668,6 +685,24 @@ const handleRowClick = (status) => {
                   <TableCell>
                     <Chip label={row.status} color={getChipColor(row.status)} />
                   </TableCell>
+                  <TableCell align="center" onClick={(e) => e.stopPropagation()}>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      startIcon={<Visibility />}
+                      onClick={(e) => handleViewClick(e, row)}
+                      sx={{
+                        backgroundColor: '#1976d2',
+                        color: 'white',
+                        textTransform: 'none',
+                        '&:hover': {
+                          backgroundColor: '#1565c0',
+                        },
+                      }}
+                    >
+                      View
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -675,6 +710,719 @@ const handleRowClick = (status) => {
         </TableContainer>
       </Paper>
       )}
+
+      {/* View Details Modal */}
+      <Dialog
+        open={viewModalOpen}
+        onClose={handleCloseModal}
+        maxWidth="lg"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            maxHeight: '90vh',
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)',
+          color: '#fff',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          py: 2,
+          px: 3
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <LocalShipping sx={{ fontSize: 28 }} />
+            <Typography variant="h5" fontWeight={700}>
+              Consignment Details
+            </Typography>
+          </Box>
+          <IconButton onClick={handleCloseModal} sx={{ color: '#fff' }}>
+            <Close />
+          </IconButton>
+        </DialogTitle>
+        
+        <DialogContent sx={{ p: 0, mt: 0, maxHeight: '70vh', overflowY: 'auto' }}>
+          {selectedConsignment && (
+            <Box sx={{ p: 3 }}>
+              {/* Basic Information Section */}
+              <Paper elevation={2} sx={{ p: 3, mb: 3, borderRadius: 2, border: '1px solid #e0e0e0' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                  <Box sx={{ p: 1.5, borderRadius: 2, background: 'linear-gradient(135deg, #e3f2fd, #bbdefb)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Description sx={{ color: '#1976d2', fontSize: 24 }} />
+                  </Box>
+                  <Typography variant="h6" sx={{ fontWeight: 600, color: '#1976d2' }}>
+                    Basic Information
+                  </Typography>
+                </Box>
+                
+                <TableContainer>
+                  <Table size="small">
+                    <TableBody>
+                      <TableRow>
+                        <TableCell sx={{ border: 'none', fontWeight: 600, width: '40%' }}>Consignment ID</TableCell>
+                        <TableCell sx={{ border: 'none', width: '10%' }}>------</TableCell>
+                        <TableCell sx={{ border: 'none' }}>{selectedConsignment.id || 'N/A'}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ border: 'none', fontWeight: 600 }}>Status</TableCell>
+                        <TableCell sx={{ border: 'none' }}>------</TableCell>
+                        <TableCell sx={{ border: 'none' }}>
+                          <Chip 
+                            label={selectedConsignment.status || 'N/A'} 
+                            color={getChipColor(selectedConsignment.status)}
+                            size="small"
+                          />
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ border: 'none', fontWeight: 600 }}>Equipment Type</TableCell>
+                        <TableCell sx={{ border: 'none' }}>------</TableCell>
+                        <TableCell sx={{ border: 'none' }}>{selectedConsignment.type || 'N/A'}</TableCell>
+                      </TableRow>
+                      {selectedConsignment.fullLoad?.shipmentNumber && (
+                        <TableRow>
+                          <TableCell sx={{ border: 'none', fontWeight: 600 }}>Shipment Number</TableCell>
+                          <TableCell sx={{ border: 'none' }}>------</TableCell>
+                          <TableCell sx={{ border: 'none' }}>{selectedConsignment.fullLoad.shipmentNumber}</TableCell>
+                        </TableRow>
+                      )}
+                      {selectedConsignment.fullLoad?.poNumber && (
+                        <TableRow>
+                          <TableCell sx={{ border: 'none', fontWeight: 600 }}>PO Number</TableCell>
+                          <TableCell sx={{ border: 'none' }}>------</TableCell>
+                          <TableCell sx={{ border: 'none' }}>{selectedConsignment.fullLoad.poNumber}</TableCell>
+                        </TableRow>
+                      )}
+                      {selectedConsignment.fullLoad?.bolNumber && (
+                        <TableRow>
+                          <TableCell sx={{ border: 'none', fontWeight: 600 }}>BOL Number</TableCell>
+                          <TableCell sx={{ border: 'none' }}>------</TableCell>
+                          <TableCell sx={{ border: 'none' }}>{selectedConsignment.fullLoad.bolNumber}</TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Paper>
+
+              {/* Rate Information Section */}
+              <Paper elevation={2} sx={{ p: 3, mb: 3, borderRadius: 2, border: '1px solid #e0e0e0' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                  <Box sx={{ p: 1.5, borderRadius: 2, background: 'linear-gradient(135deg, #fff3e0, #ffe0b2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <AttachMoney sx={{ color: '#ff9800', fontSize: 24 }} />
+                  </Box>
+                  <Typography variant="h6" sx={{ fontWeight: 600, color: '#ff9800' }}>
+                    Rate Information
+                  </Typography>
+                </Box>
+                
+                <TableContainer>
+                  <Table size="small">
+                    <TableBody>
+                      <TableRow>
+                        <TableCell sx={{ border: 'none', fontWeight: 600, width: '40%' }}>Rate</TableCell>
+                        <TableCell sx={{ border: 'none', width: '10%' }}>------</TableCell>
+                        <TableCell sx={{ border: 'none' }}>
+                          <Typography variant="body1" fontWeight={700} color="primary">
+                            ${selectedConsignment.rate?.toLocaleString() || '0.00'}
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                      {selectedConsignment.fullLoad?.rateDetails?.lineHaul !== undefined && (
+                        <TableRow>
+                          <TableCell sx={{ border: 'none', fontWeight: 600 }}>Line Haul</TableCell>
+                          <TableCell sx={{ border: 'none' }}>------</TableCell>
+                          <TableCell sx={{ border: 'none' }}>${selectedConsignment.fullLoad.rateDetails.lineHaul.toLocaleString()}</TableCell>
+                        </TableRow>
+                      )}
+                      {selectedConsignment.fullLoad?.rateDetails?.fsc !== undefined && (
+                        <TableRow>
+                          <TableCell sx={{ border: 'none', fontWeight: 600 }}>FSC</TableCell>
+                          <TableCell sx={{ border: 'none' }}>------</TableCell>
+                          <TableCell sx={{ border: 'none' }}>${selectedConsignment.fullLoad.rateDetails.fsc.toLocaleString()}</TableCell>
+                        </TableRow>
+                      )}
+                      {selectedConsignment.fullLoad?.rateDetails?.totalRates !== undefined && (
+                        <TableRow>
+                          <TableCell sx={{ border: 'none', fontWeight: 600 }}>Total Rates</TableCell>
+                          <TableCell sx={{ border: 'none' }}>------</TableCell>
+                          <TableCell sx={{ border: 'none' }}>
+                            <Typography variant="body1" fontWeight={700} color="success.main">
+                              ${selectedConsignment.fullLoad.rateDetails.totalRates.toLocaleString()}
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Paper>
+
+              {/* Load Details Section */}
+              <Paper elevation={2} sx={{ p: 3, mb: 3, borderRadius: 2, border: '1px solid #e0e0e0' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                  <Box sx={{ p: 1.5, borderRadius: 2, background: 'linear-gradient(135deg, #f3e5f5, #e1bee7)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Scale sx={{ color: '#9c27b0', fontSize: 24 }} />
+                  </Box>
+                  <Typography variant="h6" sx={{ fontWeight: 600, color: '#9c27b0' }}>
+                    Load Details
+                  </Typography>
+                </Box>
+                
+                <TableContainer>
+                  <Table size="small">
+                    <TableBody>
+                      {selectedConsignment.weight && (
+                        <TableRow>
+                          <TableCell sx={{ border: 'none', fontWeight: 600, width: '40%' }}>Weight</TableCell>
+                          <TableCell sx={{ border: 'none', width: '10%' }}>------</TableCell>
+                          <TableCell sx={{ border: 'none' }}>{selectedConsignment.weight} LBS</TableCell>
+                        </TableRow>
+                      )}
+                      {selectedConsignment.commodity && (
+                        <TableRow>
+                          <TableCell sx={{ border: 'none', fontWeight: 600 }}>Commodity</TableCell>
+                          <TableCell sx={{ border: 'none' }}>------</TableCell>
+                          <TableCell sx={{ border: 'none' }}>{selectedConsignment.commodity}</TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Paper>
+
+              {/* Locations Section */}
+              {(selectedConsignment.origin || selectedConsignment.destination || 
+                selectedConsignment.fullLoad?.origins || selectedConsignment.fullLoad?.destinations) && (
+                <Paper elevation={2} sx={{ p: 3, mb: 3, borderRadius: 2, border: '1px solid #e0e0e0' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                    <Box sx={{ p: 1.5, borderRadius: 2, background: 'linear-gradient(135deg, #e8f5e9, #c8e6c9)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <LocationOn sx={{ color: '#4caf50', fontSize: 24 }} />
+                    </Box>
+                    <Typography variant="h6" sx={{ fontWeight: 600, color: '#4caf50' }}>
+                      Locations
+                    </Typography>
+                  </Box>
+                  
+                  <Grid container spacing={3}>
+                    {/* Pickup Location */}
+                    {(selectedConsignment.fullLoad?.origins?.[0] || selectedConsignment.origin) && (
+                      <Grid xs={12} sm={6}>
+                        <Box sx={{ p: 2, background: '#f5f5f5', borderRadius: 2 }}>
+                          <Typography variant="subtitle2" fontWeight={700} color="success.main" sx={{ mb: 1 }}>
+                            Pickup Location
+                          </Typography>
+                          {selectedConsignment.fullLoad?.origins?.[0] ? (
+                            <>
+                              <Typography variant="body2">
+                                <strong>City:</strong> {selectedConsignment.fullLoad.origins[0].city || 'N/A'}
+                              </Typography>
+                              <Typography variant="body2">
+                                <strong>State:</strong> {selectedConsignment.fullLoad.origins[0].state || 'N/A'}
+                              </Typography>
+                              <Typography variant="body2">
+                                <strong>ZIP:</strong> {selectedConsignment.fullLoad.origins[0].zip || 'N/A'}
+                              </Typography>
+                              {selectedConsignment.fullLoad.origins[0].addressLine1 && (
+                                <Typography variant="body2">
+                                  <strong>Address:</strong> {selectedConsignment.fullLoad.origins[0].addressLine1}
+                                </Typography>
+                              )}
+                            </>
+                          ) : (
+                            <Typography variant="body2">
+                              {selectedConsignment.origin && typeof selectedConsignment.origin === 'object' 
+                                ? `${selectedConsignment.origin.city || ''} ${selectedConsignment.origin.state || ''}`.trim() || 'N/A'
+                                : selectedConsignment.origin || 'N/A'}
+                            </Typography>
+                          )}
+                        </Box>
+                      </Grid>
+                    )}
+
+                    {/* Delivery Location */}
+                    {(selectedConsignment.fullLoad?.destinations?.[0] || selectedConsignment.destination) && (
+                      <Grid xs={12} sm={6}>
+                        <Box sx={{ p: 2, background: '#fff3e0', borderRadius: 2 }}>
+                          <Typography variant="subtitle2" fontWeight={700} color="warning.main" sx={{ mb: 1 }}>
+                            Delivery Location
+                          </Typography>
+                          {selectedConsignment.fullLoad?.destinations?.[0] ? (
+                            <>
+                              <Typography variant="body2">
+                                <strong>City:</strong> {selectedConsignment.fullLoad.destinations[0].city || 'N/A'}
+                              </Typography>
+                              <Typography variant="body2">
+                                <strong>State:</strong> {selectedConsignment.fullLoad.destinations[0].state || 'N/A'}
+                              </Typography>
+                              <Typography variant="body2">
+                                <strong>ZIP:</strong> {selectedConsignment.fullLoad.destinations[0].zip || 'N/A'}
+                              </Typography>
+                              {selectedConsignment.fullLoad.destinations[0].addressLine1 && (
+                                <Typography variant="body2">
+                                  <strong>Address:</strong> {selectedConsignment.fullLoad.destinations[0].addressLine1}
+                                </Typography>
+                              )}
+                            </>
+                          ) : (
+                            <Typography variant="body2">
+                              {selectedConsignment.destination && typeof selectedConsignment.destination === 'object'
+                                ? `${selectedConsignment.destination.city || ''} ${selectedConsignment.destination.state || ''}`.trim() || 'N/A'
+                                : selectedConsignment.destination || 'N/A'}
+                            </Typography>
+                          )}
+                        </Box>
+                      </Grid>
+                    )}
+                  </Grid>
+                </Paper>
+              )}
+
+              {/* Driver & Vehicle Information */}
+              {(selectedConsignment.driver !== 'N/A' || selectedConsignment.fullLoad?.acceptedBid) && (
+                <Paper elevation={2} sx={{ p: 3, mb: 3, borderRadius: 2, border: '1px solid #e0e0e0' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                    <Box sx={{ p: 1.5, borderRadius: 2, background: 'linear-gradient(135deg, #e0f2f1, #b2dfdb)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Person sx={{ color: '#00796b', fontSize: 24 }} />
+                    </Box>
+                    <Typography variant="h6" sx={{ fontWeight: 600, color: '#00796b' }}>
+                      Driver & Vehicle Information
+                    </Typography>
+                  </Box>
+                  
+                  <TableContainer>
+                    <Table size="small">
+                      <TableBody>
+                        {(selectedConsignment.fullLoad?.acceptedBid?.driverName || selectedConsignment.driver !== 'N/A') && (
+                          <TableRow>
+                            <TableCell sx={{ border: 'none', fontWeight: 600, width: '40%' }}>Driver Name</TableCell>
+                            <TableCell sx={{ border: 'none', width: '10%' }}>------</TableCell>
+                            <TableCell sx={{ border: 'none' }}>
+                              {selectedConsignment.fullLoad?.acceptedBid?.driverName || selectedConsignment.driver || 'N/A'}
+                            </TableCell>
+                          </TableRow>
+                        )}
+                         {selectedConsignment.fullLoad?.acceptedBid?.vehicleNumber && (
+                           <TableRow>
+                             <TableCell sx={{ border: 'none', fontWeight: 600 }}>Vehicle Number</TableCell>
+                             <TableCell sx={{ border: 'none' }}>------</TableCell>
+                             <TableCell sx={{ border: 'none' }}>{selectedConsignment.fullLoad.acceptedBid.vehicleNumber}</TableCell>
+                           </TableRow>
+                         )}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </Paper>
+              )}
+
+              {/* Dates Section */}
+              {selectedConsignment.fullLoad && (
+                <Paper elevation={2} sx={{ p: 3, mb: 3, borderRadius: 2, border: '1px solid #e0e0e0' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                    <Box sx={{ p: 1.5, borderRadius: 2, background: 'linear-gradient(135deg, #fff8e1, #ffecb3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <DateRange sx={{ color: '#f57c00', fontSize: 24 }} />
+                    </Box>
+                    <Typography variant="h6" sx={{ fontWeight: 600, color: '#f57c00' }}>
+                      Important Dates
+                  </Typography>
+                </Box>
+                
+                <TableContainer>
+                  <Table size="small">
+                    <TableBody>
+                      {selectedConsignment.fullLoad.pickupDate && (
+                        <TableRow>
+                          <TableCell sx={{ border: 'none', fontWeight: 600, width: '40%' }}>Pickup Date</TableCell>
+                          <TableCell sx={{ border: 'none', width: '10%' }}>------</TableCell>
+                          <TableCell sx={{ border: 'none' }}>
+                            {format(new Date(selectedConsignment.fullLoad.pickupDate), 'MM-dd-yyyy')}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      {selectedConsignment.fullLoad.deliveryDate && (
+                        <TableRow>
+                          <TableCell sx={{ border: 'none', fontWeight: 600 }}>Delivery Date</TableCell>
+                          <TableCell sx={{ border: 'none' }}>------</TableCell>
+                          <TableCell sx={{ border: 'none' }}>
+                            {format(new Date(selectedConsignment.fullLoad.deliveryDate), 'MM-dd-yyyy')}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+                </Paper>
+              )}
+
+              {/* Pickup Images Section */}
+              {(selectedConsignment.fullLoad?.emptyTruckImages?.length > 0 || 
+                selectedConsignment.fullLoad?.loadedTruckImages?.length > 0 ||
+                selectedConsignment.fullLoad?.eirTickets?.length > 0 ||
+                selectedConsignment.fullLoad?.containerImages?.length > 0 ||
+                selectedConsignment.fullLoad?.sealImages?.length > 0 ||
+                selectedConsignment.fullLoad?.damageImages?.length > 0) && (
+                <Paper elevation={2} sx={{ p: 3, mb: 3, borderRadius: 2, border: '1px solid #e0e0e0' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                    <Box sx={{ p: 1.5, borderRadius: 2, background: 'linear-gradient(135deg, #fff3e0, #ffe0b2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Photo sx={{ color: '#ff9800', fontSize: 24 }} />
+                    </Box>
+                    <Typography variant="h6" sx={{ fontWeight: 600, color: '#ff9800' }}>
+                      Pickup Images
+                    </Typography>
+                  </Box>
+                  
+                  <Grid container spacing={2}>
+                    {selectedConsignment.fullLoad?.emptyTruckImages?.length > 0 && (
+                      <Grid xs={12} sm={6}>
+                        <Paper elevation={1} sx={{ p: 2, borderRadius: 2, border: '1px solid #e0e0e0', bgcolor: '#fafafa' }}>
+                          <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2 }}>Empty Truck Images ({selectedConsignment.fullLoad.emptyTruckImages.length})</Typography>
+                          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                            {selectedConsignment.fullLoad.emptyTruckImages.map((url, idx) => (
+                              <Box
+                                key={idx}
+                                component="img"
+                                src={url}
+                                alt={`Empty Truck ${idx + 1}`}
+                                sx={{
+                                  width: 120,
+                                  height: 120,
+                                  objectFit: 'cover',
+                                  borderRadius: 2,
+                                  cursor: 'pointer',
+                                  border: '2px solid #e0e0e0',
+                                  '&:hover': { borderColor: '#ff9800', transform: 'scale(1.05)' }
+                                }}
+                                onClick={() => window.open(url, '_blank')}
+                              />
+                            ))}
+                          </Box>
+                        </Paper>
+                      </Grid>
+                    )}
+
+                    {selectedConsignment.fullLoad?.loadedTruckImages?.length > 0 && (
+                      <Grid xs={12} sm={6}>
+                        <Paper elevation={1} sx={{ p: 2, borderRadius: 2, border: '1px solid #e0e0e0', bgcolor: '#fafafa' }}>
+                          <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2 }}>Loaded Truck Images ({selectedConsignment.fullLoad.loadedTruckImages.length})</Typography>
+                          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                            {selectedConsignment.fullLoad.loadedTruckImages.map((url, idx) => (
+                              <Box
+                                key={idx}
+                                component="img"
+                                src={url}
+                                alt={`Loaded Truck ${idx + 1}`}
+                                sx={{
+                                  width: 120,
+                                  height: 120,
+                                  objectFit: 'cover',
+                                  borderRadius: 2,
+                                  cursor: 'pointer',
+                                  border: '2px solid #e0e0e0',
+                                  '&:hover': { borderColor: '#ff9800', transform: 'scale(1.05)' }
+                                }}
+                                onClick={() => window.open(url, '_blank')}
+                              />
+                            ))}
+                          </Box>
+                        </Paper>
+                      </Grid>
+                    )}
+
+                    {selectedConsignment.fullLoad?.eirTickets?.length > 0 && (
+                      <Grid xs={12} sm={6}>
+                        <Paper elevation={1} sx={{ p: 2, borderRadius: 2, border: '1px solid #e0e0e0', bgcolor: '#fafafa' }}>
+                          <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2 }}>EIR Tickets ({selectedConsignment.fullLoad.eirTickets.length})</Typography>
+                          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                            {selectedConsignment.fullLoad.eirTickets.map((url, idx) => (
+                              <Box
+                                key={idx}
+                                component="img"
+                                src={url}
+                                alt={`EIR Ticket ${idx + 1}`}
+                                sx={{
+                                  width: 120,
+                                  height: 120,
+                                  objectFit: 'cover',
+                                  borderRadius: 2,
+                                  cursor: 'pointer',
+                                  border: '2px solid #e0e0e0',
+                                  '&:hover': { borderColor: '#ff9800', transform: 'scale(1.05)' }
+                                }}
+                                onClick={() => window.open(url, '_blank')}
+                              />
+                            ))}
+                          </Box>
+                        </Paper>
+                      </Grid>
+                    )}
+
+                    {selectedConsignment.fullLoad?.containerImages?.length > 0 && (
+                      <Grid xs={12} sm={6}>
+                        <Paper elevation={1} sx={{ p: 2, borderRadius: 2, border: '1px solid #e0e0e0', bgcolor: '#fafafa' }}>
+                          <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2 }}>Container Images ({selectedConsignment.fullLoad.containerImages.length})</Typography>
+                          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                            {selectedConsignment.fullLoad.containerImages.map((url, idx) => (
+                              <Box
+                                key={idx}
+                                component="img"
+                                src={url}
+                                alt={`Container ${idx + 1}`}
+                                sx={{
+                                  width: 120,
+                                  height: 120,
+                                  objectFit: 'cover',
+                                  borderRadius: 2,
+                                  cursor: 'pointer',
+                                  border: '2px solid #e0e0e0',
+                                  '&:hover': { borderColor: '#ff9800', transform: 'scale(1.05)' }
+                                }}
+                                onClick={() => window.open(url, '_blank')}
+                              />
+                            ))}
+                          </Box>
+                        </Paper>
+                      </Grid>
+                    )}
+
+                    {selectedConsignment.fullLoad?.sealImages?.length > 0 && (
+                      <Grid xs={12} sm={6}>
+                        <Paper elevation={1} sx={{ p: 2, borderRadius: 2, border: '1px solid #e0e0e0', bgcolor: '#fafafa' }}>
+                          <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2 }}>Seal Images ({selectedConsignment.fullLoad.sealImages.length})</Typography>
+                          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                            {selectedConsignment.fullLoad.sealImages.map((url, idx) => (
+                              <Box
+                                key={idx}
+                                component="img"
+                                src={url}
+                                alt={`Seal ${idx + 1}`}
+                                sx={{
+                                  width: 120,
+                                  height: 120,
+                                  objectFit: 'cover',
+                                  borderRadius: 2,
+                                  cursor: 'pointer',
+                                  border: '2px solid #e0e0e0',
+                                  '&:hover': { borderColor: '#ff9800', transform: 'scale(1.05)' }
+                                }}
+                                onClick={() => window.open(url, '_blank')}
+                              />
+                            ))}
+                          </Box>
+                        </Paper>
+                      </Grid>
+                    )}
+
+                    {selectedConsignment.fullLoad?.damageImages?.length > 0 && (
+                      <Grid xs={12} sm={6}>
+                        <Paper elevation={1} sx={{ p: 2, borderRadius: 2, border: '1px solid #e0e0e0', bgcolor: '#fafafa' }}>
+                          <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2 }}>Damage Images ({selectedConsignment.fullLoad.damageImages.length})</Typography>
+                          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                            {selectedConsignment.fullLoad.damageImages.map((url, idx) => (
+                              <Box
+                                key={idx}
+                                component="img"
+                                src={url}
+                                alt={`Damage ${idx + 1}`}
+                                sx={{
+                                  width: 120,
+                                  height: 120,
+                                  objectFit: 'cover',
+                                  borderRadius: 2,
+                                  cursor: 'pointer',
+                                  border: '2px solid #e0e0e0',
+                                  '&:hover': { borderColor: '#ff9800', transform: 'scale(1.05)' }
+                                }}
+                                onClick={() => window.open(url, '_blank')}
+                              />
+                            ))}
+                          </Box>
+                        </Paper>
+                      </Grid>
+                    )}
+                  </Grid>
+                </Paper>
+              )}
+
+              {/* Drop Location Images */}
+              {selectedConsignment.fullLoad?.dropLocationImages && (
+                <Paper elevation={2} sx={{ p: 3, mb: 3, borderRadius: 2, border: '1px solid #e0e0e0' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                    <Box sx={{ p: 1.5, borderRadius: 2, background: 'linear-gradient(135deg, #fce4ec, #f8bbd0)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Photo sx={{ color: '#c2185b', fontSize: 24 }} />
+                    </Box>
+                    <Typography variant="h6" sx={{ fontWeight: 600, color: '#c2185b' }}>
+                      Delivery Images
+                    </Typography>
+                  </Box>
+                  
+                  <Grid container spacing={2}>
+                    {selectedConsignment.fullLoad.dropLocationImages.podImages?.length > 0 && (
+                      <Grid xs={12} sm={6}>
+                        <Paper elevation={1} sx={{ p: 2, borderRadius: 2, border: '1px solid #e0e0e0', bgcolor: '#fafafa' }}>
+                          <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2 }}>POD Images ({selectedConsignment.fullLoad.dropLocationImages.podImages.length})</Typography>
+                          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                            {selectedConsignment.fullLoad.dropLocationImages.podImages.map((url, idx) => (
+                              <Box
+                                key={idx}
+                                component="img"
+                                src={url}
+                                alt={`POD ${idx + 1}`}
+                                sx={{
+                                  width: 120,
+                                  height: 120,
+                                  objectFit: 'cover',
+                                  borderRadius: 2,
+                                  cursor: 'pointer',
+                                  border: '2px solid #e0e0e0',
+                                  '&:hover': { borderColor: '#c2185b', transform: 'scale(1.05)' }
+                                }}
+                                onClick={() => window.open(url, '_blank')}
+                              />
+                            ))}
+                          </Box>
+                        </Paper>
+                      </Grid>
+                    )}
+
+                    {selectedConsignment.fullLoad.dropLocationImages.loadedTruckImages?.length > 0 && (
+                      <Grid xs={12} sm={6}>
+                        <Paper elevation={1} sx={{ p: 2, borderRadius: 2, border: '1px solid #e0e0e0', bgcolor: '#fafafa' }}>
+                          <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2 }}>Loaded Truck Images ({selectedConsignment.fullLoad.dropLocationImages.loadedTruckImages.length})</Typography>
+                          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                            {selectedConsignment.fullLoad.dropLocationImages.loadedTruckImages.map((url, idx) => (
+                              <Box
+                                key={idx}
+                                component="img"
+                                src={url}
+                                alt={`Loaded Truck ${idx + 1}`}
+                                sx={{
+                                  width: 120,
+                                  height: 120,
+                                  objectFit: 'cover',
+                                  borderRadius: 2,
+                                  cursor: 'pointer',
+                                  border: '2px solid #e0e0e0',
+                                  '&:hover': { borderColor: '#c2185b', transform: 'scale(1.05)' }
+                                }}
+                                onClick={() => window.open(url, '_blank')}
+                              />
+                            ))}
+                          </Box>
+                        </Paper>
+                      </Grid>
+                    )}
+
+                    {selectedConsignment.fullLoad.dropLocationImages.dropLocationImages?.length > 0 && (
+                      <Grid xs={12} sm={6}>
+                        <Paper elevation={1} sx={{ p: 2, borderRadius: 2, border: '1px solid #e0e0e0', bgcolor: '#fafafa' }}>
+                          <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2 }}>Drop Location Images ({selectedConsignment.fullLoad.dropLocationImages.dropLocationImages.length})</Typography>
+                          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                            {selectedConsignment.fullLoad.dropLocationImages.dropLocationImages.map((url, idx) => (
+                              <Box
+                                key={idx}
+                                component="img"
+                                src={url}
+                                alt={`Drop Location ${idx + 1}`}
+                                sx={{
+                                  width: 120,
+                                  height: 120,
+                                  objectFit: 'cover',
+                                  borderRadius: 2,
+                                  cursor: 'pointer',
+                                  border: '2px solid #e0e0e0',
+                                  '&:hover': { borderColor: '#c2185b', transform: 'scale(1.05)' }
+                                }}
+                                onClick={() => window.open(url, '_blank')}
+                              />
+                            ))}
+                          </Box>
+                        </Paper>
+                      </Grid>
+                    )}
+
+                    {selectedConsignment.fullLoad.dropLocationImages.emptyTruckImages?.length > 0 && (
+                      <Grid xs={12} sm={6}>
+                        <Paper elevation={1} sx={{ p: 2, borderRadius: 2, border: '1px solid #e0e0e0', bgcolor: '#fafafa' }}>
+                          <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2 }}>Empty Truck Images ({selectedConsignment.fullLoad.dropLocationImages.emptyTruckImages.length})</Typography>
+                          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                            {selectedConsignment.fullLoad.dropLocationImages.emptyTruckImages.map((url, idx) => (
+                              <Box
+                                key={idx}
+                                component="img"
+                                src={url}
+                                alt={`Empty Truck ${idx + 1}`}
+                                sx={{
+                                  width: 120,
+                                  height: 120,
+                                  objectFit: 'cover',
+                                  borderRadius: 2,
+                                  cursor: 'pointer',
+                                  border: '2px solid #e0e0e0',
+                                  '&:hover': { borderColor: '#c2185b', transform: 'scale(1.05)' }
+                                }}
+                                onClick={() => window.open(url, '_blank')}
+                              />
+                            ))}
+                          </Box>
+                        </Paper>
+                      </Grid>
+                    )}
+                  </Grid>
+                </Paper>
+              )}
+
+              {/* Return Location */}
+              {(selectedConsignment.fullLoad?.returnLocation || selectedConsignment.fullLoad?.returnCity || selectedConsignment.fullLoad?.returnDate) && (
+                <Paper elevation={2} sx={{ p: 3, mb: 3, borderRadius: 2, border: '1px solid #e0e0e0' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                    <Box sx={{ p: 1.5, borderRadius: 2, background: 'linear-gradient(135deg, #f3e5f5, #e1bee7)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <LocationOn sx={{ color: '#7b1fa2', fontSize: 24 }} />
+                    </Box>
+                    <Typography variant="h6" sx={{ fontWeight: 600, color: '#7b1fa2' }}>
+                      Return Location
+                    </Typography>
+                  </Box>
+                  
+                  <TableContainer>
+                    <Table size="small">
+                      <TableBody>
+                        {selectedConsignment.fullLoad?.returnLocation && (
+                          <TableRow>
+                            <TableCell sx={{ border: 'none', fontWeight: 600, width: '40%' }}>Return Location</TableCell>
+                            <TableCell sx={{ border: 'none', width: '10%' }}>------</TableCell>
+                            <TableCell sx={{ border: 'none' }}>{selectedConsignment.fullLoad.returnLocation}</TableCell>
+                          </TableRow>
+                        )}
+                        {(selectedConsignment.fullLoad?.returnCity || selectedConsignment.fullLoad?.returnState) && (
+                          <TableRow>
+                            <TableCell sx={{ border: 'none', fontWeight: 600 }}>Return Address</TableCell>
+                            <TableCell sx={{ border: 'none' }}>------</TableCell>
+                            <TableCell sx={{ border: 'none' }}>
+                              {`${selectedConsignment.fullLoad.returnCity || ''} ${selectedConsignment.fullLoad.returnState || ''} ${selectedConsignment.fullLoad.returnZip || ''}`.trim() || 'N/A'}
+                            </TableCell>
+                          </TableRow>
+                        )}
+                        {selectedConsignment.fullLoad?.returnDate && (
+                          <TableRow>
+                            <TableCell sx={{ border: 'none', fontWeight: 600 }}>Return Date</TableCell>
+                            <TableCell sx={{ border: 'none' }}>------</TableCell>
+                            <TableCell sx={{ border: 'none' }}>
+                              {format(new Date(selectedConsignment.fullLoad.returnDate), 'MM-dd-yyyy')}
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </Paper>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 };

@@ -30,21 +30,33 @@ import {
   InputLabel,
   Tabs,
   Tab,
-  Divider
+  Divider,
+  CircularProgress,
+  Alert,
+  IconButton
 } from '@mui/material';
-import { 
-  Add, 
-  Refresh, 
-  Clear, 
-  LocationOn, 
-  LocalShipping, 
-  Assignment, 
+import {
+  Add,
+  Refresh,
+  Clear,
+  Close,
+  Send,
+  LocationOn,
+  LocalShipping,
+  Assignment,
   CalendarToday,
   AttachMoney,
   Scale,
   Business,
   Description,
-  Delete
+  Delete,
+  AttachFile,
+  CloudUpload,
+  CheckCircle,
+  Room,
+  Inventory2,
+  Category,
+  Percent
 } from '@mui/icons-material';
 import { Download, Search } from '@mui/icons-material';
 import PersonIcon from '@mui/icons-material/Person';
@@ -179,7 +191,7 @@ const usCities = [
 // Vehicle types - Separate for DRAYAGE and OTR as per server enum
 const DRAYAGE_VEHICLE_TYPES = [
   "20' Standard (Dry Van)",
-  "40' Standard (Dry Van)", 
+  "40' Standard (Dry Van)",
   "45' Standard (Dry Van)",
   "20' Reefer",
   "40' Reefer (High Cube or Standard)",
@@ -213,11 +225,13 @@ const LoadBoard = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [originalLoadData, setOriginalLoadData] = useState([]);
   const [isFiltered, setIsFiltered] = useState(false);
+  const [chargesCalculatorModalOpen, setChargesCalculatorModalOpen] = useState(false);
+  const [charges, setCharges] = useState([]);
 
   // Vehicle type options - Separate for DRAYAGE and OTR as per server enum
   const DRAYAGE_VEHICLE_TYPES = [
     "20' Standard (Dry Van)",
-    "40' Standard (Dry Van)", 
+    "40' Standard (Dry Van)",
     "45' Standard (Dry Van)",
     "20' Reefer",
     "40' Reefer (High Cube or Standard)",
@@ -249,14 +263,16 @@ const LoadBoard = () => {
     rate: '',
     rateType: 'Flat Rate',
     bidDeadline: '',
-    
+
     // DRAYAGE specific fields
     fromAddress: '',
     fromCity: '',
     fromState: '',
+    fromZip: '',
     toAddress: '',
     toCity: '',
     toState: '',
+    toZip: '',
     weight: '',
     commodity: '',
     pickupDate: '',
@@ -266,7 +282,15 @@ const LoadBoard = () => {
     bolNumber: '',
     returnDate: '',
     returnLocation: '',
-    
+    returnAddress: '',
+    returnCity: '',
+    returnState: '',
+    returnZip: '',
+    lineHaul: '',
+    fsc: '',
+    others: '',
+    total: '',
+
     // OTR specific fields - origins and destinations arrays
     origins: [{
       addressLine1: '',
@@ -305,9 +329,10 @@ const LoadBoard = () => {
   const [selectedBid, setSelectedBid] = useState(null);
 
   const [acceptModalOpen, setAcceptModalOpen] = useState(false);
-  const [acceptForm, setAcceptForm] = useState({ status: 'Accepted', shipmentNumber: '', origin: { addressLine1: '', addressLine2: '' }, destination: { addressLine1: '', addressLine2: '' }, poNumber: '', bolNumber: '', message: '' });
+  const [acceptForm, setAcceptForm] = useState({ shipmentNumber: '', poNumber: '', bolNumber: '', acceptanceAttachment1: null });
   const [acceptBidId, setAcceptBidId] = useState(null);
   const [acceptErrors, setAcceptErrors] = useState({});
+  const [acceptFilePreview, setAcceptFilePreview] = useState(null);
 
   // Negotiation modal state
   const [negotiationModalOpen, setNegotiationModalOpen] = useState(false);
@@ -318,6 +343,14 @@ const LoadBoard = () => {
   const [negotiationErrors, setNegotiationErrors] = useState({});
   const [negotiationBidId, setNegotiationBidId] = useState(null);
 
+  // Negotiation history modal state
+  const [negotiationHistoryModalOpen, setNegotiationHistoryModalOpen] = useState(false);
+  const [negotiationHistory, setNegotiationHistory] = useState(null);
+  const [negotiationHistoryLoading, setNegotiationHistoryLoading] = useState(false);
+  const [negotiationHistoryError, setNegotiationHistoryError] = useState(null);
+  const [viewBidId, setViewBidId] = useState(null);
+  const [viewBidData, setViewBidData] = useState(null);
+
   // Reject confirmation modal state
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [rejectBidId, setRejectBidId] = useState(null);
@@ -326,28 +359,69 @@ const LoadBoard = () => {
   // Edit modal state
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedLoad, setSelectedLoad] = useState(null);
+  const [editLoadType, setEditLoadType] = useState('OTR');
   const [editForm, setEditForm] = useState({
-    fromCity: '',
-    fromState: '',
-    toCity: '',
-    toState: '',
-    pickupDate: '',
-    deliveryDate: '',
-    weight: '',
-    commodity: '',
+    // Common fields
+    loadType: 'OTR',
     vehicleType: '',
     rate: '',
     rateType: 'Flat Rate',
-    loadType: 'OTR',
+    bidDeadline: '',
+
+    // DRAYAGE specific fields
+    fromAddress: '',
+    fromCity: '',
+    fromState: '',
+    fromZip: '',
+    toAddress: '',
+    toCity: '',
+    toState: '',
+    toZip: '',
+    weight: '',
+    commodity: '',
+    pickupDate: '',
+    deliveryDate: '',
     containerNo: '',
     poNumber: '',
     bolNumber: '',
-    notes: '',
     returnDate: '',
-    returnLocation: ''
+    returnLocation: '',
+    returnAddress: '',
+    returnCity: '',
+    returnState: '',
+    returnZip: '',
+    lineHaul: '',
+    fsc: '',
+    others: '',
+    total: '',
+
+    // OTR specific fields - origins and destinations arrays
+    origins: [{
+      addressLine1: '',
+      addressLine2: '',
+      city: '',
+      state: '',
+      zip: '',
+      weight: '',
+      commodity: '',
+      pickupDate: '',
+      deliveryDate: ''
+    }],
+    destinations: [{
+      addressLine1: '',
+      addressLine2: '',
+      city: '',
+      state: '',
+      zip: '',
+      weight: '',
+      commodity: '',
+      deliveryDate: ''
+    }]
   });
   const [editErrors, setEditErrors] = useState({});
   const [editLoading, setEditLoading] = useState(false);
+  const [editCharges, setEditCharges] = useState([]);
+  const [editChargesCalculatorModalOpen, setEditChargesCalculatorModalOpen] = useState(false);
 
   // CMT Agent Details modal state
   const [cmtModalOpen, setCmtModalOpen] = useState(false);
@@ -375,27 +449,27 @@ const LoadBoard = () => {
   // Filter loads based on active tab
   const getFilteredLoads = () => {
     if (!loadData || loadData.length === 0) return [];
-    
+
     let filteredLoads = [];
     switch (activeTab) {
       case 0: // Pending Approval
-        filteredLoads = loadData.filter(load => 
+        filteredLoads = loadData.filter(load =>
           ['Pending', 'Approval', 'Pending Approval', 'pending', 'approval', 'PENDING', 'APPROVAL', 'Posted'].includes(load.status)
         );
         console.log('Pending Approval tab - Active tab:', activeTab, 'Filtered loads:', filteredLoads.length, 'All loads statuses:', loadData.map(l => ({ id: l._id, status: l.status })));
         return filteredLoads;
       case 1: // Bidding
-        filteredLoads = loadData.filter(load => 
+        filteredLoads = loadData.filter(load =>
           ['Bidding', 'Bid Received', 'Posted'].includes(load.status)
         );
         return filteredLoads;
       case 2: // Transit
-        filteredLoads = loadData.filter(load => 
+        filteredLoads = loadData.filter(load =>
           ['Assigned', 'In Transit', 'Picked Up'].includes(load.status)
         );
         return filteredLoads;
       case 3: // Delivered
-        filteredLoads = loadData.filter(load => 
+        filteredLoads = loadData.filter(load =>
           ['Delivered', 'Completed'].includes(load.status)
         );
         return filteredLoads;
@@ -407,7 +481,7 @@ const LoadBoard = () => {
   // Get counts for each tab
   const getTabCounts = () => {
     if (!loadData || loadData.length === 0) return [0, 0, 0, 0];
-    
+
     return [
       loadData.filter(load => ['Pending', 'Approval', 'Pending Approval', 'Posted'].includes(load.status)).length,
       loadData.filter(load => ['Bidding', 'Bid Received'].includes(load.status)).length,
@@ -424,15 +498,15 @@ const LoadBoard = () => {
       const shipment = location.state.selectedShipment;
       setSearchTerm(shipment.shipmentNumber || '');
       console.log('Navigated from search:', shipment);
-      
+
       // Filter to show only the searched shipment
       if (originalLoadData.length > 0) {
-        const filteredShipment = originalLoadData.find(load => 
+        const filteredShipment = originalLoadData.find(load =>
           load.shipmentNumber === shipment.shipmentNumber ||
           load._id === shipment.id ||
           load.id === shipment.id
         );
-        
+
         if (filteredShipment) {
           setLoadData([filteredShipment]);
           setIsFiltered(true);
@@ -484,7 +558,7 @@ const LoadBoard = () => {
     fetchLoads();
   }, []);
 
-  
+
   const handleChangePage = (event, newPage) => setPage(newPage);
   const handleChangeRowsPerPage = (event) => {
     setRowsPerPage(parseInt(event.target.value, 10));
@@ -521,13 +595,165 @@ const LoadBoard = () => {
     setSmartRateModalOpen(false);
   };
 
+  // Charges Calculator Modal Handlers
+  const handleOpenChargesCalculator = () => {
+    setChargesCalculatorModalOpen(true);
+  };
+
+  const handleCloseChargesCalculator = () => {
+    setChargesCalculatorModalOpen(false);
+  };
+
+  const handleAddCharge = () => {
+    setCharges([...charges, { id: Date.now(), name: '', quantity: '', amount: '', total: 0 }]);
+  };
+
+  const handleDeleteCharge = (id) => {
+    setCharges(charges.filter(charge => charge.id !== id));
+  };
+
+  const handleChargeChange = (id, field, value) => {
+    setCharges(charges.map(charge => {
+      if (charge.id === id) {
+        const updatedCharge = { ...charge, [field]: value };
+        if (field === 'quantity' || field === 'amount') {
+          const qty = parseFloat(updatedCharge.quantity) || 0;
+          const amt = parseFloat(updatedCharge.amount) || 0;
+          updatedCharge.total = (qty * amt).toFixed(2);
+        }
+        return updatedCharge;
+      }
+      return charge;
+    }));
+  };
+
+  const handleApplyCharges = () => {
+    const totalCharges = charges.reduce((sum, charge) => {
+      return sum + (parseFloat(charge.total) || 0);
+    }, 0);
+
+    // Update form with new other charges and recalculate total
+    const updatedForm = { ...form, others: totalCharges.toFixed(2) };
+
+    // Recalculate Total Rate
+    const lineHaul = parseFloat(updatedForm.lineHaul) || 0;
+    const fscPercent = parseFloat(updatedForm.fsc) || 0;
+    const otherCharges = parseFloat(totalCharges.toFixed(2)) || 0;
+
+    // FSC is percentage of Line Haul: FSC Amount = Line Haul × (FSC / 100)
+    const fscAmount = lineHaul * (fscPercent / 100);
+
+    // Total Rate = Line Haul + FSC Amount + Other Charges
+    const totalRate = lineHaul + fscAmount + otherCharges;
+    updatedForm.total = totalRate.toFixed(2);
+    updatedForm.rate = totalRate.toFixed(2); // Also update rate field
+
+    setForm(updatedForm);
+    handleCloseChargesCalculator();
+  };
+
+  // Edit Charges Calculator Modal Handlers
+  const handleOpenEditChargesCalculator = () => {
+    // Populate editCharges from editForm.others or from rateDetails.other if available
+    if (selectedLoad?.rateDetails?.other && selectedLoad.rateDetails.other.length > 0) {
+      const chargesFromLoad = selectedLoad.rateDetails.other.map(charge => ({
+        id: Date.now() + Math.random(),
+        name: charge.name || '',
+        quantity: charge.quantity || 1,
+        amount: charge.amount || 0,
+        total: charge.total || (charge.amount * (charge.quantity || 1))
+      }));
+      setEditCharges(chargesFromLoad);
+    } else if (editForm.others) {
+      const totalOthers = parseFloat(editForm.others) || 0;
+      if (totalOthers > 0) {
+        setEditCharges([{
+          id: Date.now(),
+          name: 'Other Charges',
+          quantity: 1,
+          amount: totalOthers,
+          total: totalOthers
+        }]);
+      }
+    }
+    setEditChargesCalculatorModalOpen(true);
+  };
+
+  const handleCloseEditChargesCalculator = () => {
+    setEditChargesCalculatorModalOpen(false);
+  };
+
+  const handleAddEditCharge = () => {
+    setEditCharges([...editCharges, { id: Date.now(), name: '', quantity: '', amount: '', total: 0 }]);
+  };
+
+  const handleDeleteEditCharge = (id) => {
+    setEditCharges(editCharges.filter(charge => charge.id !== id));
+  };
+
+  const handleEditChargeChange = (id, field, value) => {
+    setEditCharges(editCharges.map(charge => {
+      if (charge.id === id) {
+        const updatedCharge = { ...charge, [field]: value };
+        if (field === 'quantity' || field === 'amount') {
+          const qty = parseFloat(updatedCharge.quantity) || 0;
+          const amt = parseFloat(updatedCharge.amount) || 0;
+          updatedCharge.total = (qty * amt).toFixed(2);
+        }
+        return updatedCharge;
+      }
+      return charge;
+    }));
+  };
+
+  const handleApplyEditCharges = () => {
+    const totalCharges = editCharges.reduce((sum, charge) => {
+      return sum + (parseFloat(charge.total) || 0);
+    }, 0);
+    
+    // Recalculate Total Rate
+    const lineHaul = parseFloat(editForm.lineHaul) || 0;
+    const fscPercent = parseFloat(editForm.fsc) || 0;
+    const otherCharges = parseFloat(totalCharges.toFixed(2)) || 0;
+    
+    // FSC is percentage of Line Haul: FSC Amount = Line Haul × (FSC / 100)
+    const fscAmount = lineHaul * (fscPercent / 100);
+    
+    // Total Rate = Line Haul + FSC Amount + Other Charges
+    const totalRate = lineHaul + fscAmount + otherCharges;
+    setEditForm({
+      ...editForm,
+      others: totalCharges.toFixed(2),
+      total: totalRate.toFixed(2),
+      rate: totalRate.toFixed(2)
+    });
+    
+    handleCloseEditChargesCalculator();
+  };
+
   const handleFormChange = (e) => {
     const newForm = { ...form, [e.target.name]: e.target.value };
+
+    // Calculate Total Rate when Line Haul, FSC, or Other Charges change
+    if (e.target.name === 'lineHaul' || e.target.name === 'fsc' || e.target.name === 'others') {
+      const lineHaul = parseFloat(newForm.lineHaul) || 0;
+      const fscPercent = parseFloat(newForm.fsc) || 0;
+      const otherCharges = parseFloat(newForm.others) || 0;
+
+      // FSC is percentage of Line Haul: FSC Amount = Line Haul × (FSC / 100)
+      const fscAmount = lineHaul * (fscPercent / 100);
+
+      // Total Rate = Line Haul + FSC Amount + Other Charges
+      const totalRate = lineHaul + fscAmount + otherCharges;
+      newForm.total = totalRate.toFixed(2);
+      newForm.rate = totalRate.toFixed(2); // Also update rate field
+    }
+
     setForm(newForm);
-    
+
     // Trigger rate suggestions when both pickup and delivery locations are filled
-    if ((e.target.name === 'fromCity' || e.target.name === 'toCity') && 
-        newForm.fromCity && newForm.toCity) {
+    if ((e.target.name === 'fromCity' || e.target.name === 'toCity') &&
+      newForm.fromCity && newForm.toCity) {
       // Add a small delay to avoid too many API calls
       setTimeout(() => {
         fetchRateSuggestions(newForm.fromCity, newForm.toCity);
@@ -537,7 +763,7 @@ const LoadBoard = () => {
 
   const handleLoadTypeChange = (type) => {
     setLoadType(type);
-    
+
     // Reset form based on load type
     if (type === 'DRAYAGE') {
       setForm({
@@ -613,25 +839,38 @@ const LoadBoard = () => {
   };
 
   const handleSubmit = async (e) => {
-    console.log('Form submit triggered', form);
-    console.log('loadType being sent to API:', form.loadType);
-    console.log('returnDate:', form.returnDate);
-    console.log('drayageLocation:', form.drayageLocation);
-    e.preventDefault();
-    const newErrors = {};
+    console.log('🔵 handleSubmit function called!');
+    console.log('🔵 Event:', e);
+    console.log('🔵 Form submit triggered', form);
+    console.log('🔵 loadType being sent to API:', form.loadType);
+    console.log('🔵 returnDate:', form.returnDate);
+    console.log('🔵 drayageLocation:', form.drayageLocation);
     
+    if (e && e.preventDefault) {
+      e.preventDefault();
+    }
+    const newErrors = {};
+
     // Validate based on load type
     if (form.loadType === 'DRAYAGE') {
-      const requiredFields = ['fromAddress', 'fromCity', 'fromState', 'toAddress', 'toCity', 'toState', 'weight', 'commodity', 'vehicleType', 'pickupDate', 'deliveryDate', 'rate', 'returnDate', 'returnLocation'];
+      const requiredFields = ['fromAddress', 'fromCity', 'fromState', 'toAddress', 'toCity', 'toState', 'weight', 'commodity', 'vehicleType', 'pickupDate', 'deliveryDate', 'returnDate', 'returnAddress', 'returnCity', 'returnState', 'returnZip'];
       requiredFields.forEach(field => {
         if (!form[field]) newErrors[field] = true;
       });
+      // Rate or Total must be present
+      if (!form.rate && !form.total) {
+        newErrors.rate = true;
+      }
     } else if (form.loadType === 'OTR') {
-      const requiredFields = ['vehicleType', 'rate'];
+      const requiredFields = ['vehicleType'];
       requiredFields.forEach(field => {
         if (!form[field]) newErrors[field] = true;
       });
-      
+      // Rate or Total must be present
+      if (!form.rate && !form.total) {
+        newErrors.rate = true;
+      }
+
       // Validate origins
       if (!form.origins || form.origins.length === 0) {
         newErrors.origins = true;
@@ -645,7 +884,7 @@ const LoadBoard = () => {
           });
         });
       }
-      
+
       // Validate destinations
       if (!form.destinations || form.destinations.length === 0) {
         newErrors.destinations = true;
@@ -660,136 +899,235 @@ const LoadBoard = () => {
         });
       }
     }
-    
+
     setErrors(newErrors);
     console.log('Validation errors:', newErrors);
     console.log('Form data:', form);
+    console.log('Number of validation errors:', Object.keys(newErrors).length);
+    
     if (Object.keys(newErrors).length === 0) {
+      console.log('✅ Validation passed, proceeding with API call...');
       // Create payload based on load type
       let payload;
-      
+
       if (form.loadType === 'DRAYAGE') {
+        // Prepare rateDetails for DRAYAGE
+        const otherCharges = charges.length > 0 
+          ? charges
+              .filter(charge => charge.name && charge.name.trim() !== '') // Only include charges with names
+              .map(charge => ({
+                name: charge.name || '',
+                quantity: Number(charge.quantity) || 1,
+                amount: parseFloat(charge.amount) || 0,
+                total: parseFloat(charge.total) || 0
+              }))
+          : [];
+        
+        // If charges array is empty but others field has value, parse it
+        let parsedOtherCharges = [];
+        if (otherCharges.length === 0 && form.others) {
+          // If others field has a total value, we can add it as a single charge
+          const totalOthers = parseFloat(form.others) || 0;
+          if (totalOthers > 0) {
+            parsedOtherCharges = [{
+              name: 'Other Charges',
+              quantity: 1,
+              amount: totalOthers,
+              total: totalOthers
+            }];
+          }
+        } else {
+          parsedOtherCharges = otherCharges;
+        }
+
         payload = {
           loadType: 'DRAYAGE',
-          fromAddress: form.fromAddress,
           fromCity: form.fromCity,
           fromState: form.fromState,
-          toAddress: form.toAddress,
+          fromAddressLine1: form.fromAddress || '',
+          fromAddressLine2: '', // Add if you have this field in form
+          fromZip: form.fromZip || '',
           toCity: form.toCity,
           toState: form.toState,
+          toAddressLine1: form.toAddress || '',
+          toAddressLine2: '', // Add if you have this field in form
+          toZip: form.toZip || '',
           weight: Number(form.weight),
           commodity: form.commodity,
           vehicleType: form.vehicleType,
-          pickupDate: form.pickupDate,
-          deliveryDate: form.deliveryDate,
-          rate: Number(form.rate),
+          pickupDate: form.pickupDate ? new Date(form.pickupDate).toISOString() : '',
+          deliveryDate: form.deliveryDate ? new Date(form.deliveryDate).toISOString() : '',
+          returnDate: form.returnDate ? new Date(form.returnDate).toISOString() : '',
+          rate: Number(form.total) || Number(form.rate) || 0,
           rateType: form.rateType || 'Flat Rate',
-          bidDeadline: form.bidDeadline || '',
+          bidDeadline: form.bidDeadline ? new Date(form.bidDeadline).toISOString() : '',
           containerNo: form.containerNo || '',
           poNumber: form.poNumber || '',
           bolNumber: form.bolNumber || '',
-          returnDate: form.returnDate,
-          returnLocation: form.returnLocation,
-          status: 'Posted'
+          returnAddress: form.returnAddress || '',
+          returnCity: form.returnCity || '',
+          returnState: form.returnState || '',
+          returnZip: form.returnZip || '',
+          rateDetails: {
+            lineHaul: Number(form.lineHaul) || 0,
+            fsc: Number(form.fsc) || 0,
+            other: parsedOtherCharges,
+            totalRates: Number(form.total) || Number(form.rate) || 0
+          }
         };
       } else {
+        // OTR Load
+        // Prepare rateDetails for OTR
+        const otherCharges = charges.length > 0 
+          ? charges
+              .filter(charge => charge.name && charge.name.trim() !== '') // Only include charges with names
+              .map(charge => ({
+                name: charge.name || '',
+                quantity: Number(charge.quantity) || 1,
+                amount: parseFloat(charge.amount) || 0,
+                total: parseFloat(charge.total) || 0
+              }))
+          : [];
+        
+        // If charges array is empty but others field has value, parse it
+        let parsedOtherCharges = [];
+        if (otherCharges.length === 0 && form.others) {
+          const totalOthers = parseFloat(form.others) || 0;
+          if (totalOthers > 0) {
+            parsedOtherCharges = [{
+              name: 'Other Charges',
+              quantity: 1,
+              amount: totalOthers,
+              total: totalOthers
+            }];
+          }
+        } else {
+          parsedOtherCharges = otherCharges;
+        }
+
         payload = {
           loadType: 'OTR',
           vehicleType: form.vehicleType,
-          rate: Number(form.rate),
+          rate: Number(form.total) || Number(form.rate) || 0,
           rateType: form.rateType || 'Flat Rate',
-          bidDeadline: form.bidDeadline || '',
-          status: 'Posted',
+          bidDeadline: form.bidDeadline ? new Date(form.bidDeadline).toISOString() : '',
+          poNumber: form.poNumber || '',
+          bolNumber: form.bolNumber || '',
           origins: form.origins.map(origin => ({
-            addressLine1: origin.addressLine1,
-            addressLine2: origin.addressLine2 || '',
             city: origin.city,
             state: origin.state || '',
+            addressLine1: origin.addressLine1,
+            addressLine2: origin.addressLine2 || '',
             zip: origin.zip || '',
-            weight: Number(origin.weight),
+            weight: Number(origin.weight) || 0,
             commodity: origin.commodity,
-            pickupDate: origin.pickupDate,
-            deliveryDate: origin.deliveryDate || ''
+            pickupDate: origin.pickupDate ? new Date(origin.pickupDate).toISOString() : '',
+            deliveryDate: origin.deliveryDate ? new Date(origin.deliveryDate).toISOString() : ''
           })),
           destinations: form.destinations.map(destination => ({
-            addressLine1: destination.addressLine1,
-            addressLine2: destination.addressLine2 || '',
             city: destination.city,
             state: destination.state || '',
+            addressLine1: destination.addressLine1,
+            addressLine2: destination.addressLine2 || '',
             zip: destination.zip || '',
-            weight: Number(destination.weight),
+            weight: Number(destination.weight) || 0,
             commodity: destination.commodity,
-            deliveryDate: destination.deliveryDate
-          }))
+            deliveryDate: destination.deliveryDate ? new Date(destination.deliveryDate).toISOString() : ''
+          })),
+          rateDetails: {
+            lineHaul: Number(form.lineHaul) || 0,
+            fsc: Number(form.fsc) || 0,
+            other: parsedOtherCharges,
+            totalRates: Number(form.total) || Number(form.rate) || 0
+          }
         };
       }
-             try {
-         const token = localStorage.getItem('token');
-         console.log('Making API call with payload:', payload);
-         console.log('API URL:', `${BASE_API_URL}/api/v1/load/create`);
-         const response = await axios.post(`${BASE_API_URL}/api/v1/load/create`, payload, {
-           headers: {
-             Authorization: `Bearer ${token}`
-           }
-         });
-         console.log('API response:', response);
-         console.log('Created load status:', response.data?.load?.status || response.data?.status);
-         alertify.success('Load created successfully!');
-         handleCloseModal();
-         // Reset form
-         setForm({
-           loadType: 'OTR',
-           vehicleType: '',
-           rate: '',
-           rateType: 'Flat Rate',
-           bidDeadline: '',
-           fromAddress: '',
-           fromCity: '',
-           fromState: '',
-           toAddress: '',
-           toCity: '',
-           toState: '',
-           weight: '',
-           commodity: '',
-           pickupDate: '',
-           deliveryDate: '',
-           containerNo: '',
-           poNumber: '',
-           bolNumber: '',
-           returnDate: '',
-           returnLocation: '',
-           origins: [{
-             addressLine1: '',
-             addressLine2: '',
-             city: '',
-             state: '',
-             zip: '',
-             weight: '',
-             commodity: '',
-             pickupDate: '',
-             deliveryDate: ''
-           }],
-           destinations: [{
-             addressLine1: '',
-             addressLine2: '',
-             city: '',
-             state: '',
-             zip: '',
-             weight: '',
-             commodity: '',
-             deliveryDate: ''
-           }]
-         });
-         setErrors({});
-         // Refresh loads
-         console.log('Refreshing loads after successful creation...');
-         await fetchLoads();
-         console.log('Updated load data:', loadData);
-       } catch (err) {
-         console.error('Error creating load:', err);
-         console.error('Error response:', err.response);
-         alertify.error(err.response?.data?.message || 'Failed to create load');
-       }
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          console.error('❌ No token found in localStorage');
+          alertify.error('Authentication required. Please login again.');
+          return;
+        }
+        console.log('🚀 Making API call with payload:', JSON.stringify(payload, null, 2));
+        console.log('🌐 API URL:', `${BASE_API_URL}/api/v1/load/create`);
+        console.log('🔑 Token exists:', !!token);
+        
+        const response = await axios.post(`${BASE_API_URL}/api/v1/load/create`, payload, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        console.log('API response:', response);
+        console.log('Created load status:', response.data?.load?.status || response.data?.status);
+        alertify.success('Load created successfully!');
+        handleCloseModal();
+        // Reset form
+        setForm({
+          loadType: 'OTR',
+          vehicleType: '',
+          rate: '',
+          rateType: 'Flat Rate',
+          bidDeadline: '',
+          fromAddress: '',
+          fromCity: '',
+          fromState: '',
+          toAddress: '',
+          toCity: '',
+          toState: '',
+          weight: '',
+          commodity: '',
+          pickupDate: '',
+          deliveryDate: '',
+          containerNo: '',
+          poNumber: '',
+          bolNumber: '',
+          returnDate: '',
+          returnLocation: '',
+          origins: [{
+            addressLine1: '',
+            addressLine2: '',
+            city: '',
+            state: '',
+            zip: '',
+            weight: '',
+            commodity: '',
+            pickupDate: '',
+            deliveryDate: ''
+          }],
+          destinations: [{
+            addressLine1: '',
+            addressLine2: '',
+            city: '',
+            state: '',
+            zip: '',
+            weight: '',
+            commodity: '',
+            deliveryDate: ''
+          }]
+        });
+        setErrors({});
+        // Refresh loads
+        console.log('Refreshing loads after successful creation...');
+        await fetchLoads();
+        console.log('Updated load data:', loadData);
+      } catch (err) {
+        console.error('❌ Error creating load:', err);
+        console.error('❌ Error response:', err.response);
+        console.error('❌ Error message:', err.message);
+        console.error('❌ Error data:', err.response?.data);
+        if (err.response) {
+          alertify.error(err.response?.data?.message || err.response?.data?.error || 'Failed to create load');
+        } else if (err.request) {
+          alertify.error('Network error: Could not reach server. Please check your connection.');
+        } else {
+          alertify.error('An error occurred: ' + err.message);
+        }
+      }
+    } else {
+      console.warn('⚠️ Validation failed. Errors:', newErrors);
+      alertify.warning('Please fill in all required fields');
     }
   };
 
@@ -867,9 +1205,17 @@ const LoadBoard = () => {
     }
   };
 
-  const handleNegotiationSubmit = async (e) => {
+  const handleNegotiationSubmit = async (e, bidId = null) => {
     e.preventDefault();
-    
+
+    // Use provided bidId or fallback to negotiationBidId state
+    const activeBidId = bidId || negotiationBidId;
+
+    if (!activeBidId) {
+      alertify.error('Bid ID not found. Please try again.');
+      return;
+    }
+
     // Validation
     const errors = {};
     if (!negotiationForm.shipperCounterRate || negotiationForm.shipperCounterRate <= 0) {
@@ -886,20 +1232,50 @@ const LoadBoard = () => {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.put(`${BASE_API_URL}/api/v1/bid/${negotiationBidId}/status`, {
-        status: 'Negotiating',
+      const response = await axios.put(`${BASE_API_URL}/api/v1/bid/${activeBidId}/shipper-internal-negotiate`, {
         shipperCounterRate: parseFloat(negotiationForm.shipperCounterRate),
-        shipperNegotiationMessage: negotiationForm.shipperNegotiationMessage
+        message: negotiationForm.shipperNegotiationMessage
       }, {
         headers: {
-          Authorization: `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
       });
 
       if (response.data.success) {
-        alertify.success('Negotiation started successfully');
-        handleCloseNegotiationModal();
+        alertify.success('Negotiation message sent successfully');
+
+        // Clear form
+        setNegotiationForm({
+          shipperCounterRate: '',
+          shipperNegotiationMessage: ''
+        });
+        setNegotiationErrors({});
+
+        // Refresh negotiation history if modal is open
+        if (negotiationHistoryModalOpen && viewBidId) {
+          try {
+            const token = localStorage.getItem('token');
+            const historyResponse = await axios.get(`${BASE_API_URL}/api/v1/bid/${viewBidId}/internal-negotiation-thread`, {
+              headers: {
+                Authorization: `Bearer ${token}`
+              }
+            });
+
+            if (historyResponse.data.success && historyResponse.data.data?.internalNegotiation) {
+              setNegotiationHistory(historyResponse.data.data);
+            }
+          } catch (err) {
+            console.error('Error refreshing negotiation history:', err);
+          }
+        }
+
+        // Close negotiation modal if open
+        if (negotiationModalOpen) {
+          handleCloseNegotiationModal();
+        }
         handleCloseBidDetailsModal();
+
         // Refresh bids to show updated status
         if (selectedLoadId) {
           handleViewBids(selectedLoadId);
@@ -908,6 +1284,49 @@ const LoadBoard = () => {
     } catch (err) {
       alertify.error(err.response?.data?.message || 'Failed to start negotiation');
     }
+  };
+
+  const handleViewNegotiationHistory = async (bid) => {
+    setViewBidId(bid._id || bid.bidId);
+    setViewBidData(bid);
+    setNegotiationHistoryModalOpen(true);
+    setNegotiationHistoryLoading(true);
+    setNegotiationHistoryError(null);
+    setNegotiationHistory(null);
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${BASE_API_URL}/api/v1/bid/${bid._id || bid.bidId}/internal-negotiation-thread`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      if (response.data.success && response.data.data?.internalNegotiation) {
+        setNegotiationHistory(response.data.data);
+      } else {
+        throw new Error('Failed to fetch negotiation history');
+      }
+    } catch (err) {
+      console.error('Error fetching negotiation history:', err);
+      setNegotiationHistoryError(err.response?.data?.message || 'Failed to load negotiation history');
+    } finally {
+      setNegotiationHistoryLoading(false);
+    }
+  };
+
+  const handleCloseNegotiationHistoryModal = () => {
+    setNegotiationHistoryModalOpen(false);
+    setNegotiationHistory(null);
+    setNegotiationHistoryError(null);
+    setViewBidId(null);
+    setViewBidData(null);
+    // Clear negotiation form when closing modal
+    setNegotiationForm({
+      shipperCounterRate: '',
+      shipperNegotiationMessage: ''
+    });
+    setNegotiationErrors({});
   };
 
   const handleRejectBid = (bid) => {
@@ -949,44 +1368,138 @@ const LoadBoard = () => {
   const handleAcceptBid = (bid) => {
     setAcceptBidId(bid._id);
     setAcceptForm({
-      status: 'Accepted',
       shipmentNumber: bid.shipmentNumber || '',
-      origin: { addressLine1: bid.origin?.addressLine1 || '', addressLine2: bid.origin?.addressLine2 || '' },
-      destination: { addressLine1: bid.destination?.addressLine1 || '', addressLine2: bid.destination?.addressLine2 || '' },
       poNumber: bid.poNumber || '',
       bolNumber: bid.bolNumber || '',
-      message: bid.message || ''
+      acceptanceAttachment1: null
     });
+    setAcceptFilePreview(null);
     setAcceptModalOpen(true);
   };
   const handleCloseAcceptModal = () => {
     setAcceptModalOpen(false);
     setAcceptBidId(null);
+    setAcceptForm({ shipmentNumber: '', poNumber: '', bolNumber: '', acceptanceAttachment1: null });
+    setAcceptErrors({});
+    setAcceptFilePreview(null);
   };
 
   // Edit handlers
   const handleEditLoad = (load) => {
     setSelectedLoad(load);
-    setEditForm({
-      fromCity: (load.origins && load.origins.length > 0) ? load.origins[0].city || '' : load.origin?.city || '',
-      fromState: (load.origins && load.origins.length > 0) ? load.origins[0].state || '' : load.origin?.state || '',
-      toCity: (load.destinations && load.destinations.length > 0) ? load.destinations[0].city || '' : load.destination?.city || '',
-      toState: (load.destinations && load.destinations.length > 0) ? load.destinations[0].state || '' : load.destination?.state || '',
-      pickupDate: load.pickupDate ? new Date(load.pickupDate).toISOString().split('T')[0] : '',
-      deliveryDate: load.deliveryDate ? new Date(load.deliveryDate).toISOString().split('T')[0] : '',
-      weight: load.weight || '',
-      commodity: load.commodity || '',
-      vehicleType: load.vehicleType || '',
-      rate: load.rate || '',
-      rateType: load.rateType || 'Flat Rate',
-      loadType: load.loadType || 'OTR',
-      containerNo: load.containerNo || '',
-      poNumber: load.poNumber || '',
-      bolNumber: load.bolNumber || '',
-      notes: load.notes || '',
-      returnDate: load.returnDate ? new Date(load.returnDate).toISOString().split('T')[0] : '',
-      returnLocation: load.returnLocation || ''
-    });
+    const loadType = load.loadType || 'OTR';
+    setEditLoadType(loadType);
+    
+    if (loadType === 'DRAYAGE') {
+      setEditForm({
+        loadType: 'DRAYAGE',
+        vehicleType: load.vehicleType || '',
+        rate: load.rate || '',
+        rateType: load.rateType || 'Flat Rate',
+        bidDeadline: load.bidDeadline ? new Date(load.bidDeadline).toISOString().split('T')[0] : '',
+        fromAddress: load.fromAddress || load.fromAddressLine1 || '',
+        fromCity: load.fromCity || '',
+        fromState: load.fromState || '',
+        fromZip: load.fromZip || '',
+        toAddress: load.toAddress || load.toAddressLine1 || '',
+        toCity: load.toCity || '',
+        toState: load.toState || '',
+        toZip: load.toZip || '',
+        weight: load.weight || '',
+        commodity: load.commodity || '',
+        pickupDate: load.pickupDate ? new Date(load.pickupDate).toISOString().split('T')[0] : '',
+        deliveryDate: load.deliveryDate ? new Date(load.deliveryDate).toISOString().split('T')[0] : '',
+        containerNo: load.containerNo || '',
+        poNumber: load.poNumber || '',
+        bolNumber: load.bolNumber || '',
+        returnDate: load.returnDate ? new Date(load.returnDate).toISOString().split('T')[0] : '',
+        returnLocation: load.returnLocation || '',
+        returnAddress: load.returnAddress || '',
+        returnCity: load.returnCity || '',
+        returnState: load.returnState || '',
+        returnZip: load.returnZip || '',
+        lineHaul: load.rateDetails?.lineHaul || '',
+        fsc: load.rateDetails?.fsc || '',
+        others: load.rateDetails?.other?.reduce((sum, item) => sum + (item.total || item.amount || 0), 0) || '',
+        total: load.rateDetails?.totalRates || load.rate || '',
+        origins: [],
+        destinations: []
+      });
+    } else {
+      // OTR load
+      setEditForm({
+        loadType: 'OTR',
+        vehicleType: load.vehicleType || '',
+        rate: load.rate || '',
+        rateType: load.rateType || 'Flat Rate',
+        bidDeadline: load.bidDeadline ? new Date(load.bidDeadline).toISOString().split('T')[0] : '',
+        origins: load.origins && load.origins.length > 0 ? load.origins.map(origin => ({
+          addressLine1: origin.addressLine1 || '',
+          addressLine2: origin.addressLine2 || '',
+          city: origin.city || '',
+          state: origin.state || '',
+          zip: origin.zip || '',
+          weight: origin.weight || '',
+          commodity: origin.commodity || '',
+          pickupDate: origin.pickupDate ? new Date(origin.pickupDate).toISOString().split('T')[0] : '',
+          deliveryDate: origin.deliveryDate ? new Date(origin.deliveryDate).toISOString().split('T')[0] : ''
+        })) : [{
+          addressLine1: '',
+          addressLine2: '',
+          city: '',
+          state: '',
+          zip: '',
+          weight: '',
+          commodity: '',
+          pickupDate: '',
+          deliveryDate: ''
+        }],
+        destinations: load.destinations && load.destinations.length > 0 ? load.destinations.map(destination => ({
+          addressLine1: destination.addressLine1 || '',
+          addressLine2: destination.addressLine2 || '',
+          city: destination.city || '',
+          state: destination.state || '',
+          zip: destination.zip || '',
+          weight: destination.weight || '',
+          commodity: destination.commodity || '',
+          deliveryDate: destination.deliveryDate ? new Date(destination.deliveryDate).toISOString().split('T')[0] : ''
+        })) : [{
+          addressLine1: '',
+          addressLine2: '',
+          city: '',
+          state: '',
+          zip: '',
+          weight: '',
+          commodity: '',
+          deliveryDate: ''
+        }],
+        lineHaul: load.rateDetails?.lineHaul || '',
+        fsc: load.rateDetails?.fsc || '',
+        others: load.rateDetails?.other?.reduce((sum, item) => sum + (item.total || item.amount || 0), 0) || '',
+        total: load.rateDetails?.totalRates || load.rate || '',
+        fromAddress: '',
+        fromCity: '',
+        fromState: '',
+        fromZip: '',
+        toAddress: '',
+        toCity: '',
+        toState: '',
+        toZip: '',
+        weight: '',
+        commodity: '',
+        pickupDate: '',
+        deliveryDate: '',
+        containerNo: '',
+        poNumber: '',
+        bolNumber: '',
+        returnDate: '',
+        returnLocation: '',
+        returnAddress: '',
+        returnCity: '',
+        returnState: '',
+        returnZip: ''
+      });
+    }
     setEditErrors({});
     setEditModalOpen(true);
   };
@@ -994,7 +1507,7 @@ const LoadBoard = () => {
   const handleDuplicateLoad = (load) => {
     // Set load type first
     setLoadType(load.loadType || 'OTR');
-    
+
     // Populate form with existing load data for duplication
     if (load.loadType === 'DRAYAGE') {
       setForm({
@@ -1051,7 +1564,7 @@ const LoadBoard = () => {
         })) : []
       });
     }
-    
+
     setErrors({});
     setModalOpen(true);
   };
@@ -1059,81 +1572,334 @@ const LoadBoard = () => {
   const handleCloseEditModal = () => {
     setEditModalOpen(false);
     setSelectedLoad(null);
+    setEditLoadType('OTR');
     setEditForm({
-      fromCity: '',
-      fromState: '',
-      toCity: '',
-      toState: '',
-      pickupDate: '',
-      deliveryDate: '',
-      weight: '',
-      commodity: '',
+      loadType: 'OTR',
       vehicleType: '',
       rate: '',
       rateType: 'Flat Rate',
-      loadType: 'OTR',
+      bidDeadline: '',
+      fromAddress: '',
+      fromCity: '',
+      fromState: '',
+      fromZip: '',
+      toAddress: '',
+      toCity: '',
+      toState: '',
+      toZip: '',
+      weight: '',
+      commodity: '',
+      pickupDate: '',
+      deliveryDate: '',
       containerNo: '',
       poNumber: '',
       bolNumber: '',
-      notes: '',
       returnDate: '',
-      returnLocation: ''
+      returnLocation: '',
+      returnAddress: '',
+      returnCity: '',
+      returnState: '',
+      returnZip: '',
+      lineHaul: '',
+      fsc: '',
+      others: '',
+      total: '',
+      origins: [{
+        addressLine1: '',
+        addressLine2: '',
+        city: '',
+        state: '',
+        zip: '',
+        weight: '',
+        commodity: '',
+        pickupDate: '',
+        deliveryDate: ''
+      }],
+      destinations: [{
+        addressLine1: '',
+        addressLine2: '',
+        city: '',
+        state: '',
+        zip: '',
+        weight: '',
+        commodity: '',
+        deliveryDate: ''
+      }]
     });
     setEditErrors({});
   };
 
   const handleEditFormChange = (e) => {
-    setEditForm({ ...editForm, [e.target.name]: e.target.value });
+    const newForm = { ...editForm, [e.target.name]: e.target.value };
+    
+    // Calculate Total Rate when Line Haul, FSC, or Other Charges change
+    if (e.target.name === 'lineHaul' || e.target.name === 'fsc' || e.target.name === 'others') {
+      const lineHaul = parseFloat(newForm.lineHaul) || 0;
+      const fscPercent = parseFloat(newForm.fsc) || 0;
+      const otherCharges = parseFloat(newForm.others) || 0;
+      
+      // FSC is percentage of Line Haul: FSC Amount = Line Haul × (FSC / 100)
+      const fscAmount = lineHaul * (fscPercent / 100);
+      
+      // Total Rate = Line Haul + FSC Amount + Other Charges
+      const totalRate = lineHaul + fscAmount + otherCharges;
+      newForm.total = totalRate.toFixed(2);
+      newForm.rate = totalRate.toFixed(2); // Also update rate field
+    }
+    
+    setEditForm(newForm);
     // Clear error when user starts typing
     if (editErrors[e.target.name]) {
       setEditErrors({ ...editErrors, [e.target.name]: false });
     }
   };
 
+  const handleEditOriginChange = (index, field, value) => {
+    const newOrigins = [...editForm.origins];
+    newOrigins[index] = { ...newOrigins[index], [field]: value };
+    setEditForm({ ...editForm, origins: newOrigins });
+  };
+
+  const handleEditDestinationChange = (index, field, value) => {
+    const newDestinations = [...editForm.destinations];
+    newDestinations[index] = { ...newDestinations[index], [field]: value };
+    setEditForm({ ...editForm, destinations: newDestinations });
+  };
+
+  const handleAddEditOrigin = () => {
+    setEditForm({
+      ...editForm,
+      origins: [...editForm.origins, {
+        addressLine1: '',
+        addressLine2: '',
+        city: '',
+        state: '',
+        zip: '',
+        weight: '',
+        commodity: '',
+        pickupDate: '',
+        deliveryDate: ''
+      }]
+    });
+  };
+
+  const handleAddEditDestination = () => {
+    setEditForm({
+      ...editForm,
+      destinations: [...editForm.destinations, {
+        addressLine1: '',
+        addressLine2: '',
+        city: '',
+        state: '',
+        zip: '',
+        weight: '',
+        commodity: '',
+        deliveryDate: ''
+      }]
+    });
+  };
+
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     setEditLoading(true);
-    
-    // Validation
-    const newErrors = {};
-    if (!editForm.fromCity) newErrors.fromCity = true;
-    if (!editForm.fromState) newErrors.fromState = true;
-    if (!editForm.toCity) newErrors.toCity = true;
-    if (!editForm.toState) newErrors.toState = true;
-    if (!editForm.pickupDate) newErrors.pickupDate = true;
-    if (!editForm.deliveryDate) newErrors.deliveryDate = true;
-    if (!editForm.weight) newErrors.weight = true;
-    if (!editForm.commodity) newErrors.commodity = true;
-    if (!editForm.vehicleType) newErrors.vehicleType = true;
-    if (!editForm.rate) newErrors.rate = true;
 
+    const newErrors = {};
+
+    // Validate based on load type
+    if (editLoadType === 'DRAYAGE') {
+      const requiredFields = ['fromAddress', 'fromCity', 'fromState', 'fromZip', 'toAddress', 'toCity', 'toState', 'toZip', 'weight', 'commodity', 'vehicleType', 'pickupDate', 'deliveryDate', 'returnDate', 'returnAddress', 'returnCity', 'returnState', 'returnZip', 'bidDeadline'];
+      requiredFields.forEach(field => {
+        if (!editForm[field]) newErrors[field] = true;
+      });
+      // Rate or Total must be present
+      if (!editForm.rate && !editForm.total) {
+        newErrors.rate = true;
+      }
+    } else if (editLoadType === 'OTR') {
+      const requiredFields = ['vehicleType', 'bidDeadline'];
+      requiredFields.forEach(field => {
+        if (!editForm[field]) newErrors[field] = true;
+      });
+      // Rate or Total must be present
+      if (!editForm.rate && !editForm.total) {
+        newErrors.rate = true;
+      }
+
+      // Validate origins
+      if (!editForm.origins || editForm.origins.length === 0) {
+        newErrors.origins = true;
+      } else {
+        editForm.origins.forEach((origin, index) => {
+          const requiredOriginFields = ['addressLine1', 'city', 'state', 'zip', 'weight', 'commodity', 'pickupDate'];
+          requiredOriginFields.forEach(field => {
+            if (!origin[field]) {
+              newErrors[`origin_${index}_${field}`] = true;
+            }
+          });
+        });
+      }
+
+      // Validate destinations
+      if (!editForm.destinations || editForm.destinations.length === 0) {
+        newErrors.destinations = true;
+      } else {
+        editForm.destinations.forEach((destination, index) => {
+          const requiredDestinationFields = ['addressLine1', 'city', 'state', 'zip', 'weight', 'commodity', 'deliveryDate'];
+          requiredDestinationFields.forEach(field => {
+            if (!destination[field]) {
+              newErrors[`destination_${index}_${field}`] = true;
+            }
+          });
+        });
+      }
+    }
+
+    setEditErrors(newErrors);
+    
     if (Object.keys(newErrors).length > 0) {
-      setEditErrors(newErrors);
       setEditLoading(false);
+      alertify.warning('Please fill in all required fields');
       return;
     }
 
     try {
       const token = localStorage.getItem('token');
-      const updateData = {
-        loadType: editForm.loadType,
-        fromCity: editForm.fromCity,
-        fromState: editForm.fromState,
-        toCity: editForm.toCity,
-        toState: editForm.toState,
-        pickupDate: new Date(editForm.pickupDate).toISOString(),
-        deliveryDate: new Date(editForm.deliveryDate).toISOString(),
-        weight: Number(editForm.weight),
-        commodity: editForm.commodity,
-        vehicleType: editForm.vehicleType,
-        rate: Number(editForm.rate),
-        rateType: editForm.rateType,
-        containerNo: editForm.containerNo || '',
-        poNumber: editForm.poNumber || '',
-        bolNumber: editForm.bolNumber || '',
-        returnDate: editForm.returnDate ? new Date(editForm.returnDate).toISOString() : '',
-        returnLocation: editForm.returnLocation || ''
-      };
+      if (!token) {
+        alertify.error('Authentication required. Please login again.');
+        setEditLoading(false);
+        return;
+      }
+
+      let updateData;
+
+      if (editLoadType === 'DRAYAGE') {
+        // Prepare rateDetails for DRAYAGE
+        const otherCharges = editCharges.length > 0 
+          ? editCharges
+              .filter(charge => charge.name && charge.name.trim() !== '')
+              .map(charge => ({
+                name: charge.name || '',
+                quantity: Number(charge.quantity) || 1,
+                amount: parseFloat(charge.amount) || 0,
+                total: parseFloat(charge.total) || 0
+              }))
+          : [];
+        
+        let parsedOtherCharges = [];
+        if (otherCharges.length === 0 && editForm.others) {
+          const totalOthers = parseFloat(editForm.others) || 0;
+          if (totalOthers > 0) {
+            parsedOtherCharges = [{
+              name: 'Other Charges',
+              quantity: 1,
+              amount: totalOthers,
+              total: totalOthers
+            }];
+          }
+        } else {
+          parsedOtherCharges = otherCharges;
+        }
+
+        updateData = {
+          loadType: 'DRAYAGE',
+          fromCity: editForm.fromCity,
+          fromState: editForm.fromState,
+          fromAddressLine1: editForm.fromAddress || '',
+          fromAddressLine2: '',
+          fromZip: editForm.fromZip || '',
+          toCity: editForm.toCity,
+          toState: editForm.toState,
+          toAddressLine1: editForm.toAddress || '',
+          toAddressLine2: '',
+          toZip: editForm.toZip || '',
+          weight: Number(editForm.weight),
+          commodity: editForm.commodity,
+          vehicleType: editForm.vehicleType,
+          pickupDate: editForm.pickupDate ? new Date(editForm.pickupDate).toISOString() : '',
+          deliveryDate: editForm.deliveryDate ? new Date(editForm.deliveryDate).toISOString() : '',
+          returnDate: editForm.returnDate ? new Date(editForm.returnDate).toISOString() : '',
+          rate: Number(editForm.total) || Number(editForm.rate) || 0,
+          rateType: editForm.rateType || 'Flat Rate',
+          bidDeadline: editForm.bidDeadline ? new Date(editForm.bidDeadline).toISOString() : '',
+          containerNo: editForm.containerNo || '',
+          poNumber: editForm.poNumber || '',
+          bolNumber: editForm.bolNumber || '',
+          returnAddress: editForm.returnAddress || '',
+          returnCity: editForm.returnCity || '',
+          returnState: editForm.returnState || '',
+          returnZip: editForm.returnZip || '',
+          rateDetails: {
+            lineHaul: Number(editForm.lineHaul) || 0,
+            fsc: Number(editForm.fsc) || 0,
+            other: parsedOtherCharges,
+            totalRates: Number(editForm.total) || Number(editForm.rate) || 0
+          }
+        };
+      } else {
+        // OTR Load
+        const otherCharges = editCharges.length > 0 
+          ? editCharges
+              .filter(charge => charge.name && charge.name.trim() !== '')
+              .map(charge => ({
+                name: charge.name || '',
+                quantity: Number(charge.quantity) || 1,
+                amount: parseFloat(charge.amount) || 0,
+                total: parseFloat(charge.total) || 0
+              }))
+          : [];
+        
+        let parsedOtherCharges = [];
+        if (otherCharges.length === 0 && editForm.others) {
+          const totalOthers = parseFloat(editForm.others) || 0;
+          if (totalOthers > 0) {
+            parsedOtherCharges = [{
+              name: 'Other Charges',
+              quantity: 1,
+              amount: totalOthers,
+              total: totalOthers
+            }];
+          }
+        } else {
+          parsedOtherCharges = otherCharges;
+        }
+
+        updateData = {
+          loadType: 'OTR',
+          vehicleType: editForm.vehicleType,
+          rate: Number(editForm.total) || Number(editForm.rate) || 0,
+          rateType: editForm.rateType || 'Flat Rate',
+          bidDeadline: editForm.bidDeadline ? new Date(editForm.bidDeadline).toISOString() : '',
+          poNumber: editForm.poNumber || '',
+          bolNumber: editForm.bolNumber || '',
+          origins: editForm.origins.map(origin => ({
+            addressLine1: origin.addressLine1,
+            addressLine2: origin.addressLine2 || '',
+            city: origin.city,
+            state: origin.state || '',
+            zip: origin.zip || '',
+            weight: Number(origin.weight) || 0,
+            commodity: origin.commodity,
+            pickupDate: origin.pickupDate ? new Date(origin.pickupDate).toISOString() : '',
+            deliveryDate: origin.deliveryDate ? new Date(origin.deliveryDate).toISOString() : ''
+          })),
+          destinations: editForm.destinations.map(destination => ({
+            addressLine1: destination.addressLine1,
+            addressLine2: destination.addressLine2 || '',
+            city: destination.city,
+            state: destination.state || '',
+            zip: destination.zip || '',
+            weight: Number(destination.weight) || 0,
+            commodity: destination.commodity,
+            deliveryDate: destination.deliveryDate ? new Date(destination.deliveryDate).toISOString() : ''
+          })),
+          rateDetails: {
+            lineHaul: Number(editForm.lineHaul) || 0,
+            fsc: Number(editForm.fsc) || 0,
+            other: parsedOtherCharges,
+            totalRates: Number(editForm.total) || Number(editForm.rate) || 0
+          }
+        };
+      }
 
       const response = await axios.put(
         `${BASE_API_URL}/api/v1/load/shipper/load/${selectedLoad._id}`,
@@ -1147,31 +1913,20 @@ const LoadBoard = () => {
       );
 
       if (response.data.success) {
-        // Refresh the loads data
         await fetchLoads();
-        
         handleCloseEditModal();
-        // Show success notification
-        if (window.alertify) {
-          window.alertify.success('Load updated successfully!');
-        } else {
-          alert('Load updated successfully!');
-        }
+        alertify.success('Load updated successfully!');
       } else {
-        // Show error notification
-        if (window.alertify) {
-          window.alertify.error('Failed to update load: ' + (response.data.message || 'Unknown error'));
-        } else {
-          alert('Failed to update load: ' + (response.data.message || 'Unknown error'));
-        }
+        alertify.error('Failed to update load: ' + (response.data.message || 'Unknown error'));
       }
     } catch (error) {
       console.error('Error updating load:', error);
-      // Show error notification
-      if (window.alertify) {
-        window.alertify.error('Error updating load: ' + (error.response?.data?.message || error.message));
+      if (error.response) {
+        alertify.error(error.response?.data?.message || error.response?.data?.error || 'Failed to update load');
+      } else if (error.request) {
+        alertify.error('Network error: Could not reach server. Please check your connection.');
       } else {
-        alert('Error updating load: ' + (error.response?.data?.message || error.message));
+        alertify.error('An error occurred: ' + error.message);
       }
     } finally {
       setEditLoading(false);
@@ -1184,7 +1939,7 @@ const LoadBoard = () => {
     setCmtModalOpen(true);
     setCmtLoading(true);
     setCmtData(null);
-    
+
     try {
       const token = localStorage.getItem('token');
       const response = await axios.get(`${BASE_API_URL}/api/v1/load/shipper/load/${loadId}/cmt-assignment`, {
@@ -1192,7 +1947,7 @@ const LoadBoard = () => {
           Authorization: `Bearer ${token}`
         }
       });
-      
+
       if (response.data.success) {
         setCmtData(response.data.data);
       } else {
@@ -1281,7 +2036,7 @@ const LoadBoard = () => {
       alert('Please fill in both pickup and delivery locations first');
       return;
     }
-    
+
     setSmartRateModalOpen(true);
     await fetchRateSuggestions(form.fromCity, form.toCity);
   };
@@ -1312,7 +2067,7 @@ const LoadBoard = () => {
         } else {
           alert('Load timestamp updated successfully!');
         }
-        
+
         // Refresh the loads data
         await fetchLoads();
       } else {
@@ -1335,11 +2090,20 @@ const LoadBoard = () => {
   };
 
   const handleAcceptFormChange = (e) => {
-    const { name, value } = e.target;
-    if (name.startsWith('origin.')) {
-      setAcceptForm((prev) => ({ ...prev, origin: { ...prev.origin, [name.split('.')[1]]: value } }));
-    } else if (name.startsWith('destination.')) {
-      setAcceptForm((prev) => ({ ...prev, destination: { ...prev.destination, [name.split('.')[1]]: value } }));
+    const { name, value, files } = e.target;
+    if (name === 'acceptanceAttachment1' && files && files[0]) {
+      const file = files[0];
+      setAcceptForm((prev) => ({ ...prev, [name]: file }));
+      // Create preview for image files
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setAcceptFilePreview(reader.result);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        setAcceptFilePreview(null);
+      }
     } else {
       setAcceptForm((prev) => ({ ...prev, [name]: value }));
     }
@@ -1347,12 +2111,15 @@ const LoadBoard = () => {
   const handleAcceptSubmit = async (e) => {
     e.preventDefault();
     const newErrors = {};
-    if (!acceptForm.shipmentNumber) newErrors.shipmentNumber = true;
-    if (!acceptForm.origin.addressLine1) newErrors['origin.addressLine1'] = true;
-    if (!acceptForm.destination.addressLine1) newErrors['destination.addressLine1'] = true;
-    if (!acceptForm.poNumber) newErrors.poNumber = true;
-    if (!acceptForm.bolNumber) newErrors.bolNumber = true;
-    if (!acceptForm.reason) newErrors.reason = true;
+    if (!acceptForm.shipmentNumber?.trim()) {
+      newErrors.shipmentNumber = 'Shipment Number is required';
+    }
+    if (!acceptForm.poNumber?.trim()) {
+      newErrors.poNumber = 'PO Number is required';
+    }
+    if (!acceptForm.bolNumber?.trim()) {
+      newErrors.bolNumber = 'BOL Number is required';
+    }
     setAcceptErrors(newErrors);
     if (Object.keys(newErrors).length > 0) {
       alertify.error('Please fill in all required fields');
@@ -1360,23 +2127,47 @@ const LoadBoard = () => {
     }
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`${BASE_API_URL}/api/v1/bid/${acceptBidId}/status`, {
-        status: acceptForm.status,
-        shipmentNumber: acceptForm.shipmentNumber,
-        origin: acceptForm.origin,
-        destination: acceptForm.destination,
-        poNumber: acceptForm.poNumber,
-        bolNumber: acceptForm.bolNumber,
-        reason: acceptForm.reason
-      }, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
+
+      // If file is present, use FormData, otherwise use JSON
+      if (acceptForm.acceptanceAttachment1) {
+        const formData = new FormData();
+        formData.append('status', 'Accepted');
+        formData.append('shipmentNumber', acceptForm.shipmentNumber.trim());
+        formData.append('poNumber', acceptForm.poNumber.trim());
+        formData.append('bolNumber', acceptForm.bolNumber.trim());
+        formData.append('acceptanceAttachment1', acceptForm.acceptanceAttachment1);
+
+        await axios.put(`${BASE_API_URL}/api/v1/bid/${acceptBidId}/status`, formData, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+      } else {
+        await axios.put(`${BASE_API_URL}/api/v1/bid/${acceptBidId}/status`, {
+          status: 'Accepted',
+          shipmentNumber: acceptForm.shipmentNumber.trim(),
+          poNumber: acceptForm.poNumber.trim(),
+          bolNumber: acceptForm.bolNumber.trim()
+        }, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+      }
+
       setBids((prev) => prev.map((bid) => bid._id === acceptBidId ? { ...bid, status: 'Accepted' } : bid));
       alertify.success('Bid accepted successfully!');
       setAcceptModalOpen(false);
       setAcceptBidId(null);
+      setAcceptForm({ shipmentNumber: '', poNumber: '', bolNumber: '', acceptanceAttachment1: null });
+      setAcceptErrors({});
+      setAcceptFilePreview(null);
+      // Refresh bids to show updated status
+      if (selectedLoadId) {
+        handleViewBids(selectedLoadId);
+      }
     } catch (err) {
       alertify.error(err.response?.data?.message || 'Failed to accept bid');
     }
@@ -1417,9 +2208,9 @@ const LoadBoard = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <SearchNavigationFeedback 
-        searchResult={location.state?.selectedShipment} 
-        searchQuery={location.state?.searchQuery} 
+      <SearchNavigationFeedback
+        searchResult={location.state?.selectedShipment}
+        searchQuery={location.state?.searchQuery}
       />
       <Box
         sx={{
@@ -1482,7 +2273,7 @@ const LoadBoard = () => {
                 color: '#0d47a1',
               },
             }}
-            
+
           >
             Export CSV
           </Button>
@@ -1535,13 +2326,13 @@ const LoadBoard = () => {
             },
           }}
         >
-          <Tab 
+          <Tab
             label={
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <Box sx={{ 
-                  width: 10, 
-                  height: 10, 
-                  borderRadius: '50%', 
+                <Box sx={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: '50%',
                   background: activeTab === 0 ? '#ffffff' : '#ffc107',
                   boxShadow: activeTab === 0 ? '0 0 10px rgba(255,255,255,0.6)' : '0 0 10px rgba(255,193,7,0.6)',
                   border: '2px solid rgba(255,255,255,0.3)'
@@ -1552,13 +2343,13 @@ const LoadBoard = () => {
               </Box>
             }
           />
-          <Tab 
+          <Tab
             label={
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <Box sx={{ 
-                  width: 10, 
-                  height: 10, 
-                  borderRadius: '50%', 
+                <Box sx={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: '50%',
                   background: activeTab === 1 ? '#ffffff' : '#17a2b8',
                   boxShadow: activeTab === 1 ? '0 0 10px rgba(255,255,255,0.6)' : '0 0 10px rgba(23,162,184,0.6)',
                   border: '2px solid rgba(255,255,255,0.3)'
@@ -1569,13 +2360,13 @@ const LoadBoard = () => {
               </Box>
             }
           />
-          <Tab 
+          <Tab
             label={
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <Box sx={{ 
-                  width: 10, 
-                  height: 10, 
-                  borderRadius: '50%', 
+                <Box sx={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: '50%',
                   background: activeTab === 2 ? '#ffffff' : '#28a745',
                   boxShadow: activeTab === 2 ? '0 0 10px rgba(255,255,255,0.6)' : '0 0 10px rgba(40,167,69,0.6)',
                   border: '2px solid rgba(255,255,255,0.3)'
@@ -1586,13 +2377,13 @@ const LoadBoard = () => {
               </Box>
             }
           />
-          <Tab 
+          <Tab
             label={
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <Box sx={{ 
-                  width: 10, 
-                  height: 10, 
-                  borderRadius: '50%', 
+                <Box sx={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: '50%',
                   background: activeTab === 3 ? '#ffffff' : '#6f42c1',
                   boxShadow: activeTab === 3 ? '0 0 10px rgba(255,255,255,0.6)' : '0 0 10px rgba(111,66,193,0.6)',
                   border: '2px solid rgba(255,255,255,0.3)'
@@ -1608,42 +2399,42 @@ const LoadBoard = () => {
 
       <Paper elevation={3} sx={{ borderRadius: 3, overflow: 'hidden' }}>
         <Table>
-                     <TableHead>
-             <TableRow sx={{ backgroundColor: '#f0f4f8' }}>
-               <TableCell sx={{ fontWeight: 600 }}>Load ID</TableCell>
-               <TableCell sx={{ fontWeight: 600 }}>Shipment No</TableCell>
-               <TableCell sx={{ fontWeight: 600 }}>Weight</TableCell>
-               <TableCell sx={{ fontWeight: 600 }}>Pick-Up</TableCell>
-               <TableCell sx={{ fontWeight: 600 }}>Drop</TableCell>
-               <TableCell sx={{ fontWeight: 600 }}>Vehicle</TableCell>
-               <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-               <TableCell sx={{ fontWeight: 600 }}>Action</TableCell>
-             </TableRow>
-           </TableHead>
+          <TableHead>
+            <TableRow sx={{ backgroundColor: '#f0f4f8' }}>
+              <TableCell sx={{ fontWeight: 600 }}>Load ID</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Shipment No</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Weight</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Pick-Up</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Drop</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Vehicle</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Action</TableCell>
+            </TableRow>
+          </TableHead>
           <TableBody>
-                         {loading ? (
-               <TableRow>
-                 <TableCell colSpan={7} align="center">Loading...</TableCell>
-               </TableRow>
-             ) : filteredData.length === 0 ? (
-               <TableRow>
-                 <TableCell colSpan={7} align="center">No data found</TableCell>
-               </TableRow>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={7} align="center">Loading...</TableCell>
+              </TableRow>
+            ) : filteredData.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} align="center">No data found</TableCell>
+              </TableRow>
             ) : (
               filteredData
                 .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                 .map((load, i) => {
-                  const isSearchedItem = isFiltered && location.state?.selectedShipment && 
+                  const isSearchedItem = isFiltered && location.state?.selectedShipment &&
                     (load.shipmentNumber === location.state.selectedShipment.shipmentNumber ||
-                     load._id === location.state.selectedShipment.id ||
-                     load.id === location.state.selectedShipment.id);
-                  
+                      load._id === location.state.selectedShipment.id ||
+                      load.id === location.state.selectedShipment.id);
+
                   return (
-                    <TableRow 
-                      key={load._id} 
+                    <TableRow
+                      key={load._id}
                       hover
-                      sx={{ 
-                        transition: '0.3s', 
+                      sx={{
+                        transition: '0.3s',
                         '&:hover': { backgroundColor: '#e3f2fd' },
                         ...(isSearchedItem && {
                           backgroundColor: '#fff3e0',
@@ -1652,30 +2443,30 @@ const LoadBoard = () => {
                         })
                       }}
                     >
-                     <TableCell>{load._id ? `L-${load._id.slice(-4)}` : '-'}</TableCell>
-                     <TableCell>{load.shipmentNumber}</TableCell>
-                     <TableCell>{load.weight !== undefined && load.weight !== null && load.weight !== '' ? `${load.weight} Kg` : '-'}</TableCell>
-                     <TableCell>
-                       {load.origins && load.origins.length > 0 && load.origins[0].city ? 
-                         `${load.origins[0].city}${load.origins[0].state ? `, ${load.origins[0].state}` : ''}` : 
-                         '-'
-                       }
-                     </TableCell>
-                     <TableCell>
-                       {load.destinations && load.destinations.length > 0 && load.destinations[0].city ? 
-                         `${load.destinations[0].city}${load.destinations[0].state ? `, ${load.destinations[0].state}` : ''}` : 
-                         '-'
-                       }
-                     </TableCell>
-                     <TableCell>{load.vehicleType || '-'}</TableCell>
-                     <TableCell>
-                       <Chip label={load.status || '-'} color={getStatusColor(load.status || '')} size="small" />
-                     </TableCell>
-                                           <TableCell>
+                      <TableCell>{load._id ? `L-${load._id.slice(-4)}` : '-'}</TableCell>
+                      <TableCell>{load.shipmentNumber}</TableCell>
+                      <TableCell>{load.weight !== undefined && load.weight !== null && load.weight !== '' ? `${load.weight} Kg` : '-'}</TableCell>
+                      <TableCell>
+                        {load.origins && load.origins.length > 0 && load.origins[0].city ?
+                          `${load.origins[0].city}${load.origins[0].state ? `, ${load.origins[0].state}` : ''}` :
+                          '-'
+                        }
+                      </TableCell>
+                      <TableCell>
+                        {load.destinations && load.destinations.length > 0 && load.destinations[0].city ?
+                          `${load.destinations[0].city}${load.destinations[0].state ? `, ${load.destinations[0].state}` : ''}` :
+                          '-'
+                        }
+                      </TableCell>
+                      <TableCell>{load.vehicleType || '-'}</TableCell>
+                      <TableCell>
+                        <Chip label={load.status || '-'} color={getStatusColor(load.status || '')} size="small" />
+                      </TableCell>
+                      <TableCell>
                         <Stack direction="row" spacing={1}>
-                          <Button 
-                            size="small" 
-                            variant="outlined" 
+                          <Button
+                            size="small"
+                            variant="outlined"
                             onClick={() => handleViewBids(load._id)}
                             disabled={['Assigned', 'In Transit', 'Delivered'].includes(load.status)}
                             sx={{
@@ -1685,9 +2476,9 @@ const LoadBoard = () => {
                           >
                             View
                           </Button>
-                          <Button 
-                            size="small" 
-                            variant="outlined" 
+                          <Button
+                            size="small"
+                            variant="outlined"
                             onClick={() => handleEditLoad(load)}
                             disabled={!['Pending', 'Approval', 'Pending Approval', 'Posted'].includes(load.status)}
                             sx={{
@@ -1697,9 +2488,9 @@ const LoadBoard = () => {
                           >
                             Edit
                           </Button>
-                          <Button 
-                            size="small" 
-                            variant="outlined" 
+                          <Button
+                            size="small"
+                            variant="outlined"
                             onClick={() => handleDuplicateLoad(load)}
                             sx={{
                               backgroundColor: '#e3f2fd',
@@ -1711,9 +2502,9 @@ const LoadBoard = () => {
                           >
                             Duplicate
                           </Button>
-                          <Button 
-                            size="small" 
-                            variant="outlined" 
+                          <Button
+                            size="small"
+                            variant="outlined"
                             onClick={() => handleCmtAgentDetails(load._id)}
                             sx={{
                               fontSize: '0.7rem',
@@ -1725,25 +2516,25 @@ const LoadBoard = () => {
                           >
                             CMT Agent Details
                           </Button>
-                            <Button 
-                              size="small" 
-                              variant="outlined" 
-                              onClick={() => handleRefreshLoad(load._id)}
-                              disabled={!['Posted', 'Pending', 'Approval'].includes(load.status)}
-                              sx={{
-                                minWidth: 'auto',
-                                px: 1,
-                                opacity: !['Posted', 'Pending', 'Approval'].includes(load.status) ? 0.5 : 1,
-                                cursor: !['Posted', 'Pending', 'Approval'].includes(load.status) ? 'not-allowed' : 'pointer'
-                              }}
-                              title="Refresh Load Timestamp"
-                            >
-                              <Refresh fontSize="small" />
-                            </Button>
-                          
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => handleRefreshLoad(load._id)}
+                            disabled={!['Posted', 'Pending', 'Approval'].includes(load.status)}
+                            sx={{
+                              minWidth: 'auto',
+                              px: 1,
+                              opacity: !['Posted', 'Pending', 'Approval'].includes(load.status) ? 0.5 : 1,
+                              cursor: !['Posted', 'Pending', 'Approval'].includes(load.status) ? 'not-allowed' : 'pointer'
+                            }}
+                            title="Refresh Load Timestamp"
+                          >
+                            <Refresh fontSize="small" />
+                          </Button>
+
                         </Stack>
                       </TableCell>
-                   </TableRow>
+                    </TableRow>
                   );
                 })
             )}
@@ -1761,367 +2552,672 @@ const LoadBoard = () => {
       </Paper>
 
       {/* Modern Add Load Modal */}
-      <Dialog 
-        open={modalOpen} 
-        onClose={handleCloseModal} 
-        maxWidth="md" 
+      <Dialog
+        open={modalOpen}
+        onClose={handleCloseModal}
+        maxWidth="lg"
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: 3,
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
-            background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
-            minHeight: '80vh'
+            borderRadius: 4,
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15)',
+            background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+            minHeight: '85vh',
+            maxHeight: '95vh',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column'
           }
         }}
       >
-        <DialogTitle sx={{ 
-          fontWeight: 700, 
-          color: '#1976d2', 
-          fontSize: 24, 
-          borderBottom: '2px solid #e0e0e0',
-          background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 2,
-          py: 3
-        }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Add sx={{ fontSize: 28 }} />
-            Add New Load
+        <DialogTitle className="border-b-0 bg-[#1976d2] flex items-center justify-between gap-3 py-4 px-6 relative rounded-t-lg" sx={{ backgroundColor: '#1976d2' }}>
+          <Box className="flex items-center gap-3 flex-1">
+            <Box className="bg-white rounded-lg w-12 h-12 flex items-center justify-center border-2 border-blue-300 shadow-sm">
+              <LocalShipping className="text-xl text-blue-500" />
+            </Box>
+            <Box>
+              <Typography variant="h5" className="font-bold text-white mb-0.5 text-xl">
+                Create New Load
+              </Typography>
+              <Typography variant="body2" className="text-white text-sm opacity-95">
+                Fill in the details to create a new shipment
+              </Typography>
+            </Box>
           </Box>
-          
-          {/* Load Type Toggle in Header */}
-          <Stack direction="row" spacing={1}>
-               <Button
-                 variant={loadType === 'OTR' ? 'contained' : 'outlined'}
-                 onClick={() => handleLoadTypeChange('OTR')}
-              sx={{ 
-                borderRadius: 3, 
-                minWidth: 80,
-                fontWeight: 600,
+
+          {/* Load Type Toggle and Close Button */}
+          <Stack direction="row" spacing={1.5} className="items-center">
+            {/* OTR Button */}
+            <Button
+              onClick={() => handleLoadTypeChange('OTR')}
+              variant="contained"
+              className={`rounded-lg min-w-[90px] font-semibold normal-case py-1.5 px-3 text-sm transition-all duration-200 ${loadType === 'OTR'
+                ? 'bg-white text-[#1976d2] hover:bg-gray-100'
+                : 'bg-transparent text-white border border-white hover:bg-white/10'
+                }`}
+              sx={{
                 textTransform: 'none',
-                py: 1,
-                px: 2,
-                fontSize: '0.9rem',
                 ...(loadType === 'OTR' ? {
-                  background: 'linear-gradient(45deg, #1976d2, #42a5f5)',
-                  '&:hover': { background: 'linear-gradient(45deg, #1565c0, #1976d2)' }
-                } : {
-                  borderColor: '#1976d2',
+                  backgroundColor: '#ffffff',
                   color: '#1976d2',
-                  backgroundColor: 'rgba(255,255,255,0.8)',
-                  '&:hover': { borderColor: '#0d47a1', backgroundColor: 'rgba(25, 118, 210, 0.04)' }
+                  border: 'none',
+                  boxShadow: 'none',
+                  '&:hover': {
+                    backgroundColor: '#f3f4f6',
+                    boxShadow: 'none'
+                  }
+                } : {
+                  backgroundColor: 'transparent',
+                  color: '#ffffff',
+                  borderColor: '#ffffff',
+                  borderWidth: 1,
+                  borderStyle: 'solid',
+                  boxShadow: 'none',
+                  '&:hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                    boxShadow: 'none'
+                  }
                 })
               }}
-               >
-                 OTR
-               </Button>
-               <Button
-                 variant={loadType === 'DRAYAGE' ? 'contained' : 'outlined'}
-                 onClick={() => handleLoadTypeChange('DRAYAGE')}
-              sx={{ 
-                borderRadius: 3, 
-                minWidth: 80,
-                fontWeight: 600,
+            >
+              OTR
+            </Button>
+            {/* DRAYAGE Button */}
+            <Button
+              onClick={() => handleLoadTypeChange('DRAYAGE')}
+              variant="contained"
+              className={`rounded-lg min-w-[110px] font-semibold normal-case py-1.5 px-3 text-sm transition-all duration-200 ${loadType === 'DRAYAGE'
+                ? 'bg-white text-[#1976d2] hover:bg-gray-100'
+                : 'bg-transparent text-white border border-white hover:bg-white/10'
+                }`}
+              sx={{
                 textTransform: 'none',
-                py: 1,
-                px: 2,
-                fontSize: '0.9rem',
                 ...(loadType === 'DRAYAGE' ? {
-                  background: 'linear-gradient(45deg, #1976d2, #42a5f5)',
-                  '&:hover': { background: 'linear-gradient(45deg, #1565c0, #1976d2)' }
-                } : {
-                  borderColor: '#1976d2',
+                  backgroundColor: '#ffffff',
                   color: '#1976d2',
-                  backgroundColor: 'rgba(255,255,255,0.8)',
-                  '&:hover': { borderColor: '#0d47a1', backgroundColor: 'rgba(25, 118, 210, 0.04)' }
+                  border: 'none',
+                  boxShadow: 'none',
+                  '&:hover': {
+                    backgroundColor: '#f3f4f6',
+                    boxShadow: 'none'
+                  }
+                } : {
+                  backgroundColor: 'transparent',
+                  color: '#ffffff',
+                  borderColor: '#ffffff',
+                  borderWidth: 1,
+                  borderStyle: 'solid',
+                  boxShadow: 'none',
+                  '&:hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                    boxShadow: 'none'
+                  }
                 })
               }}
-               >
-                 DRAYAGE
-               </Button>
-             </Stack>
+            >
+              DRAYAGE
+            </Button>
+            {/* Close Button */}
+            <IconButton
+              onClick={handleCloseModal}
+              sx={{
+                color: '#ffffff',
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.2)'
+                },
+                ml: 0.5
+              }}
+              size="small"
+            >
+              <Close />
+            </IconButton>
+          </Stack>
         </DialogTitle>
-        
-        <DialogContent sx={{ p: 0, background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)' }}>
-          <Box component="form" onSubmit={handleSubmit} sx={{ p: 3 }}>
+
+        <DialogContent className="p-0 bg-gray-100 flex-1 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-gray-200 [&::-webkit-scrollbar-thumb]:bg-gray-400 [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb:hover]:bg-gray-500">
+          <Box component="form" onSubmit={handleSubmit} className="p-3">
 
             {/* Form Sections */}
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              
+            <Box className="flex flex-col gap-3">
+
               {/* DRAYAGE Location Section - Only for DRAYAGE */}
               {loadType === 'DRAYAGE' && (
                 <>
-                  {/* Pick Up Location Section */}
-                  <Paper elevation={2} sx={{ 
-                    p: 3, 
-                    borderRadius: 3,
-                    background: 'white',
-                    border: '1px solid #e0e0e0'
-                  }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-                      <Box sx={{ 
-                        p: 1.5, 
-                        borderRadius: 2, 
-                        background: 'linear-gradient(135deg, #e3f2fd, #bbdefb)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}>
-                        <LocationOn sx={{ color: '#1976d2', fontSize: 24 }} />
+                  {/* Location Details Section */}
+                  <Paper elevation={0} className="p-3 rounded-lg bg-white shadow-sm">
+                    <Box className="flex items-center gap-2 mb-3">
+                      <Box className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
+                        <LocationOn className="text-green-600 text-2xl" />
                       </Box>
-                      <Typography variant="h6" sx={{ fontWeight: 600, color: '#1976d2' }}>
-                        Pick Up Location
+                      <Typography variant="h6" className="font-semibold text-gray-800 text-lg">
+                        Location Details
                       </Typography>
                     </Box>
-                    
-                    <Grid container spacing={3}>
-                      <Grid item xs={12}>
-                        <TextField
-                          label="Address *"
-                          name="fromAddress"
-                          value={form.fromAddress}
-                          onChange={handleFormChange}
-                          fullWidth
-                          error={!!errors.fromAddress}
-                          placeholder="Enter full address"
-                          sx={{
-                            '& .MuiInputBase-root': {
-                              borderRadius: 2,
-                              backgroundColor: '#f8f9fa',
-                              '&:hover': { backgroundColor: '#e9ecef' },
-                              '&.Mui-focused': { backgroundColor: 'white' }
-                            },
-                          }}
-                        />
-                      </Grid>
-                      <Grid item xs={12} sm={6}>
-                        <TextField
-                          label="City *"
-                          name="fromCity"
-                          value={form.fromCity}
-                          onChange={handleFormChange}
-                          fullWidth
-                          error={!!errors.fromCity}
-                          placeholder="Enter city name"
-                          sx={{
-                            '& .MuiInputBase-root': {
-                              borderRadius: 2,
-                              backgroundColor: '#f8f9fa',
-                              '&:hover': { backgroundColor: '#e9ecef' },
-                              '&.Mui-focused': { backgroundColor: 'white' }
-                            },
-                          }}
-                        />
-                      </Grid>
-                      <Grid item xs={12} sm={6}>
-                        <TextField
-                          label="State *"
-                          name="fromState"
-                          value={form.fromState}
-                          onChange={handleFormChange}
-                          fullWidth
-                          error={!!errors.fromState}
-                          placeholder="Enter state"
-                          sx={{
-                            '& .MuiInputBase-root': {
-                              borderRadius: 2,
-                              backgroundColor: '#f8f9fa',
-                              '&:hover': { backgroundColor: '#e9ecef' },
-                              '&.Mui-focused': { backgroundColor: 'white' }
-                            },
-                          }}
-                        />
-                      </Grid>
-                    </Grid>
-                  </Paper>
 
-                  {/* Delivery Location Section */}
-                  <Paper elevation={2} sx={{ 
-                    p: 3, 
-                    borderRadius: 3,
-                    background: 'white',
-                    border: '1px solid #e0e0e0'
-                  }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-                      <Box sx={{ 
-                        p: 1.5, 
-                        borderRadius: 2, 
-                        background: 'linear-gradient(135deg, #e8f5e8, #c8e6c9)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}>
-                        <LocalShipping sx={{ color: '#2e7d32', fontSize: 24 }} />
-                      </Box>
-                      <Typography variant="h6" sx={{ fontWeight: 600, color: '#2e7d32' }}>
-                        
-Loading/Unloading Location
+                    {/* Pick Up Location Sub-section */}
+                    <Box
+                      className="mb-6 p-4 rounded-2xl shadow-sm bg-gradient-to-b from-white to-gray-50 border border-gray-200"
+                    >
+                      <Typography
+                        variant="subtitle1"
+                        sx={{
+                          fontWeight: 700,
+                          color: '#2D3748',
+                          fontSize: '1rem',
+                          mb: 2.5,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                          letterSpacing: '0.3px',
+                        }}
+                      >
+                        <LocationOn sx={{ color: '#4A90E2', fontSize: 20 }} />
+                        Pickup Location
                       </Typography>
+
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            label="Pickup Full Address *"
+                            name="fromAddress"
+                            value={form.fromAddress}
+                            onChange={handleFormChange}
+                            fullWidth
+                            error={!!errors.fromAddress}
+                            placeholder="Full Address"
+                            InputLabelProps={{ shrink: true }}
+                            sx={{
+                              '& .MuiInputBase-root': {
+                                borderRadius: 2,
+                                backgroundColor: '#fff',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                                transition: 'border-color 0.2s ease',
+                              },
+                              '& .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#E2E8F0',
+                              },
+                              '&:hover .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '& .MuiInputLabel-root': {
+                                color: '#4A5568',
+                                fontSize: '0.875rem',
+                              },
+                            }}
+                          />
+                        </Grid>
+
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            label="City *"
+                            name="fromCity"
+                            value={form.fromCity}
+                            onChange={handleFormChange}
+                            fullWidth
+                            error={!!errors.fromCity}
+                            placeholder="City"
+                            InputLabelProps={{ shrink: true }}
+                            sx={{
+                              '& .MuiInputBase-root': {
+                                borderRadius: 2,
+                                backgroundColor: '#fff',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                              },
+                              '& .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#E2E8F0',
+                              },
+                              '&:hover .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '& .MuiInputLabel-root': {
+                                color: '#4A5568',
+                                fontSize: '0.875rem',
+                              },
+                            }}
+                          />
+                        </Grid>
+
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            label="State *"
+                            name="fromState"
+                            value={form.fromState}
+                            onChange={handleFormChange}
+                            fullWidth
+                            error={!!errors.fromState}
+                            placeholder="State"
+                            InputLabelProps={{ shrink: true }}
+                            sx={{
+                              '& .MuiInputBase-root': {
+                                borderRadius: 2,
+                                backgroundColor: '#fff',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                              },
+                              '& .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#E2E8F0',
+                              },
+                              '&:hover .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '& .MuiInputLabel-root': {
+                                color: '#4A5568',
+                                fontSize: '0.875rem',
+                              },
+                            }}
+                          />
+                        </Grid>
+
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            label="ZIP Code *"
+                            name="fromZip"
+                            value={form.fromZip}
+                            onChange={handleFormChange}
+                            fullWidth
+                            error={!!errors.fromZip}
+                            placeholder="ZIP code"
+                            InputLabelProps={{ shrink: true }}
+                            sx={{
+                              '& .MuiInputBase-root': {
+                                borderRadius: 2,
+                                backgroundColor: '#fff',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                              },
+                              '& .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#E2E8F0',
+                              },
+                              '&:hover .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '& .MuiInputLabel-root': {
+                                color: '#4A5568',
+                                fontSize: '0.875rem',
+                              },
+                            }}
+                          />
+                        </Grid>
+                      </Grid>
                     </Box>
-                    
-                    <Grid container spacing={3}>
-                      <Grid item xs={12}>
-                        <TextField
-                          label="Address *"
-                          name="toAddress"
-                          value={form.toAddress}
-                          onChange={handleFormChange}
-                          fullWidth
-                          error={!!errors.toAddress}
-                          placeholder="Enter full address"
-                          sx={{
-                            '& .MuiInputBase-root': {
-                              borderRadius: 2,
-                              backgroundColor: '#f8f9fa',
-                              '&:hover': { backgroundColor: '#e9ecef' },
-                              '&.Mui-focused': { backgroundColor: 'white' }
-                            },
-                          }}
-                        />
+
+
+                    {/* Loading/Unloading Location Sub-section */}
+                    <Box
+                      className="mb-6 p-4 rounded-2xl shadow-sm bg-gradient-to-b from-white to-gray-50 border border-gray-200"
+                    >
+                      <Typography
+                        variant="subtitle1"
+                        sx={{
+                          fontWeight: 700,
+                          color: '#2D3748',
+                          fontSize: '1rem',
+                          mb: 2.5,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                          letterSpacing: '0.3px',
+                        }}
+                      >
+                        <LocalShipping sx={{ color: '#4A90E2', fontSize: 20 }} />
+                        Loading / Unloading Location
+                      </Typography>
+
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            label="Full Address"
+                            name="toAddress"
+                            value={form.toAddress}
+                            onChange={handleFormChange}
+                            fullWidth
+                            error={!!errors.toAddress}
+                            placeholder="Full address"
+                            InputLabelProps={{ shrink: true }}
+                            sx={{
+                              '& .MuiInputBase-root': {
+                                borderRadius: 2,
+                                backgroundColor: '#fff',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                                transition: 'border-color 0.2s ease',
+                              },
+                              '& .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#E2E8F0',
+                              },
+                              '&:hover .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '& .MuiInputLabel-root': {
+                                color: '#4A5568',
+                                fontSize: '0.875rem',
+                              },
+                            }}
+                          />
+                        </Grid>
+
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            label="City *"
+                            name="toCity"
+                            value={form.toCity}
+                            onChange={handleFormChange}
+                            fullWidth
+                            error={!!errors.toCity}
+                            placeholder="City"
+                            InputLabelProps={{ shrink: true }}
+                            sx={{
+                              '& .MuiInputBase-root': {
+                                borderRadius: 2,
+                                backgroundColor: '#fff',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                              },
+                              '& .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#E2E8F0',
+                              },
+                              '&:hover .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '& .MuiInputLabel-root': {
+                                color: '#4A5568',
+                                fontSize: '0.875rem',
+                              },
+                            }}
+                          />
+                        </Grid>
+
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            label="State *"
+                            name="toState"
+                            value={form.toState}
+                            onChange={handleFormChange}
+                            fullWidth
+                            error={!!errors.toState}
+                            placeholder="State"
+                            InputLabelProps={{ shrink: true }}
+                            sx={{
+                              '& .MuiInputBase-root': {
+                                borderRadius: 2,
+                                backgroundColor: '#fff',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                              },
+                              '& .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#E2E8F0',
+                              },
+                              '&:hover .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '& .MuiInputLabel-root': {
+                                color: '#4A5568',
+                                fontSize: '0.875rem',
+                              },
+                            }}
+                          />
+                        </Grid>
+
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            label="ZIP Code *"
+                            name="toZip"
+                            value={form.toZip}
+                            onChange={handleFormChange}
+                            fullWidth
+                            error={!!errors.toZip}
+                            placeholder="ZIP code"
+                            InputLabelProps={{ shrink: true }}
+                            sx={{
+                              '& .MuiInputBase-root': {
+                                borderRadius: 2,
+                                backgroundColor: '#fff',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                              },
+                              '& .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#E2E8F0',
+                              },
+                              '&:hover .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '& .MuiInputLabel-root': {
+                                color: '#4A5568',
+                                fontSize: '0.875rem',
+                              },
+                            }}
+                          />
+                        </Grid>
                       </Grid>
-                      <Grid item xs={12} sm={6}>
-                        <TextField
-                          label="City *"
-                          name="toCity"
-                          value={form.toCity}
-                          onChange={handleFormChange}
-                          fullWidth
-                          error={!!errors.toCity}
-                          placeholder="Enter city name"
-                          sx={{
-                            '& .MuiInputBase-root': {
-                              borderRadius: 2,
-                              backgroundColor: '#f8f9fa',
-                              '&:hover': { backgroundColor: '#e9ecef' },
-                              '&.Mui-focused': { backgroundColor: 'white' }
-                            },
-                          }}
-                        />
+                    </Box>
+
+
+                    {/* Return Location Sub-section */}
+                    <Box
+                      className="mb-6 p-4 rounded-2xl shadow-sm bg-gradient-to-b from-white to-gray-50 border border-gray-200"
+                    >
+                      <Typography
+                        variant="subtitle1"
+                        sx={{
+                          fontWeight: 700,
+                          color: '#2D3748',
+                          fontSize: '1rem',
+                          mb: 2.5,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                          letterSpacing: '0.3px',
+                        }}
+                      >
+                        <Room sx={{ color: '#4A90E2', fontSize: 20 }} /> {/* Location icon */}
+                        Return Location
+                      </Typography>
+
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            label="Full Address *"
+                            name="returnAddress"
+                            value={form.returnAddress}
+                            onChange={handleFormChange}
+                            fullWidth
+                            error={!!errors.returnAddress}
+                            placeholder="Full address"
+                            InputLabelProps={{ shrink: true }}
+                            sx={{
+                              '& .MuiInputBase-root': {
+                                borderRadius: 2,
+                                backgroundColor: '#fff',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                              },
+                              '& .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#E2E8F0',
+                              },
+                              '&:hover .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '& .MuiInputLabel-root': {
+                                color: '#4A5568',
+                                fontSize: '0.875rem',
+                              },
+                            }}
+                          />
+                        </Grid>
+
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            label="City *"
+                            name="returnCity"
+                            value={form.returnCity}
+                            onChange={handleFormChange}
+                            fullWidth
+                            error={!!errors.returnCity}
+                            placeholder="Enter city"
+                            InputLabelProps={{ shrink: true }}
+                            sx={{
+                              '& .MuiInputBase-root': {
+                                borderRadius: 2,
+                                backgroundColor: '#fff',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                              },
+                              '& .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#E2E8F0',
+                              },
+                              '&:hover .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '& .MuiInputLabel-root': {
+                                color: '#4A5568',
+                                fontSize: '0.875rem',
+                              },
+                            }}
+                          />
+                        </Grid>
+
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            label="State *"
+                            name="returnState"
+                            value={form.returnState}
+                            onChange={handleFormChange}
+                            fullWidth
+                            error={!!errors.returnState}
+                            placeholder="Enter state"
+                            InputLabelProps={{ shrink: true }}
+                            sx={{
+                              '& .MuiInputBase-root': {
+                                borderRadius: 2,
+                                backgroundColor: '#fff',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                              },
+                              '& .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#E2E8F0',
+                              },
+                              '&:hover .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '& .MuiInputLabel-root': {
+                                color: '#4A5568',
+                                fontSize: '0.875rem',
+                              },
+                            }}
+                          />
+                        </Grid>
+
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            label="ZIP Code *"
+                            name="returnZip"
+                            value={form.returnZip}
+                            onChange={handleFormChange}
+                            fullWidth
+                            error={!!errors.returnZip}
+                            placeholder="ZIP code"
+                            InputLabelProps={{ shrink: true }}
+                            sx={{
+                              '& .MuiInputBase-root': {
+                                borderRadius: 2,
+                                backgroundColor: '#fff',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                              },
+                              '& .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#E2E8F0',
+                              },
+                              '&:hover .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '& .MuiInputLabel-root': {
+                                color: '#4A5568',
+                                fontSize: '0.875rem',
+                              },
+                            }}
+                          />
+                        </Grid>
                       </Grid>
-                      <Grid item xs={12} sm={6}>
-                        <TextField
-                          label="State *"
-                          name="toState"
-                          value={form.toState}
-                          onChange={handleFormChange}
-                          fullWidth
-                          error={!!errors.toState}
-                          placeholder="Enter state"
-                          sx={{
-                            '& .MuiInputBase-root': {
-                              borderRadius: 2,
-                              backgroundColor: '#f8f9fa',
-                              '&:hover': { backgroundColor: '#e9ecef' },
-                              '&.Mui-focused': { backgroundColor: 'white' }
-                            },
-                          }}
-                        />
-                      </Grid>
-                    </Grid>
+                    </Box>
                   </Paper>
                 </>
               )}
 
-              {/* Return Details Section - Only for DRAYAGE */}
-              {loadType === 'DRAYAGE' && (
-                <Paper elevation={2} sx={{ 
-                  p: 3, 
-                  borderRadius: 3,
-                  background: 'white',
-                  border: '1px solid #e0e0e0'
-                }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-                    <Box sx={{ 
-                      p: 1.5, 
-                      borderRadius: 2, 
-                      background: 'linear-gradient(135deg, #fff3e0, #ffe0b2)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}>
-                      <Assignment sx={{ color: '#f57c00', fontSize: 24 }} />
-                    </Box>
-                    <Typography variant="h6" sx={{ fontWeight: 600, color: '#f57c00' }}>
-                      
-Drayage Details
-                    </Typography>
-                  </Box>
-                  
-                  <Grid container spacing={3}>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  type="date"
-                        label="Return Date *"
-                        name="returnDate"
-                        value={form.returnDate}
-                  onChange={handleFormChange}
-                  fullWidth
-                  InputLabelProps={{ shrink: true }}
-                  sx={{
-                    '& .MuiInputBase-root': {
-                            borderRadius: 2,
-                            backgroundColor: '#f8f9fa',
-                            '&:hover': { backgroundColor: '#e9ecef' },
-                            '&.Mui-focused': { backgroundColor: 'white' }
-                    },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                        label="Return Location *"
-                        name="returnLocation"
-                        value={form.returnLocation}
-                  onChange={handleFormChange}
-                  fullWidth
-                        placeholder="Enter Return Location"
-                  sx={{
-                    '& .MuiInputBase-root': {
-                            borderRadius: 2,
-                            backgroundColor: '#f8f9fa',
-                            '&:hover': { backgroundColor: '#e9ecef' },
-                            '&.Mui-focused': { backgroundColor: 'white' }
-                    },
-                  }}
-                />
-              </Grid>
-                  </Grid>
-                </Paper>
-              )}
-{/* OTR Origins and Destinations - Only for OTR */}
-{loadType === 'OTR' && (
+              {/* OTR Origins and Destinations - Only for OTR */}
+              {loadType === 'OTR' && (
                 <>
-                  {/* Origins Section */}
-                  <Paper elevation={2} sx={{ 
-                    p: 3, 
-                    borderRadius: 3,
-                    background: 'white',
-                    border: '1px solid #e0e0e0'
-                  }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-                      <Box sx={{ 
-                        p: 1.5, 
-                        borderRadius: 2, 
-                        background: 'linear-gradient(135deg, #e3f2fd, #bbdefb)',
+                  {/* 🟦 PICKUP SECTION */}
+                  <Box
+                    sx={{
+                      backgroundColor: '#fff',
+                      borderRadius: 3,
+                      p: 3,
+                      mt: 3,
+                      boxShadow: '0px 2px 6px rgba(0,0,0,0.08)',
+                      border: '1px solid #E0E0E0',
+                    }}
+                  >
+                    {/* Header */}
+                    <Typography
+                      variant="h6"
+                      sx={{
+                        fontWeight: 700,
+                        color: '#1976D2',
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'center'
-                      }}>
-                        <LocationOn sx={{ color: '#1976d2', fontSize: 24 }} />
-                      </Box>
-                      <Typography variant="h6" sx={{ fontWeight: 600, color: '#1976d2' }}>
-                      Location Details
-                      </Typography>
-                    </Box>
-                    
+                        gap: 1,
+                        mb: 3,
+                        borderLeft: '4px solid #1976D2',
+                        pl: 1.5,
+                        letterSpacing: '0.3px',
+                      }}
+                    >
+                      <LocationOn sx={{ fontSize: 22, color: '#1976D2' }} />
+                      Pickup Locations
+                    </Typography>
+
                     {form.origins.map((origin, index) => (
-                      <Box key={index} sx={{ mb: 3, p: 2, border: '1px solid #e0e0e0', borderRadius: 2 }}>
+                      <Paper
+                        key={index}
+                        elevation={0}
+                        sx={{
+                          p: 3,
+                          mb: 3,
+                          border: '1px solid #E0E0E0',
+                          borderRadius: 2,
+                          backgroundColor: '#FAFAFA',
+                        }}
+                      >
+                        {/* Header Row */}
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                            Pickup Locations {index + 1}
+                          <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#333' }}>
+                            Pickup Location {index + 1}
                           </Typography>
                           {form.origins.length > 1 && (
                             <Button
@@ -2133,272 +3229,131 @@ Drayage Details
                                 const newOrigins = form.origins.filter((_, i) => i !== index);
                                 setForm({ ...form, origins: newOrigins });
                               }}
-                              sx={{ 
+                              sx={{
                                 minWidth: 'auto',
                                 px: 1,
                                 py: 0.5,
-                                fontSize: '0.75rem'
+                                fontSize: '0.75rem',
                               }}
                             >
                               Delete
                             </Button>
                           )}
                         </Box>
-                        <Grid container spacing={2}>
-                          <Grid item xs={12}>
-                            <TextField
-                              label="Address Line 1 *"
-                              name={`origins[${index}].addressLine1`}
-                              value={origin.addressLine1}
-                              onChange={(e) => {
-                                const newOrigins = [...form.origins];
-                                newOrigins[index].addressLine1 = e.target.value;
-                                setForm({ ...form, origins: newOrigins });
-                              }}
-                              fullWidth
-                              error={!!errors[`origin_${index}_addressLine1`]}
-                              sx={{
-                                '& .MuiInputBase-root': {
-                                  borderRadius: 2,
-                                  backgroundColor: '#f8f9fa',
-                                  '&:hover': { backgroundColor: '#e9ecef' },
-                                  '&.Mui-focused': { backgroundColor: 'white' }
-                                },
-                              }}
-                            />
-                          </Grid>
-                          <Grid item xs={12}>
-                            <TextField
-                              label="Address Line 2"
-                              name={`origins[${index}].addressLine2`}
-                              value={origin.addressLine2}
-                              onChange={(e) => {
-                                const newOrigins = [...form.origins];
-                                newOrigins[index].addressLine2 = e.target.value;
-                                setForm({ ...form, origins: newOrigins });
-                              }}
-                              fullWidth
-                              sx={{
-                                '& .MuiInputBase-root': {
-                                  borderRadius: 2,
-                                  backgroundColor: '#f8f9fa',
-                                  '&:hover': { backgroundColor: '#e9ecef' },
-                                  '&.Mui-focused': { backgroundColor: 'white' }
-                                },
-                              }}
-                            />
-                          </Grid>
-                          <Grid item xs={12} sm={6}>
-                            <TextField
-                              label="City *"
-                              name={`origins[${index}].city`}
-                              value={origin.city}
-                              onChange={(e) => {
-                                const newOrigins = [...form.origins];
-                                newOrigins[index].city = e.target.value;
-                                setForm({ ...form, origins: newOrigins });
-                              }}
-                              fullWidth
-                              error={!!errors[`origin_${index}_city`]}
-                              sx={{
-                                '& .MuiInputBase-root': {
-                                  borderRadius: 2,
-                                  backgroundColor: '#f8f9fa',
-                                  '&:hover': { backgroundColor: '#e9ecef' },
-                                  '&.Mui-focused': { backgroundColor: 'white' }
-                                },
-                              }}
-                            />
-                          </Grid>
-                          <Grid item xs={12} sm={6}>
-                            <TextField
-                              label="State"
-                              name={`origins[${index}].state`}
-                              value={origin.state}
-                              onChange={(e) => {
-                                const newOrigins = [...form.origins];
-                                newOrigins[index].state = e.target.value;
-                                setForm({ ...form, origins: newOrigins });
-                              }}
-                              fullWidth
-                              sx={{
-                                '& .MuiInputBase-root': {
-                                  borderRadius: 2,
-                                  backgroundColor: '#f8f9fa',
-                                  '&:hover': { backgroundColor: '#e9ecef' },
-                                  '&.Mui-focused': { backgroundColor: 'white' }
-                                },
-                              }}
-                            />
-                          </Grid>
-                          <Grid item xs={12} sm={6}>
-                            <TextField
-                              label="ZIP"
-                              name={`origins[${index}].zip`}
-                              value={origin.zip}
-                              onChange={(e) => {
-                                const newOrigins = [...form.origins];
-                                newOrigins[index].zip = e.target.value;
-                                setForm({ ...form, origins: newOrigins });
-                              }}
-                              fullWidth
-                              sx={{
-                                '& .MuiInputBase-root': {
-                                  borderRadius: 2,
-                                  backgroundColor: '#f8f9fa',
-                                  '&:hover': { backgroundColor: '#e9ecef' },
-                                  '&.Mui-focused': { backgroundColor: 'white' }
-                                },
-                              }}
-                            />
-                          </Grid>
-                          <Grid item xs={12} sm={6}>
-                            <TextField
-                              label="Weight (lbs) *"
-                              name={`origins[${index}].weight`}
-                              value={origin.weight}
-                              onChange={(e) => {
-                                const newOrigins = [...form.origins];
-                                newOrigins[index].weight = e.target.value;
-                                setForm({ ...form, origins: newOrigins });
-                              }}
-                              fullWidth
-                              error={!!errors[`origin_${index}_weight`]}
-                              InputProps={{
-                                startAdornment: <Scale sx={{ color: '#666' }} />
-                              }}
-                              sx={{
-                                '& .MuiInputBase-root': {
-                                  borderRadius: 2,
-                                  backgroundColor: '#f8f9fa',
-                                  '&:hover': { backgroundColor: '#e9ecef' },
-                                  '&.Mui-focused': { backgroundColor: 'white' }
-                                },
-                              }}
-                            />
-                          </Grid>
-                          <Grid item xs={12} sm={6}>
-                            <TextField
-                              label="Commodity *"
-                              name={`origins[${index}].commodity`}
-                              value={origin.commodity}
-                              onChange={(e) => {
-                                const newOrigins = [...form.origins];
-                                newOrigins[index].commodity = e.target.value;
-                                setForm({ ...form, origins: newOrigins });
-                              }}
-                              fullWidth
-                              error={!!errors[`origin_${index}_commodity`]}
-                              sx={{
-                                '& .MuiInputBase-root': {
-                                  borderRadius: 2,
-                                  backgroundColor: '#f8f9fa',
-                                  '&:hover': { backgroundColor: '#e9ecef' },
-                                  '&.Mui-focused': { backgroundColor: 'white' }
-                                },
-                              }}
-                            />
-                          </Grid>
-                          <Grid item xs={12} sm={6}>
-                            <TextField
-                              type="date"
-                              label="Pickup Date *"
-                              name={`origins[${index}].pickupDate`}
-                              value={origin.pickupDate}
-                              onChange={(e) => {
-                                const newOrigins = [...form.origins];
-                                newOrigins[index].pickupDate = e.target.value;
-                                setForm({ ...form, origins: newOrigins });
-                              }}
-                              fullWidth
-                              error={!!errors[`origin_${index}_pickupDate`]}
-                              InputLabelProps={{ shrink: true }}
-                              sx={{
-                                '& .MuiInputBase-root': {
-                                  borderRadius: 2,
-                                  backgroundColor: '#f8f9fa',
-                                  '&:hover': { backgroundColor: '#e9ecef' },
-                                  '&.Mui-focused': { backgroundColor: 'white' }
-                                },
-                              }}
-                            />
-                          </Grid>
-                          <Grid item xs={12} sm={6}>
-                            <TextField
-                              type="date"
-                              label="Delivery Date"
-                              name={`origins[${index}].deliveryDate`}
-                              value={origin.deliveryDate}
-                              onChange={(e) => {
-                                const newOrigins = [...form.origins];
-                                newOrigins[index].deliveryDate = e.target.value;
-                                setForm({ ...form, origins: newOrigins });
-                              }}
-                              fullWidth
-                              InputLabelProps={{ shrink: true }}
-                              sx={{
-                                '& .MuiInputBase-root': {
-                                  borderRadius: 2,
-                                  backgroundColor: '#f8f9fa',
-                                  '&:hover': { backgroundColor: '#e9ecef' },
-                                  '&.Mui-focused': { backgroundColor: 'white' }
-                                },
-                              }}
-                            />
-                          </Grid>
+
+                        {/* Fields */}
+                        <Grid container spacing={2.5}>
+                          {[
+                            { label: 'Full Address *', name: 'addressLine1', value: origin.addressLine1, placeholder: 'Enter full address', required: true },
+                            { label: 'City *', name: 'city', value: origin.city, placeholder: 'Enter city', required: true },
+                            { label: 'State *', name: 'state', value: origin.state, placeholder: 'Enter state', required: true },
+                            { label: 'Zip Code *', name: 'zip', value: origin.zip, placeholder: 'Enter zip code', required: true },
+                            { label: 'Weight (lbs) *', name: 'weight', value: origin.weight, placeholder: 'e.g., 26000', required: true },
+                            { label: 'Commodity *', name: 'commodity', value: origin.commodity, placeholder: 'Enter commodity', required: true },
+                            { label: 'Pickup Date *', name: 'pickupDate', value: origin.pickupDate, type: 'date', required: true },
+                            { label: 'Delivery Date', name: 'deliveryDate', value: origin.deliveryDate, type: 'date' },
+                          ].map((field, i) => (
+                            <Grid item xs={12} sm={6} key={i}>
+                              <TextField
+                                type={field.type || 'text'}
+                                label={field.label}
+                                name={`origins[${index}].${field.name}`}
+                                value={field.value}
+                                placeholder={field.placeholder}
+                                onChange={(e) => {
+                                  const newOrigins = [...form.origins];
+                                  newOrigins[index][field.name] = e.target.value;
+                                  setForm({ ...form, origins: newOrigins });
+                                }}
+                                fullWidth
+                                error={!!errors[`origin_${index}_${field.name}`]}
+                                InputLabelProps={field.type === 'date' ? { shrink: true } : undefined}
+                                sx={{
+                                  minWidth: '270px',
+                                  '& .MuiInputBase-root': {
+                                    borderRadius: 2,
+                                    backgroundColor: '#fff',
+                                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#1976D2' },
+                                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#1976D2' },
+                                  },
+                                  '& .MuiInputLabel-root': { color: '#555', fontSize: '0.875rem' },
+                                }}
+                              />
+                            </Grid>
+                          ))}
                         </Grid>
-                      </Box>
+                      </Paper>
                     ))}
-                    
+
                     <Button
                       variant="outlined"
-                      onClick={() => {
-                        const newOrigins = [...form.origins, {
-                          addressLine1: '',
-                          addressLine2: '',
-                          city: '',
-                          state: '',
-                          zip: '',
-                          weight: '',
-                          commodity: '',
-                          pickupDate: '',
-                          deliveryDate: ''
-                        }];
-                        setForm({ ...form, origins: newOrigins });
-                      }}
-                      sx={{ mt: 2 }}
+                      onClick={() =>
+                        setForm({
+                          ...form,
+                          origins: [
+                            ...form.origins,
+                            {
+                              addressLine1: '',
+                              city: '',
+                              state: '',
+                              zip: '',
+                              weight: '',
+                              commodity: '',
+                              pickupDate: '',
+                              deliveryDate: '',
+                            },
+                          ],
+                        })
+                      }
+                      sx={{ mt: 1 }}
                     >
                       Add Pickup Location
                     </Button>
-                  </Paper>
+                  </Box>
 
-                  {/* Destinations Section */}
-                  <Paper elevation={2} sx={{ 
-                    p: 3, 
-                    borderRadius: 3,
-                    background: 'white',
-                    border: '1px solid #e0e0e0'
-                  }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-                      <Box sx={{ 
-                        p: 1.5, 
-                        borderRadius: 2, 
-                        background: 'linear-gradient(135deg, #e8f5e8, #c8e6c9)',
+                  {/* 🟩 DELIVERY SECTION */}
+                  <Box
+                    sx={{
+                      backgroundColor: '#fff',
+                      borderRadius: 3,
+                      p: 3,
+                      mt: 4,
+                      boxShadow: '0px 2px 6px rgba(0,0,0,0.08)',
+                      border: '1px solid #E0E0E0',
+                    }}
+                  >
+                    <Typography
+                      variant="h6"
+                      sx={{
+                        fontWeight: 700,
+                        color: '#2E7D32',
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'center'
-                      }}>
-                        <LocalShipping sx={{ color: '#2e7d32', fontSize: 24 }} />
-                      </Box>
-                      <Typography variant="h6" sx={{ fontWeight: 600, color: '#2e7d32' }}>
+                        gap: 1,
+                        mb: 3,
+                        borderLeft: '4px solid #2E7D32',
+                        pl: 1.5,
+                        letterSpacing: '0.3px',
+                      }}
+                    >
+                      <LocalShipping sx={{ fontSize: 22, color: '#2E7D32' }} />
                       Delivery Locations
-                      </Typography>
-                    </Box>
-                    
+                    </Typography>
+
                     {form.destinations.map((destination, index) => (
-                      <Box key={index} sx={{ mb: 3, p: 2, border: '1px solid #e0e0e0', borderRadius: 2 }}>
+                      <Paper
+                        key={index}
+                        elevation={0}
+                        sx={{
+                          p: 3,
+                          mb: 3,
+                          border: '1px solid #E0E0E0',
+                          borderRadius: 2,
+                          backgroundColor: '#FAFAFA',
+                        }}
+                      >
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#333' }}>
                             Delivery Location {index + 1}
                           </Typography>
                           {form.destinations.length > 1 && (
@@ -2411,336 +3366,481 @@ Drayage Details
                                 const newDestinations = form.destinations.filter((_, i) => i !== index);
                                 setForm({ ...form, destinations: newDestinations });
                               }}
-                              sx={{ 
+                              sx={{
                                 minWidth: 'auto',
                                 px: 1,
                                 py: 0.5,
-                                fontSize: '0.75rem'
+                                fontSize: '0.75rem',
                               }}
                             >
                               Delete
                             </Button>
                           )}
                         </Box>
-                        <Grid container spacing={2}>
-                          <Grid item xs={12}>
-                            <TextField
-                              label="Address Line 1 *"
-                              name={`destinations[${index}].addressLine1`}
-                              value={destination.addressLine1}
-                              onChange={(e) => {
-                                const newDestinations = [...form.destinations];
-                                newDestinations[index].addressLine1 = e.target.value;
-                                setForm({ ...form, destinations: newDestinations });
-                              }}
-                              fullWidth
-                              error={!!errors[`destination_${index}_addressLine1`]}
-                              sx={{
-                                '& .MuiInputBase-root': {
-                                  borderRadius: 2,
-                                  backgroundColor: '#f8f9fa',
-                                  '&:hover': { backgroundColor: '#e9ecef' },
-                                  '&.Mui-focused': { backgroundColor: 'white' }
-                                },
-                              }}
-                            />
-                          </Grid>
-                          <Grid item xs={12}>
-                            <TextField
-                              label="Address Line 2"
-                              name={`destinations[${index}].addressLine2`}
-                              value={destination.addressLine2}
-                              onChange={(e) => {
-                                const newDestinations = [...form.destinations];
-                                newDestinations[index].addressLine2 = e.target.value;
-                                setForm({ ...form, destinations: newDestinations });
-                              }}
-                              fullWidth
-                              sx={{
-                                '& .MuiInputBase-root': {
-                                  borderRadius: 2,
-                                  backgroundColor: '#f8f9fa',
-                                  '&:hover': { backgroundColor: '#e9ecef' },
-                                  '&.Mui-focused': { backgroundColor: 'white' }
-                                },
-                              }}
-                            />
-                          </Grid>
-                          <Grid item xs={12} sm={6}>
-                            <TextField
-                              label="City *"
-                              name={`destinations[${index}].city`}
-                              value={destination.city}
-                              onChange={(e) => {
-                                const newDestinations = [...form.destinations];
-                                newDestinations[index].city = e.target.value;
-                                setForm({ ...form, destinations: newDestinations });
-                              }}
-                              fullWidth
-                              error={!!errors[`destination_${index}_city`]}
-                              sx={{
-                                '& .MuiInputBase-root': {
-                                  borderRadius: 2,
-                                  backgroundColor: '#f8f9fa',
-                                  '&:hover': { backgroundColor: '#e9ecef' },
-                                  '&.Mui-focused': { backgroundColor: 'white' }
-                                },
-                              }}
-                            />
-                          </Grid>
-                          <Grid item xs={12} sm={6}>
-                            <TextField
-                              label="State"
-                              name={`destinations[${index}].state`}
-                              value={destination.state}
-                              onChange={(e) => {
-                                const newDestinations = [...form.destinations];
-                                newDestinations[index].state = e.target.value;
-                                setForm({ ...form, destinations: newDestinations });
-                              }}
-                              fullWidth
-                              sx={{
-                                '& .MuiInputBase-root': {
-                                  borderRadius: 2,
-                                  backgroundColor: '#f8f9fa',
-                                  '&:hover': { backgroundColor: '#e9ecef' },
-                                  '&.Mui-focused': { backgroundColor: 'white' }
-                                },
-                              }}
-                            />
-                          </Grid>
-                          <Grid item xs={12} sm={6}>
-                            <TextField
-                              label="ZIP"
-                              name={`destinations[${index}].zip`}
-                              value={destination.zip}
-                              onChange={(e) => {
-                                const newDestinations = [...form.destinations];
-                                newDestinations[index].zip = e.target.value;
-                                setForm({ ...form, destinations: newDestinations });
-                              }}
-                              fullWidth
-                              sx={{
-                                '& .MuiInputBase-root': {
-                                  borderRadius: 2,
-                                  backgroundColor: '#f8f9fa',
-                                  '&:hover': { backgroundColor: '#e9ecef' },
-                                  '&.Mui-focused': { backgroundColor: 'white' }
-                                },
-                              }}
-                            />
-                          </Grid>
-                          <Grid item xs={12} sm={6}>
-                            <TextField
-                              label="Weight (lbs) *"
-                              name={`destinations[${index}].weight`}
-                              value={destination.weight}
-                              onChange={(e) => {
-                                const newDestinations = [...form.destinations];
-                                newDestinations[index].weight = e.target.value;
-                                setForm({ ...form, destinations: newDestinations });
-                              }}
-                              fullWidth
-                              error={!!errors[`destination_${index}_weight`]}
-                              InputProps={{
-                                startAdornment: <Scale sx={{ color: '#666' }} />
-                              }}
-                              sx={{
-                                '& .MuiInputBase-root': {
-                                  borderRadius: 2,
-                                  backgroundColor: '#f8f9fa',
-                                  '&:hover': { backgroundColor: '#e9ecef' },
-                                  '&.Mui-focused': { backgroundColor: 'white' }
-                                },
-                              }}
-                            />
-                          </Grid>
-                          <Grid item xs={12} sm={6}>
-                            <TextField
-                              label="Commodity *"
-                              name={`destinations[${index}].commodity`}
-                              value={destination.commodity}
-                              onChange={(e) => {
-                                const newDestinations = [...form.destinations];
-                                newDestinations[index].commodity = e.target.value;
-                                setForm({ ...form, destinations: newDestinations });
-                              }}
-                              fullWidth
-                              error={!!errors[`destination_${index}_commodity`]}
-                              sx={{
-                                '& .MuiInputBase-root': {
-                                  borderRadius: 2,
-                                  backgroundColor: '#f8f9fa',
-                                  '&:hover': { backgroundColor: '#e9ecef' },
-                                  '&.Mui-focused': { backgroundColor: 'white' }
-                                },
-                              }}
-                            />
-                          </Grid>
-                          <Grid item xs={12} sm={6}>
-                            <TextField
-                              type="date"
-                              label="Delivery Date *"
-                              name={`destinations[${index}].deliveryDate`}
-                              value={destination.deliveryDate}
-                              onChange={(e) => {
-                                const newDestinations = [...form.destinations];
-                                newDestinations[index].deliveryDate = e.target.value;
-                                setForm({ ...form, destinations: newDestinations });
-                              }}
-                              fullWidth
-                              error={!!errors[`destination_${index}_deliveryDate`]}
-                              InputLabelProps={{ shrink: true }}
-                              sx={{
-                                '& .MuiInputBase-root': {
-                                  borderRadius: 2,
-                                  backgroundColor: '#f8f9fa',
-                                  '&:hover': { backgroundColor: '#e9ecef' },
-                                  '&.Mui-focused': { backgroundColor: 'white' }
-                                },
-                              }}
-                            />
-                          </Grid>
+
+                        {/* Fields (same as pickup) */}
+                        <Grid container spacing={2.5}>
+                          {[
+                            { label: 'Full Address *', name: 'addressLine1', value: destination.addressLine1, placeholder: 'Enter full address', required: true },
+                            { label: 'City *', name: 'city', value: destination.city, placeholder: 'Enter city', required: true },
+                            { label: 'State *', name: 'state', value: destination.state, placeholder: 'Enter state', required: true },
+                            { label: 'Zip Code *', name: 'zip', value: destination.zip, placeholder: 'Enter zip code', required: true },
+                            { label: 'Weight (lbs) *', name: 'weight', value: destination.weight, placeholder: 'e.g., 26000', required: true },
+                            { label: 'Commodity *', name: 'commodity', value: destination.commodity, placeholder: 'Enter commodity', required: true },
+                            { label: 'Pickup Date *', name: 'pickupDate', value: destination.pickupDate, type: 'date', required: true },
+                            { label: 'Delivery Date *', name: 'deliveryDate', value: destination.deliveryDate, type: 'date', required: true },
+                          ].map((field, i) => (
+                            <Grid item xs={12} sm={6} key={i}>
+                              <TextField
+                                type={field.type || 'text'}
+                                label={field.label}
+                                name={`destinations[${index}].${field.name}`}
+                                value={field.value}
+                                placeholder={field.placeholder}
+                                onChange={(e) => {
+                                  const newDestinations = [...form.destinations];
+                                  newDestinations[index][field.name] = e.target.value;
+                                  setForm({ ...form, destinations: newDestinations });
+                                }}
+                                fullWidth
+                                error={!!errors[`destination_${index}_${field.name}`]}
+                                InputLabelProps={field.type === 'date' ? { shrink: true } : undefined}
+                                sx={{
+                                  minWidth: '270px',
+                                  '& .MuiInputBase-root': {
+                                    borderRadius: 2,
+                                    backgroundColor: '#fff',
+                                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#2E7D32' },
+                                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#2E7D32' },
+                                  },
+                                  '& .MuiInputLabel-root': { color: '#555', fontSize: '0.875rem' },
+                                }}
+                              />
+                            </Grid>
+                          ))}
                         </Grid>
-                      </Box>
+                      </Paper>
                     ))}
-                    
+
                     <Button
                       variant="outlined"
-                      onClick={() => {
-                        const newDestinations = [...form.destinations, {
-                          addressLine1: '',
-                          addressLine2: '',
-                          city: '',
-                          state: '',
-                          zip: '',
-                          weight: '',
-                          commodity: '',
-                          deliveryDate: ''
-                        }];
-                        setForm({ ...form, destinations: newDestinations });
-                      }}
-                      sx={{ mt: 2 }}
+                      onClick={() =>
+                        setForm({
+                          ...form,
+                          destinations: [
+                            ...form.destinations,
+                            {
+                              addressLine1: '',
+                              city: '',
+                              state: '',
+                              zip: '',
+                              weight: '',
+                              commodity: '',
+                              pickupDate: '',
+                              deliveryDate: '',
+                            },
+                          ],
+                        })
+                      }
+                      sx={{ mt: 1 }}
                     >
                       Add Delivery Location
                     </Button>
-                  </Paper>
+                  </Box>
                 </>
               )}
+
+
               {/* Load Details Section */}
-              <Paper elevation={2} sx={{ 
-                p: 3, 
-                borderRadius: 3,
-                background: 'white',
-                border: '1px solid #e0e0e0'
-              }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-                  <Box sx={{ 
-                    p: 1.5, 
-                    borderRadius: 2, 
-                    background: 'linear-gradient(135deg, #f3e5f5, #e1bee7)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}>
-                    <Business sx={{ color: '#7b1fa2', fontSize: 24 }} />
+              <Paper elevation={0} className="p-3 rounded-lg bg-white shadow-sm">
+                <Box className="flex items-center gap-2 mb-3">
+                  <Box className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center">
+                    <Business className="text-purple-600 text-2xl" />
                   </Box>
-                  <Typography variant="h6" sx={{ fontWeight: 600, color: '#7b1fa2' }}>
+                  <Typography variant="h6" className="font-semibold text-gray-800 text-lg">
                     Load Details
                   </Typography>
+
                 </Box>
-                
-                <Grid container spacing={3}>
-              <Grid item xs={12} sm={8}>
-                <FormControl fullWidth error={!!errors.vehicleType}>
-                  <InputLabel>Vehicle Type *</InputLabel>
-                  <Select
-                    name="vehicleType"
-                    value={form.vehicleType}
-                    onChange={handleFormChange}
-                    label="Vehicle Type *"
-                    sx={{
-                      borderRadius: 2,
-                      backgroundColor: '#f8f9fa',
-                      '&:hover': { backgroundColor: '#e9ecef' },
-                      '&.Mui-focused': { backgroundColor: 'white' },
-                      minWidth: 300
-                    }}
-                  >
-                    {(loadType === 'DRAYAGE' ? DRAYAGE_VEHICLE_TYPES : OTR_VEHICLE_TYPES).map((vehicleType) => (
-                      <MenuItem key={vehicleType} value={vehicleType} sx={{ whiteSpace: 'normal', wordWrap: 'break-word' }}>
-                        {vehicleType}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                      label="Target Rate ($)"
-                      name="rate"
-                      value={form.rate}
-                  onChange={handleFormChange}
-                  fullWidth
-                      error={!!errors.rate}
-                      placeholder="e.g., 7500 or 7500/60"
-                      InputProps={{
-                        startAdornment: <AttachMoney sx={{ color: '#666' }} />
-                      }}
+
+                <Grid container spacing={2}>
+                  {loadType === 'OTR' && (
+                    <Box
                       sx={{
-                        '& .MuiInputBase-root': {
-                          borderRadius: 2,
-                          backgroundColor: '#f8f9fa',
-                          '&:hover': { backgroundColor: '#e9ecef' },
-                          '&.Mui-focused': { backgroundColor: 'white' }
-                        },
+                        background: 'linear-gradient(to right, #F9FAFB, #FFFFFF)',
+                        border: '1px solid #E2E8F0',
+                        borderRadius: 3,
+                        p: 3,
+                        mt: 3,
+                        boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
+                        width: '100%',
+                        maxWidth: '100%',
+                        mx: 'auto',
                       }}
-                    />
-                  </Grid>
+                    >
+                      {/* Header */}
+                      <Typography
+                        variant="h6"
+                        sx={{
+                          fontWeight: 700,
+                          color: '#2D3748',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                          mb: 3,
+                          borderLeft: '4px solid #4A90E2',
+                          pl: 1.5,
+                          letterSpacing: '0.3px',
+                        }}
+                      >
+                        <LocalShipping sx={{ fontSize: 22, color: '#4A90E2' }} />
+                        OTR Details
+                      </Typography>
+
+                      {/* ✅ Row - 5 Fields */}
+                      <Grid container spacing={2.5}>
+                        <Grid item xs={12} sm={6} md={3}>
+                          <FormControl
+                            fullWidth
+                            error={!!errors.vehicleType}
+                            sx={{
+                              '& .MuiInputBase-root': {
+                                borderRadius: 2,
+                                backgroundColor: '#fff',
+                                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                              },
+                              '& .MuiInputLabel-root': { color: '#555', fontSize: '0.875rem' },
+                            }}
+                          >
+                            <InputLabel>Vehicle Type *</InputLabel>
+                            <Select
+                              name="vehicleType"
+                              value={form.vehicleType}
+                              onChange={handleFormChange}
+                              label="Vehicle Type *"
+                              sx={{
+                                height: '56px',
+                                minWidth: '295px',
+                                '& .MuiSelect-select': { paddingTop: '16.5px', paddingBottom: '16.5px' },
+                              }}
+                            >
+                              {OTR_VEHICLE_TYPES.map((vehicleType) => (
+                                <MenuItem key={vehicleType} value={vehicleType}>
+                                  {vehicleType}
+                                </MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
+                        </Grid>
+
+                        <Grid item xs={12} sm={6} md={3}>
+                          <TextField
+                            label="Line Haul ($)"
+                            name="lineHaul"
+                            value={form.lineHaul}
+                            onChange={handleFormChange}
+                            fullWidth
+                            error={!!errors.lineHaul}
+                            placeholder="e.g., 7500"
+                            sx={{
+                              minWidth: '295px',
+                              '& .MuiOutlinedInput-root': {
+                                borderRadius: 2,
+                                backgroundColor: '#fff',
+                                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                              },
+                              '& .MuiInputLabel-root': { color: '#555', fontSize: '0.875rem' },
+                            }}
+                          />
+                        </Grid>
+
+                        <Grid item xs={12} sm={6} md={3}>
+                          <TextField
+                            label="FSC (%)"
+                            name="fsc"
+                            value={form.fsc}
+                            onChange={handleFormChange}
+                            fullWidth
+                            error={!!errors.fsc}
+                            placeholder="e.g., 10"
+                            sx={{
+                              minWidth: '295px',
+                              '& .MuiOutlinedInput-root': {
+                                borderRadius: 2,
+                                backgroundColor: '#fff',
+                                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                              },
+                              '& .MuiInputLabel-root': { color: '#555', fontSize: '0.875rem' },
+                            }}
+                          />
+                        </Grid>
+
+                        <Grid item xs={12} sm={6} md={3}>
+                          <TextField
+                            label="Other Charges ($)"
+                            name="others"
+                            value={form.others}
+                            onChange={handleFormChange}
+                            fullWidth
+                            error={!!errors.others}
+                            placeholder="Click to add charges"
+                            onClick={handleOpenChargesCalculator}
+                            InputProps={{ readOnly: true }}
+                            sx={{
+                              minWidth: '295px',
+                              cursor: 'pointer',
+                              '& .MuiOutlinedInput-root': {
+                                borderRadius: 2,
+                                backgroundColor: '#fff',
+                                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                              },
+                              '& .MuiInputLabel-root': { color: '#555', fontSize: '0.875rem' },
+                            }}
+                          />
+                        </Grid>
+
+                        <Grid item xs={12} sm={6} md={3}>
+                          <TextField
+                            label="Total Rate ($)"
+                            name="total"
+                            value={form.total || '00.00'}
+                            onChange={handleFormChange}
+                            fullWidth
+                            error={!!errors.total}
+                            placeholder="00.00"
+                            InputProps={{ readOnly: true }}
+                            sx={{
+                              minWidth: '295px',
+                              '& .MuiOutlinedInput-root': {
+                                borderRadius: 2,
+                                backgroundColor: '#fff',
+                                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                              },
+                              '& .MuiInputLabel-root': { color: '#555', fontSize: '0.875rem' },
+                            }}
+                          />
+                        </Grid>
+                      </Grid>
+                    </Box>
+                  )}
+
+
+
                   {loadType === 'DRAYAGE' && (
-                    <>
-                      <Grid item xs={12} sm={6}>
-                        <TextField
-                          label="Weight (lbs) *"
-                          name="weight"
-                          value={form.weight}
-                          onChange={handleFormChange}
-                          fullWidth
-                          error={!!errors.weight}
-                          placeholder="e.g., 75000"
-                          InputProps={{
-                            startAdornment: <Scale sx={{ color: '#666' }} />
-                          }}
-                          sx={{
-                            '& .MuiInputBase-root': {
-                              borderRadius: 2,
-                              backgroundColor: '#f8f9fa',
-                              '&:hover': { backgroundColor: '#e9ecef' },
-                              '&.Mui-focused': { backgroundColor: 'white' }
-                            },
-                          }}
-                        />
+                    <Box
+                      sx={{
+                        background: 'linear-gradient(to right, #F9FAFB, #FFFFFF)',
+                        border: '1px solid #E2E8F0',
+                        borderRadius: 3,
+                        p: 3,
+                        mt: 3,
+                        boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
+                        width: '100%',
+                        maxWidth: '100%',
+                        mx: 'auto',
+                      }}
+                    >
+                      {/* Header */}
+                      <Typography
+                        variant="h6"
+                        sx={{
+                          fontWeight: 700,
+                          color: '#2D3748',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                          mb: 3,
+                          borderLeft: '4px solid #4A90E2',
+                          pl: 1.5,
+                          letterSpacing: '0.3px',
+                        }}
+                      >
+                        <LocalShipping sx={{ fontSize: 22, color: '#4A90E2' }} />
+                        Drayage Details
+                      </Typography>
+
+                      {/* ✅ Row 1 - 4 Fields */}
+                      <Grid container spacing={2.5} mb={2}>
+                        <Grid item xs={12} sm={6} md={3}>
+                          <FormControl
+                            fullWidth
+                            error={!!errors.vehicleType}
+                            sx={{
+                              '& .MuiInputBase-root': {
+                                borderRadius: 2,
+                                backgroundColor: '#fff',
+                                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                              },
+                              '& .MuiInputLabel-root': { color: '#555', fontSize: '0.875rem' },
+                            }}
+                          >
+                            <InputLabel>Vehicle Type *</InputLabel>
+                            <Select
+                              name="vehicleType"
+                              value={form.vehicleType}
+                              onChange={handleFormChange}
+                              label="Vehicle Type *"
+                              sx={{
+                                height: '56px',
+                                minWidth: '295px',
+                                '& .MuiSelect-select': { paddingTop: '16.5px', paddingBottom: '16.5px' },
+                              }}
+                            >
+                              {DRAYAGE_VEHICLE_TYPES.map((vehicleType) => (
+                                <MenuItem key={vehicleType} value={vehicleType}>
+                                  {vehicleType}
+                                </MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
+                        </Grid>
+
+                        <Grid item xs={12} sm={6} md={3}>
+                          <TextField
+                            label="Weight (lbs) *"
+                            name="weight"
+                            value={form.weight}
+                            onChange={handleFormChange}
+                            fullWidth
+                            error={!!errors.weight}
+                            placeholder="e.g., 26000"
+                            sx={{
+                              minWidth: '295px',
+                              '& .MuiOutlinedInput-root': {
+                                borderRadius: 2,
+                                backgroundColor: '#fff',
+                                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                              },
+                              '& .MuiInputLabel-root': { color: '#555', fontSize: '0.875rem' },
+                            }}
+                          />
+                        </Grid>
+
+                        <Grid item xs={12} sm={6} md={3}>
+                          <TextField
+                            label="Commodity *"
+                            name="commodity"
+                            value={form.commodity}
+                            onChange={handleFormChange}
+                            fullWidth
+                            error={!!errors.commodity}
+                            placeholder="e.g., Electronics, Furniture"
+                            sx={{
+                              minWidth: '295px',
+                              '& .MuiOutlinedInput-root': {
+                                borderRadius: 2,
+                                backgroundColor: '#fff',
+                                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                              },
+                              '& .MuiInputLabel-root': { color: '#555', fontSize: '0.875rem' },
+                            }}
+                          />
+                        </Grid>
                       </Grid>
-                      <Grid item xs={12} sm={6}>
-                        <TextField
-                          label="Commodity *"
-                          name="commodity"
-                          value={form.commodity}
-                          onChange={handleFormChange}
-                          fullWidth
-                          error={!!errors.commodity}
-                          placeholder="e.g., Electronics, Furniture"
-                          sx={{
-                            '& .MuiInputBase-root': {
-                              borderRadius: 2,
-                              backgroundColor: '#f8f9fa',
-                              '&:hover': { backgroundColor: '#e9ecef' },
-                              '&.Mui-focused': { backgroundColor: 'white' }
-                            },
-                          }}
-                        />
+
+                      {/* ✅ Row 2 - 4 Fields */}
+                      <Grid container spacing={2.5} mb={2}>
+                        <Grid item xs={12} sm={6} md={3}>
+                          <TextField
+                            label="Line Haul ($)"
+                            name="lineHaul"
+                            value={form.lineHaul}
+                            onChange={handleFormChange}
+                            fullWidth
+                            error={!!errors.lineHaul}
+                            placeholder="e.g., 1600 or 1600.00"
+                            sx={{
+                              minWidth: '295px',
+                              '& .MuiOutlinedInput-root': {
+                                borderRadius: 2,
+                                backgroundColor: '#fff',
+                                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                              },
+                              '& .MuiInputLabel-root': { color: '#555', fontSize: '0.875rem' },
+                            }}
+                          />
+                        </Grid>
+
+                        <Grid item xs={12} sm={6} md={3}>
+                          <TextField
+                            label="FRC (%)"
+                            name="fsc"
+                            value={form.fsc}
+                            onChange={handleFormChange}
+                            fullWidth
+                            error={!!errors.fsc}
+                            placeholder="e.g., 10 for 10%"
+                            sx={{
+                              minWidth: '295px',
+                              '& .MuiOutlinedInput-root': {
+                                borderRadius: 2,
+                                backgroundColor: '#fff',
+                                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                              },
+                              '& .MuiInputLabel-root': { color: '#555', fontSize: '0.875rem' },
+                            }}
+                          />
+                        </Grid>
+
+                        <Grid item xs={12} sm={6} md={3}>
+                          <TextField
+                            label="Other Charges ($)"
+                            name="others"
+                            value={form.others}
+                            onChange={handleFormChange}
+                            fullWidth
+                            error={!!errors.others}
+                            placeholder="Click to add charges"
+                            onClick={handleOpenChargesCalculator}
+                            InputProps={{ readOnly: true }}
+                            sx={{
+                              minWidth: '295px',
+                              cursor: 'pointer',
+                              '& .MuiOutlinedInput-root': {
+                                borderRadius: 2,
+                                backgroundColor: '#fff',
+                                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                              },
+                              '& .MuiInputLabel-root': { color: '#555', fontSize: '0.875rem' },
+                            }}
+                          />
+                        </Grid>
+
+                        <Grid item xs={12} sm={6} md={3}>
+                          <TextField
+                            label="Total Rate ($)"
+                            name="total"
+                            value={form.total || '00.00'}
+                            onChange={handleFormChange}
+                            fullWidth
+                            error={!!errors.total}
+                            placeholder="00.00"
+                            InputProps={{ readOnly: true }}
+                            sx={{
+                              minWidth: '295px',
+                              '& .MuiOutlinedInput-root': {
+                                borderRadius: 2,
+                                backgroundColor: '#fff',
+                                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                              },
+                              '& .MuiInputLabel-root': { color: '#555', fontSize: '0.875rem' },
+                            }}
+                          />
+                        </Grid>
                       </Grid>
-                    </>
+                    </Box>
                   )}
                 </Grid>
               </Paper>
@@ -2751,16 +3851,147 @@ Drayage Details
 
               {/* Schedule & Timeline Section - Only for DRAYAGE */}
               {loadType === 'DRAYAGE' && (
-                <Paper elevation={2} sx={{ 
-                  p: 3, 
+                <Box
+                  sx={{
+                    background: 'linear-gradient(to right, #F9FAFB, #FFFFFF)',
+                    border: '1px solid #E2E8F0',
+                    borderRadius: 3,
+                    p: 3,
+                    mt: 3,
+                    boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
+                    width: '100%',
+                    maxWidth: '100%',
+                    mx: 'auto',
+                  }}
+                >
+                  {/* Header */}
+                  <Typography
+                    variant="h6"
+                    sx={{
+                      fontWeight: 700,
+                      color: '#2D3748',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      mb: 2.5,
+                      borderLeft: '4px solid #4A90E2',
+                      pl: 1.5,
+                      letterSpacing: '0.3px',
+                    }}
+                  >
+                    <CalendarToday sx={{ fontSize: 22, color: '#4A90E2' }} />
+                    Schedule & Timeline
+                  </Typography>
+
+                  {/* Grid Rows */}
+                  <Grid container spacing={2.5}>
+                    <Grid item xs={12} sm={6} md={3}>
+                      <TextField
+                        type="date"
+                        label="Pickup Date *"
+                        name="pickupDate"
+                        value={form.pickupDate}
+                        onChange={handleFormChange}
+                        fullWidth
+                        error={!!errors.pickupDate}
+                        InputLabelProps={{ shrink: true }}
+                        sx={{
+                          minWidth: '270px',
+                          '& .MuiInputBase-root': {
+                            borderRadius: 2,
+                            backgroundColor: '#fff',
+                            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                          },
+                          '& .MuiInputLabel-root': { color: '#555', fontSize: '0.875rem' },
+                        }}
+                      />
+                    </Grid>
+
+                    <Grid item xs={12} sm={6} md={3}>
+                      <TextField
+                        type="date"
+                        label="Delivery Date *"
+                        name="deliveryDate"
+                        value={form.deliveryDate}
+                        onChange={handleFormChange}
+                        fullWidth
+                        error={!!errors.deliveryDate}
+                        InputLabelProps={{ shrink: true }}
+                        sx={{
+                          minWidth: '270px',
+                          '& .MuiInputBase-root': {
+                            borderRadius: 2,
+                            backgroundColor: '#fff',
+                            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                          },
+                          '& .MuiInputLabel-root': { color: '#555', fontSize: '0.875rem' },
+                        }}
+                      />
+                    </Grid>
+
+                    <Grid item xs={12} sm={6} md={3}>
+                      <TextField
+                        type="date"
+                        label="Return Date *"
+                        name="returnDate"
+                        value={form.returnDate}
+                        onChange={handleFormChange}
+                        fullWidth
+                        error={!!errors.returnDate}
+                        InputLabelProps={{ shrink: true }}
+                        sx={{
+                          minWidth: '270px',
+                          '& .MuiInputBase-root': {
+                            borderRadius: 2,
+                            backgroundColor: '#fff',
+                            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                          },
+                          '& .MuiInputLabel-root': { color: '#555', fontSize: '0.875rem' },
+                        }}
+                      />
+                    </Grid>
+
+                    <Grid item xs={12} sm={6} md={3}>
+                      <TextField
+                        type="date"
+                        label="BOL Deadline *"
+                        name="bidDeadline"
+                        value={form.bidDeadline}
+                        onChange={handleFormChange}
+                        fullWidth
+                        InputLabelProps={{ shrink: true }}
+                        sx={{
+                          minWidth: '270px',
+                          '& .MuiInputBase-root': {
+                            borderRadius: 2,
+                            backgroundColor: '#fff',
+                            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                          },
+                          '& .MuiInputLabel-root': { color: '#555', fontSize: '0.875rem' },
+                        }}
+                      />
+                    </Grid>
+                  </Grid>
+                </Box>
+              )}
+
+
+              {/* Bid Deadline for OTR */}
+              {loadType === 'OTR' && (
+                <Paper elevation={2} sx={{
+                  p: 3,
                   borderRadius: 3,
                   background: 'white',
                   border: '1px solid #e0e0e0'
                 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-                    <Box sx={{ 
-                      p: 1.5, 
-                      borderRadius: 2, 
+                    <Box sx={{
+                      p: 1.5,
+                      borderRadius: 2,
                       background: 'linear-gradient(135deg, #e8f5e8, #c8e6c9)',
                       display: 'flex',
                       alignItems: 'center',
@@ -2772,281 +4003,217 @@ Drayage Details
                       Schedule & Timeline
                     </Typography>
                   </Box>
-                  
-                  <Grid container spacing={3}>
-                    <Grid item xs={12} sm={4}>
-                      <TextField
-                        type="date"
-                        label="Pickup Date *"
-                        name="pickupDate"
-                        value={form.pickupDate}
-                        onChange={handleFormChange}
-                        fullWidth
-                        error={!!errors.pickupDate}
-                        InputLabelProps={{ shrink: true }}
-                        sx={{
-                          '& .MuiInputBase-root': {
-                            borderRadius: 2,
-                            backgroundColor: '#f8f9fa',
-                            '&:hover': { backgroundColor: '#e9ecef' },
-                            '&.Mui-focused': { backgroundColor: 'white' }
-                          },
-                        }}
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={4}>
-                      <TextField
-                        type="date"
-                        label="Delivery Date *"
-                        name="deliveryDate"
-                        value={form.deliveryDate}
-                        onChange={handleFormChange}
-                        fullWidth
-                        error={!!errors.deliveryDate}
-                        InputLabelProps={{ shrink: true }}
-                        sx={{
-                          '& .MuiInputBase-root': {
-                            borderRadius: 2,
-                            backgroundColor: '#f8f9fa',
-                            '&:hover': { backgroundColor: '#e9ecef' },
-                            '&.Mui-focused': { backgroundColor: 'white' }
-                          },
-                        }}
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={4}>
-                      <TextField
-                        type="date"
-                        label="Bid Deadline"
-                        name="bidDeadline"
-                        value={form.bidDeadline}
-                        onChange={handleFormChange}
-                        fullWidth
-                        InputLabelProps={{ shrink: true }}
-                        sx={{
-                          '& .MuiInputBase-root': {
-                            borderRadius: 2,
-                            backgroundColor: '#f8f9fa',
-                            '&:hover': { backgroundColor: '#e9ecef' },
-                            '&.Mui-focused': { backgroundColor: 'white' }
-                          },
-                        }}
-                      />
-                    </Grid>
-                  </Grid>
-                </Paper>
-              )}
 
-              {/* Bid Deadline for OTR */}
-              {loadType === 'OTR' && (
-                <Paper elevation={2} sx={{ 
-                  p: 3, 
-                  borderRadius: 3,
-                  background: 'white',
-                  border: '1px solid #e0e0e0'
-                }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-                    <Box sx={{ 
-                      p: 1.5, 
-                      borderRadius: 2, 
-                      background: 'linear-gradient(135deg, #e8f5e8, #c8e6c9)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}>
-                      <CalendarToday sx={{ color: '#2e7d32', fontSize: 24 }} />
-                    </Box>
-                    <Typography variant="h6" sx={{ fontWeight: 600, color: '#2e7d32' }}>
-                    Schedule & Timeline
-                    </Typography>
-                  </Box>
-                  
                   <Grid container spacing={3}>
                     <Grid item xs={12} sm={6}>
                       <TextField
                         type="date"
-                        label="Bid Deadline"
+                        label="Bid Deadline *"
                         name="bidDeadline"
                         value={form.bidDeadline}
                         onChange={handleFormChange}
                         fullWidth
                         InputLabelProps={{ shrink: true }}
                         sx={{
+                          minWidth: '270px',
                           '& .MuiInputBase-root': {
                             borderRadius: 2,
-                            backgroundColor: '#f8f9fa',
-                            '&:hover': { backgroundColor: '#e9ecef' },
-                            '&.Mui-focused': { backgroundColor: 'white' }
+                            backgroundColor: '#fff',
+                            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
                           },
+                          '& .MuiInputLabel-root': { color: '#555', fontSize: '0.875rem' },
                         }}
                       />
                     </Grid>
                   </Grid>
+
                 </Paper>
               )}
 
               {/* Additional Details Section */}
-              <Paper elevation={2} sx={{ 
-                p: 3, 
-                borderRadius: 3,
-                background: 'white',
-                border: '1px solid #e0e0e0'
-              }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-                  <Box sx={{ 
-                    p: 1.5, 
-                    borderRadius: 2, 
-                    background: 'linear-gradient(135deg, #e0f2f1, #b2dfdb)',
+              <Box
+                sx={{
+                  background: 'linear-gradient(to right, #FFF9F3, #FFFFFF)',
+                  border: '1px solid #FBD38D',
+                  borderRadius: 3,
+                  p: 3,
+                  mt: 3,
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
+                  width: '100%',
+                  maxWidth: '100%',
+                  mx: 'auto',
+                }}
+              >
+                {/* Header */}
+                <Typography
+                  variant="h6"
+                  sx={{
+                    fontWeight: 700,
+                    color: '#2D3748',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center'
-                  }}>
-                    <Description sx={{ color: '#00695c', fontSize: 24 }} />
-                  </Box>
-                  <Typography variant="h6" sx={{ fontWeight: 600, color: '#00695c' }}>
-                    Additional Details 
-                  </Typography>
-                </Box>
-                
-                <Grid container spacing={3}>
-                  <Grid item xs={12} sm={6}>
+                    gap: 1,
+                    mb: 2.5,
+                    borderLeft: '4px solid #F97316',
+                    pl: 1.5,
+                    letterSpacing: '0.3px',
+                  }}
+                >
+                  <Description sx={{ fontSize: 22, color: '#F97316' }} />
+                  Additional Details
+                </Typography>
+
+                {/* Fields */}
+                <Grid container spacing={2.5}>
+                  <Grid item xs={12} sm={6} md={3}>
                     <TextField
                       label="Container No."
                       name="containerNo"
                       value={form.containerNo}
                       onChange={handleFormChange}
                       fullWidth
-                      placeholder="Container number"
+                      placeholder="Alphanumeric only"
                       sx={{
+                        minWidth: '270px',
                         '& .MuiInputBase-root': {
                           borderRadius: 2,
-                          backgroundColor: '#f8f9fa',
-                          '&:hover': { backgroundColor: '#e9ecef' },
-                          '&.Mui-focused': { backgroundColor: 'white' }
+                          backgroundColor: '#fff',
+                          '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#F97316' },
+                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#F97316' },
                         },
+                        '& .MuiInputLabel-root': { color: '#555', fontSize: '0.875rem' },
                       }}
                     />
                   </Grid>
-                  <Grid item xs={12} sm={6}>
+
+                  <Grid item xs={12} sm={6} md={3}>
                     <TextField
                       label="PO Number"
                       name="poNumber"
                       value={form.poNumber}
                       onChange={handleFormChange}
                       fullWidth
-                      placeholder="Purchase order number"
+                      placeholder="Alphanumeric only"
                       sx={{
+                        minWidth: '270px',
                         '& .MuiInputBase-root': {
                           borderRadius: 2,
-                          backgroundColor: '#f8f9fa',
-                          '&:hover': { backgroundColor: '#e9ecef' },
-                          '&.Mui-focused': { backgroundColor: 'white' }
+                          backgroundColor: '#fff',
+                          '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#F97316' },
+                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#F97316' },
                         },
+                        '& .MuiInputLabel-root': { color: '#555', fontSize: '0.875rem' },
                       }}
                     />
                   </Grid>
-                  <Grid item xs={12} sm={6}>
+
+                  <Grid item xs={12} sm={6} md={3}>
                     <TextField
                       label="BOL Number"
                       name="bolNumber"
                       value={form.bolNumber}
                       onChange={handleFormChange}
                       fullWidth
-                      placeholder="Bill of lading number"
+                      placeholder="Alphanumeric only"
                       sx={{
+                        minWidth: '270px',
                         '& .MuiInputBase-root': {
                           borderRadius: 2,
-                          backgroundColor: '#f8f9fa',
-                          '&:hover': { backgroundColor: '#e9ecef' },
-                          '&.Mui-focused': { backgroundColor: 'white' }
+                          backgroundColor: '#fff',
+                          '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#F97316' },
+                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#F97316' },
                         },
+                        '& .MuiInputLabel-root': { color: '#555', fontSize: '0.875rem' },
                       }}
                     />
                   </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <FormControl fullWidth>
-                      <InputLabel>Rate Type</InputLabel>
-                      <Select
-                        name="rateType"
-                        value={form.rateType}
-                        onChange={handleFormChange}
-                        label="Rate Type"
-                        sx={{
+
+                  <Grid item xs={12} sm={6} md={3}>
+                    <TextField
+                      label="Reference ID"
+                      name="referenceId"
+                      value={form.referenceId || ''}
+                      onChange={handleFormChange}
+                      fullWidth
+                      placeholder="Optional reference"
+                      sx={{
+                        minWidth: '270px',
+                        '& .MuiInputBase-root': {
                           borderRadius: 2,
-                          backgroundColor: '#f8f9fa',
-                          '&:hover': { backgroundColor: '#e9ecef' },
-                          '&.Mui-focused': { backgroundColor: 'white' }
-                        }}
-                      >
-                        <MenuItem value="Flat Rate">Flat Rate</MenuItem>
-                        <MenuItem value="Per Mile">Per Mile</MenuItem>
-                      </Select>
-                    </FormControl>
+                          backgroundColor: '#fff',
+                          '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#F97316' },
+                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#F97316' },
+                        },
+                        '& .MuiInputLabel-root': { color: '#555', fontSize: '0.875rem' },
+                      }}
+                    />
                   </Grid>
                 </Grid>
-              </Paper>
+              </Box>
 
-              
 
-            {/* Smart Rate Suggestion Button */}
-              <Box sx={{ 
-                display: 'flex', 
-                justifyContent: 'center', 
+
+
+              {/* Smart Rate Suggestion Button */}
+              <Box sx={{
+                display: 'flex',
+                justifyContent: 'center',
                 mt: 3,
                 p: 2,
                 background: 'white',
                 borderRadius: 3,
                 boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
               }}>
-              <Button
-                variant="outlined"
-                onClick={handleSmartRateSuggestion}
-                disabled={!form.fromCity || !form.toCity}
-                sx={{
-                  borderRadius: 3,
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  px: 4,
-                  py: 1.5,
-                  fontSize: '1rem',
-                  borderColor: '#1976d2',
-                  color: '#1976d2',
-                  background: 'linear-gradient(135deg, #f8f9fa 0%, #e3f2fd 100%)',
-                  border: '2px solid #1976d2',
-                  '&:hover': {
-                    borderColor: '#0d47a1',
-                    color: '#0d47a1',
-                    backgroundColor: 'rgba(25, 118, 210, 0.04)',
-                    transform: 'translateY(-2px)',
-                    boxShadow: '0 4px 12px rgba(25, 118, 210, 0.2)'
-                  },
-                  '&:disabled': {
-                    borderColor: '#e0e0e0',
-                    color: '#9e9e9e',
-                    backgroundColor: '#f5f5f5'
-                  },
-                  transition: 'all 0.3s ease'
-                }}
-              >
-                💡 Smart Rate Suggestion
-              </Button>
+                <Button
+                  variant="outlined"
+                  onClick={handleSmartRateSuggestion}
+                  disabled={!form.fromCity || !form.toCity}
+                  sx={{
+                    borderRadius: 3,
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    px: 4,
+                    py: 1.5,
+                    fontSize: '1rem',
+                    borderColor: '#1976d2',
+                    color: '#1976d2',
+                    background: 'linear-gradient(135deg, #f8f9fa 0%, #e3f2fd 100%)',
+                    border: '2px solid #1976d2',
+                    '&:hover': {
+                      borderColor: '#0d47a1',
+                      color: '#0d47a1',
+                      backgroundColor: 'rgba(25, 118, 210, 0.04)',
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 4px 12px rgba(25, 118, 210, 0.2)'
+                    },
+                    '&:disabled': {
+                      borderColor: '#e0e0e0',
+                      color: '#9e9e9e',
+                      backgroundColor: '#f5f5f5'
+                    },
+                    transition: 'all 0.3s ease'
+                  }}
+                >
+                  💡 Smart Rate Suggestion
+                </Button>
               </Box>
             </Box>
 
             {/* Rate Suggestions */}
             {rateSuggestionsLoading && (
-              <Box sx={{ 
-                textAlign: 'center', 
-                mt: 3, 
-                p: 3, 
-                backgroundColor: '#f8f9fa', 
+              <Box sx={{
+                textAlign: 'center',
+                mt: 3,
+                p: 3,
+                backgroundColor: '#f8f9fa',
                 borderRadius: 3,
                 border: '2px dashed #e0e0e0'
               }}>
-                <Box sx={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
+                <Box sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                   gap: 2,
                   mb: 1
                 }}>
@@ -3072,62 +4239,70 @@ Drayage Details
               </Box>
             )}
 
-            
+
 
           </Box>
         </DialogContent>
-        
-        <DialogActions sx={{ 
-          p: 3, 
-          background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
-          borderTop: '2px solid #e0e0e0'
-        }}>
-              <Button
-                onClick={handleCloseModal}
-            variant="outlined" 
-                sx={{
-              borderRadius: 2, 
-              fontWeight: 600, 
-              color: '#1976d2', 
-              borderColor: '#1976d2',
-              px: 3,
-              py: 1.5,
-                  textTransform: 'none',
-              '&:hover': {
-                borderColor: '#0d47a1',
-                backgroundColor: 'rgba(25, 118, 210, 0.04)'
-              }
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-            onClick={handleSubmit} 
-                variant="contained"
-                sx={{
-              borderRadius: 2, 
-              fontWeight: 600, 
-              background: 'linear-gradient(45deg, #1976d2, #42a5f5)',
-                  px: 4,
-              py: 1.5,
+
+        <DialogActions
+          sx={{
+            p: 3,
+            backgroundColor: '#f9fafb',
+            borderTop: '1px solid #e5e7eb',
+            justifyContent: 'flex-end',
+            gap: 2,
+          }}
+        >
+          <Button
+            onClick={handleCloseModal}
+            variant="outlined"
+            sx={{
+              borderRadius: 2,
               textTransform: 'none',
-              '&:hover': { 
-                background: 'linear-gradient(45deg, #1565c0, #1976d2)',
-                transform: 'translateY(-1px)',
-                boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)'
-              }
+              color: '#4A90E2',
+              borderColor: '#4A90E2',
+              px: 4,
+              py: 1,
+              fontWeight: 500,
+              fontSize: '0.95rem',
+              '&:hover': {
+                backgroundColor: '#f0f7ff',
+                borderColor: '#357ABD',
+                color: '#357ABD',
+              },
+            }}
+          >
+            Cancel
+          </Button>
+
+          <Button
+            onClick={handleSubmit}
+            variant="contained"
+            sx={{
+              borderRadius: 2,
+              textTransform: 'none',
+              backgroundColor: '#2F5AA8', // darker blue
+              px: 4,
+              py: 1,
+              fontWeight: 600,
+              fontSize: '0.95rem',
+              '&:hover': {
+                backgroundColor: '#244A8F', // slightly darker on hover
+              },
             }}
           >
             Create Load
-              </Button>
-            </DialogActions>
+          </Button>
+        </DialogActions>
+
+
       </Dialog>
 
       {/* Bids Modal */}
-      <Dialog 
-        open={bidsModalOpen} 
-        onClose={handleCloseBidsModal} 
-        maxWidth="lg" 
+      <Dialog
+        open={bidsModalOpen}
+        onClose={handleCloseBidsModal}
+        maxWidth="lg"
         fullWidth
         PaperProps={{
           sx: {
@@ -3139,11 +4314,11 @@ Drayage Details
           }
         }}
       >
-        <DialogTitle sx={{ 
+        <DialogTitle sx={{
           background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)',
           color: '#fff',
-          fontWeight: 700, 
-          fontSize: { xs: 18, sm: 24 }, 
+          fontWeight: 700,
+          fontSize: { xs: 18, sm: 24 },
           py: { xs: 2, sm: 3 },
           px: { xs: 2, sm: 4 },
           display: 'flex',
@@ -3163,19 +4338,19 @@ Drayage Details
           </Box>
           Bids for Load
         </DialogTitle>
-        <DialogContent sx={{ 
-          px: { xs: 2, sm: 4 }, 
-          py: { xs: 2, sm: 4 }, 
-          background: '#f8fafc', 
+        <DialogContent sx={{
+          px: { xs: 2, sm: 4 },
+          py: { xs: 2, sm: 4 },
+          background: '#f8fafc',
           minHeight: { xs: 300, sm: 400 },
           overflow: 'auto'
         }}>
           {bidsLoading ? (
-            <Box sx={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
+            <Box sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
               py: 8,
               gap: 2
             }}>
@@ -3196,9 +4371,9 @@ Drayage Details
               }}>
                 ⏳
               </Box>
-              <Typography sx={{ 
-                fontSize: 18, 
-                fontWeight: 600, 
+              <Typography sx={{
+                fontSize: 18,
+                fontWeight: 600,
                 color: '#1976d2',
                 mt: 2
               }}>
@@ -3206,11 +4381,11 @@ Drayage Details
               </Typography>
             </Box>
           ) : bids.length === 0 ? (
-            <Box sx={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
+            <Box sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
               py: 8,
               gap: 2
             }}>
@@ -3226,16 +4401,16 @@ Drayage Details
               }}>
                 📭
               </Box>
-              <Typography sx={{ 
-                fontSize: 20, 
-                fontWeight: 600, 
+              <Typography sx={{
+                fontSize: 20,
+                fontWeight: 600,
                 color: '#666',
                 textAlign: 'center'
               }}>
                 No bids found for this load
               </Typography>
-              <Typography sx={{ 
-                fontSize: 14, 
+              <Typography sx={{
+                fontSize: 14,
                 color: '#999',
                 textAlign: 'center',
                 maxWidth: 300
@@ -3306,9 +4481,9 @@ Drayage Details
                       <Avatar
                         src={bid.bidder?.avatar || ''}
                         alt="Driver"
-                        sx={{ 
-                          width: 70, 
-                          height: 70, 
+                        sx={{
+                          width: 70,
+                          height: 70,
                           mb: 2,
                           bgcolor: 'linear-gradient(135deg, #e3f2fd, #bbdefb)',
                           color: '#1976d2',
@@ -3324,17 +4499,17 @@ Drayage Details
                           <PersonIcon sx={{ fontSize: 32, color: '#1976d2' }} />
                         }
                       </Avatar>
-                      <Typography sx={{ 
-                        fontWeight: 700, 
-                        fontSize: 20, 
+                      <Typography sx={{
+                        fontWeight: 700,
+                        fontSize: 20,
                         color: '#1976d2',
                         mb: 0.5,
                         textShadow: '0 1px 2px rgba(0,0,0,0.1)'
                       }}>
                         {bid.driver?.name || bid.driverName || 'Driver Name'}
                       </Typography>
-                      <Typography sx={{ 
-                        fontSize: 12, 
+                      <Typography sx={{
+                        fontSize: 12,
                         color: '#666',
                         fontWeight: 500
                       }}>
@@ -3343,8 +4518,8 @@ Drayage Details
                     </Box>
 
                     {/* Information Cards Grid */}
-                    <Box sx={{ 
-                      display: 'grid', 
+                    <Box sx={{
+                      display: 'grid',
                       gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
                       gap: { xs: 1.5, sm: 2 },
                       mb: { xs: 2, sm: 3 },
@@ -3363,9 +4538,9 @@ Drayage Details
                           boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
                         }
                       }}>
-                        <Typography sx={{ 
-                          fontWeight: 600, 
-                          fontSize: 11, 
+                        <Typography sx={{
+                          fontWeight: 600,
+                          fontSize: 11,
                           color: '#666',
                           mb: 1,
                           textTransform: 'uppercase',
@@ -3373,9 +4548,9 @@ Drayage Details
                         }}>
                           🚛 Vehicle
                         </Typography>
-                        <Typography sx={{ 
-                          fontWeight: 700, 
-                          fontSize: 14, 
+                        <Typography sx={{
+                          fontWeight: 700,
+                          fontSize: 14,
                           color: '#333'
                         }}>
                           {bid.vehicle?.number || bid.vehicleNumber || 'N/A'}
@@ -3395,9 +4570,9 @@ Drayage Details
                           boxShadow: '0 4px 12px rgba(76, 175, 80, 0.2)'
                         }
                       }}>
-                        <Typography sx={{ 
-                          fontWeight: 600, 
-                          fontSize: 11, 
+                        <Typography sx={{
+                          fontWeight: 600,
+                          fontSize: 11,
                           color: '#2e7d32',
                           mb: 1,
                           textTransform: 'uppercase',
@@ -3405,9 +4580,9 @@ Drayage Details
                         }}>
                           💰 Bid Amount
                         </Typography>
-                        <Typography sx={{ 
-                          fontWeight: 700, 
-                          fontSize: 16, 
+                        <Typography sx={{
+                          fontWeight: 700,
+                          fontSize: 16,
                           color: '#1b5e20'
                         }}>
                           ${bid.intermediateRate?.toLocaleString() || '-'}
@@ -3427,9 +4602,9 @@ Drayage Details
                           boxShadow: '0 4px 12px rgba(255, 152, 0, 0.2)'
                         }
                       }}>
-                        <Typography sx={{ 
-                          fontWeight: 600, 
-                          fontSize: 11, 
+                        <Typography sx={{
+                          fontWeight: 600,
+                          fontSize: 11,
                           color: '#e65100',
                           mb: 1,
                           textTransform: 'uppercase',
@@ -3437,12 +4612,12 @@ Drayage Details
                         }}>
                           📅 Pickup
                         </Typography>
-                        <Typography sx={{ 
-                          fontWeight: 600, 
-                          fontSize: 12, 
+                        <Typography sx={{
+                          fontWeight: 600,
+                          fontSize: 12,
                           color: '#bf360c'
                         }}>
-                          {bid.estimatedPickupDate ? 
+                          {bid.estimatedPickupDate ?
                             new Date(bid.estimatedPickupDate).toLocaleDateString('en-US', {
                               month: 'short',
                               day: 'numeric',
@@ -3465,9 +4640,9 @@ Drayage Details
                           boxShadow: '0 4px 12px rgba(33, 150, 243, 0.2)'
                         }
                       }}>
-                        <Typography sx={{ 
-                          fontWeight: 600, 
-                          fontSize: 11, 
+                        <Typography sx={{
+                          fontWeight: 600,
+                          fontSize: 11,
                           color: '#1565c0',
                           mb: 1,
                           textTransform: 'uppercase',
@@ -3475,12 +4650,12 @@ Drayage Details
                         }}>
                           🎯 Delivery
                         </Typography>
-                        <Typography sx={{ 
-                          fontWeight: 600, 
-                          fontSize: 12, 
+                        <Typography sx={{
+                          fontWeight: 600,
+                          fontSize: 12,
                           color: '#0d47a1'
                         }}>
-                          {bid.estimatedDeliveryDate ? 
+                          {bid.estimatedDeliveryDate ?
                             new Date(bid.estimatedDeliveryDate).toLocaleDateString('en-US', {
                               month: 'short',
                               day: 'numeric',
@@ -3491,161 +4666,125 @@ Drayage Details
                       </Box>
                     </Box>
 
-                    {/* Message Section */}
-                    <Box sx={{
-                      background: 'linear-gradient(135deg, #f8f9fa, #e9ecef)',
-                      borderRadius: 3,
-                      p: 2.5,
-                      border: '1px solid #dee2e6',
-                      width: '100%',
-                      mb: 2
-                    }}>
-                      <Typography sx={{ 
-                        fontWeight: 700, 
-                        color: '#1976d2', 
-                        fontSize: 13,
-                        mb: 1.5,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1
-                      }}>
-                        💬 Driver Message
-                      </Typography>
-                      <Typography sx={{ 
-                        fontWeight: 500, 
-                        fontSize: 14, 
-                        color: '#333',
-                        fontStyle: 'italic',
-                        textAlign: 'center',
-                        lineHeight: 1.5,
-                        background: '#fff',
+                    {/* Negotiation Details - Show if bid is in negotiation */}
+                    {bid.status === 'Negotiating' && bid.negotiationDetails && (
+                      <Box sx={{
+                        background: '#fff3e0',
                         borderRadius: 2,
                         p: 2,
-                        border: '1px solid #e0e0e0'
+                        border: '2px solid #ff9800',
+                        mt: 2
                       }}>
-                        "{bid.message || 'No message provided'}"
-                      </Typography>
-                    </Box>
+                        <Typography sx={{
+                          fontWeight: 700,
+                          fontSize: 14,
+                          color: '#ff9800',
+                          mb: 1,
+                          textAlign: 'center'
+                        }}>
+                          🤝 Negotiation in Progress
+                        </Typography>
 
-                     {/* Negotiation Details - Show if bid is in negotiation */}
-                     {bid.status === 'Negotiating' && bid.negotiationDetails && (
-                       <Box sx={{
-                         background: '#fff3e0',
-                         borderRadius: 2,
-                         p: 2,
-                         border: '2px solid #ff9800',
-                         mt: 2
-                       }}>
-                         <Typography sx={{ 
-                           fontWeight: 700, 
-                           fontSize: 14, 
-                           color: '#ff9800',
-                           mb: 1,
-                           textAlign: 'center'
-                         }}>
-                           🤝 Negotiation in Progress
-                         </Typography>
-                         
-                         {bid.negotiationDetails.shipperCounterRate && (
-                           <Box sx={{ mb: 1 }}>
-                             <Typography sx={{ 
-                               fontWeight: 600, 
-                               fontSize: 12, 
-                               color: '#333',
-                               mb: 0.5
-                             }}>
-                               Your Counter Offer:
-                             </Typography>
-                             <Typography sx={{ 
-                               fontWeight: 700, 
-                               fontSize: 16, 
-                               color: '#ff9800'
-                             }}>
-                               ${bid.negotiationDetails.shipperCounterRate.toLocaleString()}
-                             </Typography>
-                           </Box>
-                         )}
+                        {bid.negotiationDetails.shipperCounterRate && (
+                          <Box sx={{ mb: 1 }}>
+                            <Typography sx={{
+                              fontWeight: 600,
+                              fontSize: 12,
+                              color: '#333',
+                              mb: 0.5
+                            }}>
+                              Your Counter Offer:
+                            </Typography>
+                            <Typography sx={{
+                              fontWeight: 700,
+                              fontSize: 16,
+                              color: '#ff9800'
+                            }}>
+                              ${bid.negotiationDetails.shipperCounterRate.toLocaleString()}
+                            </Typography>
+                          </Box>
+                        )}
 
-                         {bid.negotiationDetails.shipperNegotiationMessage && (
-                           <Box sx={{ mb: 1 }}>
-                             <Typography sx={{ 
-                               fontWeight: 600, 
-                               fontSize: 12, 
-                               color: '#333',
-                               mb: 0.5
-                             }}>
-                               Your Message:
-                             </Typography>
-                             <Typography sx={{ 
-                               fontWeight: 500, 
-                               fontSize: 13, 
-                               color: '#333',
-                               fontStyle: 'italic'
-                             }}>
-                               "{bid.negotiationDetails.shipperNegotiationMessage}"
-                             </Typography>
-                           </Box>
-                         )}
+                        {bid.negotiationDetails.shipperNegotiationMessage && (
+                          <Box sx={{ mb: 1 }}>
+                            <Typography sx={{
+                              fontWeight: 600,
+                              fontSize: 12,
+                              color: '#333',
+                              mb: 0.5
+                            }}>
+                              Your Message:
+                            </Typography>
+                            <Typography sx={{
+                              fontWeight: 500,
+                              fontSize: 13,
+                              color: '#333',
+                              fontStyle: 'italic'
+                            }}>
+                              "{bid.negotiationDetails.shipperNegotiationMessage}"
+                            </Typography>
+                          </Box>
+                        )}
 
-                         {bid.negotiationDetails.truckerResponse && bid.negotiationDetails.truckerResponse !== 'Pending' && (
-                           <Box sx={{ mb: 1 }}>
-                             <Typography sx={{ 
-                               fontWeight: 600, 
-                               fontSize: 12, 
-                               color: '#333',
-                               mb: 0.5
-                             }}>
-                               Trucker Response:
-                             </Typography>
-                             <Typography sx={{ 
-                               fontWeight: 600, 
-                               fontSize: 13, 
-                               color: bid.negotiationDetails.truckerResponse === 'Accepted' ? '#4caf50' : 
-                                      bid.negotiationDetails.truckerResponse === 'Rejected' ? '#f44336' : '#ff9800'
-                             }}>
-                               {bid.negotiationDetails.truckerResponse}
-                             </Typography>
-                             {bid.negotiationDetails.truckerNegotiationMessage && (
-                               <Typography sx={{ 
-                                 fontWeight: 500, 
-                                 fontSize: 12, 
-                                 color: '#333',
-                                 fontStyle: 'italic',
-                                 mt: 0.5
-                               }}>
-                                 "{bid.negotiationDetails.truckerNegotiationMessage}"
-                               </Typography>
-                             )}
-                           </Box>
-                         )}
+                        {bid.negotiationDetails.truckerResponse && bid.negotiationDetails.truckerResponse !== 'Pending' && (
+                          <Box sx={{ mb: 1 }}>
+                            <Typography sx={{
+                              fontWeight: 600,
+                              fontSize: 12,
+                              color: '#333',
+                              mb: 0.5
+                            }}>
+                              Trucker Response:
+                            </Typography>
+                            <Typography sx={{
+                              fontWeight: 600,
+                              fontSize: 13,
+                              color: bid.negotiationDetails.truckerResponse === 'Accepted' ? '#4caf50' :
+                                bid.negotiationDetails.truckerResponse === 'Rejected' ? '#f44336' : '#ff9800'
+                            }}>
+                              {bid.negotiationDetails.truckerResponse}
+                            </Typography>
+                            {bid.negotiationDetails.truckerNegotiationMessage && (
+                              <Typography sx={{
+                                fontWeight: 500,
+                                fontSize: 12,
+                                color: '#333',
+                                fontStyle: 'italic',
+                                mt: 0.5
+                              }}>
+                                "{bid.negotiationDetails.truckerNegotiationMessage}"
+                              </Typography>
+                            )}
+                          </Box>
+                        )}
 
-                         {bid.negotiationDetails.truckerCounterRate && (
-                           <Box>
-                             <Typography sx={{ 
-                               fontWeight: 600, 
-                               fontSize: 12, 
-                               color: '#333',
-                               mb: 0.5
-                             }}>
-                               Trucker Counter Offer:
-                             </Typography>
-                             <Typography sx={{ 
-                               fontWeight: 700, 
-                               fontSize: 16, 
-                               color: '#ff9800'
-                             }}>
-                               ${bid.negotiationDetails.truckerCounterRate.toLocaleString()}
-                             </Typography>
-                           </Box>
-                         )}
-                       </Box>
-                     )}
+                        {bid.negotiationDetails.truckerCounterRate && (
+                          <Box>
+                            <Typography sx={{
+                              fontWeight: 600,
+                              fontSize: 12,
+                              color: '#333',
+                              mb: 0.5
+                            }}>
+                              Trucker Counter Offer:
+                            </Typography>
+                            <Typography sx={{
+                              fontWeight: 700,
+                              fontSize: 16,
+                              color: '#ff9800'
+                            }}>
+                              ${bid.negotiationDetails.truckerCounterRate.toLocaleString()}
+                            </Typography>
+                          </Box>
+                        )}
+                      </Box>
+                    )}
 
                     {/* Action Buttons */}
-                    <Box sx={{ 
-                      display: 'flex', 
-                      gap: { xs: 1, sm: 1.5 }, 
-                      width: '100%', 
+                    <Box sx={{
+                      display: 'flex',
+                      gap: { xs: 1, sm: 1.5 },
+                      width: '100%',
                       justifyContent: 'center',
                       mt: 'auto',
                       flexDirection: { xs: 'column', sm: 'row' }
@@ -3653,12 +4792,12 @@ Drayage Details
                       <Button
                         variant="contained"
                         size="small"
-                        sx={{ 
-                          borderRadius: 3, 
-                          fontWeight: 700, 
-                          px: 3, 
+                        sx={{
+                          borderRadius: 3,
+                          fontWeight: 700,
+                          px: 3,
                           py: 1,
-                          textTransform: 'none', 
+                          textTransform: 'none',
                           fontSize: 13,
                           background: 'linear-gradient(135deg, #4caf50, #388e3c)',
                           boxShadow: '0 4px 12px rgba(76, 175, 80, 0.3)',
@@ -3676,12 +4815,12 @@ Drayage Details
                       <Button
                         variant="contained"
                         size="small"
-                        sx={{ 
-                          borderRadius: 3, 
-                          fontWeight: 700, 
-                          px: 3, 
+                        sx={{
+                          borderRadius: 3,
+                          fontWeight: 700,
+                          px: 3,
                           py: 1,
-                          textTransform: 'none', 
+                          textTransform: 'none',
                           fontSize: 13,
                           background: 'linear-gradient(135deg, #ff9800, #f57c00)',
                           boxShadow: '0 4px 12px rgba(255, 152, 0, 0.3)',
@@ -3692,19 +4831,19 @@ Drayage Details
                           },
                           transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
                         }}
-                        onClick={() => handleStartNegotiation(bid)}
+                        onClick={() => handleViewNegotiationHistory(bid)}
                       >
                         🤝 Negotiate
                       </Button>
                       <Button
                         variant="contained"
                         size="small"
-                        sx={{ 
-                          borderRadius: 3, 
-                          fontWeight: 700, 
-                          px: 3, 
+                        sx={{
+                          borderRadius: 3,
+                          fontWeight: 700,
+                          px: 3,
                           py: 1,
-                          textTransform: 'none', 
+                          textTransform: 'none',
                           fontSize: 13,
                           background: 'linear-gradient(135deg, #f44336, #d32f2f)',
                           boxShadow: '0 4px 12px rgba(244, 67, 54, 0.3)',
@@ -3720,24 +4859,24 @@ Drayage Details
                         ❌ Reject
                       </Button>
                     </Box>
-                   </Box>
-                 </Grid>
-               ))}
-             </Grid>
+                  </Box>
+                </Grid>
+              ))}
+            </Grid>
           )}
         </DialogContent>
-        <DialogActions sx={{ 
-          p: { xs: 2, sm: 3 }, 
+        <DialogActions sx={{
+          p: { xs: 2, sm: 3 },
           background: 'linear-gradient(135deg, #f8fafc, #e2e8f0)',
           borderTop: '1px solid #e2e8f0',
           justifyContent: 'center'
         }}>
-          <Button 
-            onClick={handleCloseBidsModal} 
+          <Button
+            onClick={handleCloseBidsModal}
             variant="contained"
-            sx={{ 
-              borderRadius: 3, 
-              fontWeight: 700, 
+            sx={{
+              borderRadius: 3,
+              fontWeight: 700,
               px: { xs: 3, sm: 4 },
               py: { xs: 1, sm: 1.5 },
               fontSize: { xs: 13, sm: 14 },
@@ -3756,472 +4895,740 @@ Drayage Details
         </DialogActions>
       </Dialog>
 
-                                                                                   {/* Bid Details Modal */}
-          <Dialog open={bidDetailsModalOpen} onClose={handleCloseBidDetailsModal} maxWidth={false} fullWidth PaperProps={{
-            sx: {
-              borderRadius: 3,
-              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
-              background: '#fff',
-              maxHeight: '45vh',
-              width: '700px',
-              maxWidth: '90vw'
-            }
-          }}>
-          <DialogTitle sx={{
-            fontWeight: 700,
-            color: '#1976d2',
-            fontSize: 20,
-            background: '#f8fafc',
-            borderBottom: '2px solid #e3f2fd',
-            py: 2,
-            textAlign: 'center'
-          }}>
-            🚛 Bid Details
-            {selectedBid && (
-              <Chip 
-                label={selectedBid.status} 
-                color={
-                  selectedBid.status === 'Pending' ? 'default' :
+      {/* Bid Details Modal */}
+      <Dialog open={bidDetailsModalOpen} onClose={handleCloseBidDetailsModal} maxWidth={false} fullWidth PaperProps={{
+        sx: {
+          borderRadius: 3,
+          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
+          background: '#fff',
+          maxHeight: '45vh',
+          width: '700px',
+          maxWidth: '90vw'
+        }
+      }}>
+        <DialogTitle sx={{
+          fontWeight: 700,
+          color: '#1976d2',
+          fontSize: 20,
+          background: '#f8fafc',
+          borderBottom: '2px solid #e3f2fd',
+          py: 2,
+          textAlign: 'center'
+        }}>
+          🚛 Bid Details
+          {selectedBid && (
+            <Chip
+              label={selectedBid.status}
+              color={
+                selectedBid.status === 'Pending' ? 'default' :
                   selectedBid.status === 'Negotiating' ? 'warning' :
-                  selectedBid.status === 'Accepted' ? 'success' :
-                  selectedBid.status === 'Rejected' ? 'error' : 'default'
-                } 
-                size="small" 
-                sx={{ ml: 2, fontWeight: 600 }}
-              />
-            )}
-          </DialogTitle>
-                                           <DialogContent sx={{ px: 3, py: 2 }}>
-              {selectedBid && (
-                <Box sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 2
+                    selectedBid.status === 'Accepted' ? 'success' :
+                      selectedBid.status === 'Rejected' ? 'error' : 'default'
+              }
+              size="small"
+              sx={{ ml: 2, fontWeight: 600 }}
+            />
+          )}
+        </DialogTitle>
+        <DialogContent sx={{ px: 3, py: 2 }}>
+          {selectedBid && (
+            <Box sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2
+            }}>
+              {/* Driver Name - Centered */}
+              <Box sx={{ textAlign: 'center', mb: 2, mt: 1 }}>
+                <Avatar
+                  src={selectedBid.bidder?.avatar || ''}
+                  alt="Driver"
+                  sx={{
+                    width: 60,
+                    height: 60,
+                    mb: 1,
+                    bgcolor: '#e3f2fd',
+                    color: '#1976d2',
+                    border: '2px solid #1976d2',
+                    fontSize: 24,
+                    fontWeight: 600,
+                    mx: 'auto'
+                  }}
+                >
+                  {selectedBid.driver?.name ?
+                    (selectedBid.driver.name.split(' ').map(w => w[0]).join('').toUpperCase()) :
+                    <PersonIcon sx={{ fontSize: 28, color: '#1976d2' }} />
+                  }
+                </Avatar>
+                <Typography sx={{
+                  fontWeight: 700,
+                  fontSize: 18,
+                  color: '#1976d2',
+                  mb: 0.5
                 }}>
-                  {/* Driver Name - Centered */}
-                  <Box sx={{ textAlign: 'center', mb: 2, mt: 1 }}>
-                   <Avatar
-                     src={selectedBid.bidder?.avatar || ''}
-                     alt="Driver"
-                     sx={{ 
-                       width: 60, 
-                       height: 60, 
-                       mb: 1,
-                       bgcolor: '#e3f2fd',
-                       color: '#1976d2',
-                       border: '2px solid #1976d2',
-                       fontSize: 24,
-                       fontWeight: 600,
-                       mx: 'auto'
-                     }}
-                   >
-                     {selectedBid.driver?.name ?
-                       (selectedBid.driver.name.split(' ').map(w => w[0]).join('').toUpperCase()) :
-                       <PersonIcon sx={{ fontSize: 28, color: '#1976d2' }} />
-                     }
-                   </Avatar>
-                   <Typography sx={{ 
-                     fontWeight: 700, 
-                     fontSize: 18, 
-                     color: '#1976d2',
-                     mb: 0.5
-                   }}>
-                     {selectedBid.driver?.name || selectedBid.driverName || 'Driver Name'}
-                   </Typography>
-                 </Box>
+                  {selectedBid.driver?.name || selectedBid.driverName || 'Driver Name'}
+                </Typography>
+              </Box>
 
-                 {/* Row 1: Vehicle No, Bid Amount, Pickup ETA, Drop ETA */}
-                 <Box sx={{ 
-                   display: 'grid', 
-                   gridTemplateColumns: '1fr 1fr 1fr 1fr',
-                   gap: 2,
-                   mb: 2
-                 }}>
-                   <Box sx={{
-                     background: '#f8f9fa',
-                     borderRadius: 2,
-                     p: 1.5,
-                     border: '1px solid #e9ecef',
-                     textAlign: 'center'
-                   }}>
-                     <Typography sx={{ 
-                       fontWeight: 600, 
-                       color: '#1976d2', 
-                       fontSize: 12,
-                       mb: 0.5
-                     }}>
-                       Vehicle No
-                     </Typography>
-                     <Typography sx={{ 
-                       fontWeight: 600, 
-                       fontSize: 14, 
-                       color: '#333'
-                     }}>
-                       🚛 {selectedBid.vehicle?.number || selectedBid.vehicleNumber || 'N/A'}
-                     </Typography>
-                   </Box>
+              {/* Row 1: Vehicle No, Bid Amount, Pickup ETA, Drop ETA */}
+              <Box sx={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr 1fr 1fr',
+                gap: 2,
+                mb: 2
+              }}>
+                <Box sx={{
+                  background: '#f8f9fa',
+                  borderRadius: 2,
+                  p: 1.5,
+                  border: '1px solid #e9ecef',
+                  textAlign: 'center'
+                }}>
+                  <Typography sx={{
+                    fontWeight: 600,
+                    color: '#1976d2',
+                    fontSize: 12,
+                    mb: 0.5
+                  }}>
+                    Vehicle No
+                  </Typography>
+                  <Typography sx={{
+                    fontWeight: 600,
+                    fontSize: 14,
+                    color: '#333'
+                  }}>
+                    🚛 {selectedBid.vehicle?.number || selectedBid.vehicleNumber || 'N/A'}
+                  </Typography>
+                </Box>
 
-                   <Box sx={{
-                     background: '#f8f9fa',
-                     borderRadius: 2,
-                     p: 1.5,
-                     border: '1px solid #e9ecef',
-                     textAlign: 'center'
-                   }}>
-                     <Typography sx={{ 
-                       fontWeight: 600, 
-                       color: '#1976d2', 
-                       fontSize: 12,
-                       mb: 0.5
-                     }}>
-                       Bid Amount
-                     </Typography>
-                     <Typography sx={{ 
-                       fontWeight: 700, 
-                       fontSize: 16, 
-                       color: '#4caf50'
-                     }}>
-                       ${selectedBid.intermediateRate?.toLocaleString() || '-'}
-                     </Typography>
-                   </Box>
+                <Box sx={{
+                  background: '#f8f9fa',
+                  borderRadius: 2,
+                  p: 1.5,
+                  border: '1px solid #e9ecef',
+                  textAlign: 'center'
+                }}>
+                  <Typography sx={{
+                    fontWeight: 600,
+                    color: '#1976d2',
+                    fontSize: 12,
+                    mb: 0.5
+                  }}>
+                    Bid Amount
+                  </Typography>
+                  <Typography sx={{
+                    fontWeight: 700,
+                    fontSize: 16,
+                    color: '#4caf50'
+                  }}>
+                    ${selectedBid.intermediateRate?.toLocaleString() || '-'}
+                  </Typography>
+                </Box>
 
-                   <Box sx={{
-                     background: '#fff3e0',
-                     borderRadius: 2,
-                     p: 1.5,
-                     border: '1px solid #ffcc02',
-                     textAlign: 'center'
-                   }}>
-                     <Typography sx={{ 
-                       fontWeight: 600, 
-                       color: '#f57c00', 
-                       fontSize: 12,
-                       mb: 0.5
-                     }}>
-                       Pickup ETA
-                     </Typography>
-                     <Typography sx={{ 
-                       fontWeight: 600, 
-                       fontSize: 13, 
-                       color: '#333'
-                     }}>
-                       {selectedBid.estimatedPickupDate ? 
-                         new Date(selectedBid.estimatedPickupDate).toLocaleDateString('en-US', {
-                           month: 'short',
-                           day: 'numeric',
-                           hour: '2-digit',
-                           minute: '2-digit'
-                         }) : 'Not specified'}
-                     </Typography>
-                   </Box>
+                <Box sx={{
+                  background: '#fff3e0',
+                  borderRadius: 2,
+                  p: 1.5,
+                  border: '1px solid #ffcc02',
+                  textAlign: 'center'
+                }}>
+                  <Typography sx={{
+                    fontWeight: 600,
+                    color: '#f57c00',
+                    fontSize: 12,
+                    mb: 0.5
+                  }}>
+                    Pickup ETA
+                  </Typography>
+                  <Typography sx={{
+                    fontWeight: 600,
+                    fontSize: 13,
+                    color: '#333'
+                  }}>
+                    {selectedBid.estimatedPickupDate ?
+                      new Date(selectedBid.estimatedPickupDate).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      }) : 'Not specified'}
+                  </Typography>
+                </Box>
 
-                   <Box sx={{
-                     background: '#e8f5e8',
-                     borderRadius: 2,
-                     p: 1.5,
-                     border: '1px solid #4caf50',
-                     textAlign: 'center'
-                   }}>
-                     <Typography sx={{ 
-                       fontWeight: 600, 
-                       color: '#2e7d32', 
-                       fontSize: 12,
-                       mb: 0.5
-                     }}>
-                       Drop ETA
-                     </Typography>
-                     <Typography sx={{ 
-                       fontWeight: 600, 
-                       fontSize: 13, 
-                       color: '#333'
-                     }}>
-                       {selectedBid.estimatedDeliveryDate ? 
-                         new Date(selectedBid.estimatedDeliveryDate).toLocaleDateString('en-US', {
-                           month: 'short',
-                           day: 'numeric',
-                           hour: '2-digit',
-                           minute: '2-digit'
-                         }) : 'Not specified'}
-                     </Typography>
-                   </Box>
-                 </Box>
+                <Box sx={{
+                  background: '#e8f5e8',
+                  borderRadius: 2,
+                  p: 1.5,
+                  border: '1px solid #4caf50',
+                  textAlign: 'center'
+                }}>
+                  <Typography sx={{
+                    fontWeight: 600,
+                    color: '#2e7d32',
+                    fontSize: 12,
+                    mb: 0.5
+                  }}>
+                    Drop ETA
+                  </Typography>
+                  <Typography sx={{
+                    fontWeight: 600,
+                    fontSize: 13,
+                    color: '#333'
+                  }}>
+                    {selectedBid.estimatedDeliveryDate ?
+                      new Date(selectedBid.estimatedDeliveryDate).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      }) : 'Not specified'}
+                  </Typography>
+                </Box>
+              </Box>
 
-                 {/* Row 2: Message - Full Width */}
-                 <Box sx={{
-                   background: '#f8f9fa',
-                   borderRadius: 2,
-                   p: 2,
-                   border: '1px solid #e9ecef'
-                 }}>
-                   <Typography sx={{ 
-                     fontWeight: 600, 
-                     color: '#1976d2', 
-                     fontSize: 13,
-                     mb: 1
-                   }}>
-                     Message
-                   </Typography>
-                   <Typography sx={{ 
-                     fontWeight: 500, 
-                     fontSize: 14, 
-                     color: '#333',
-                     fontStyle: 'italic',
-                     textAlign: 'center'
-                   }}>
-                     "{selectedBid.message || 'No message provided'}"
-                   </Typography>
-                 </Box>
+              {/* Negotiation Details - Show if bid is in negotiation */}
+              {selectedBid.status === 'Negotiating' && selectedBid.negotiationDetails && (
+                <Box sx={{
+                  background: '#fff3e0',
+                  borderRadius: 2,
+                  p: 2,
+                  border: '2px solid #ff9800',
+                  mt: 2
+                }}>
+                  <Typography sx={{
+                    fontWeight: 700,
+                    fontSize: 14,
+                    color: '#ff9800',
+                    mb: 1,
+                    textAlign: 'center'
+                  }}>
+                    🤝 Negotiation in Progress
+                  </Typography>
 
-                 {/* Negotiation Details - Show if bid is in negotiation */}
-                 {selectedBid.status === 'Negotiating' && selectedBid.negotiationDetails && (
-                   <Box sx={{
-                     background: '#fff3e0',
-                     borderRadius: 2,
-                     p: 2,
-                     border: '2px solid #ff9800',
-                     mt: 2
-                   }}>
-                     <Typography sx={{ 
-                       fontWeight: 700, 
-                       fontSize: 14, 
-                       color: '#ff9800',
-                       mb: 1,
-                       textAlign: 'center'
-                     }}>
-                       🤝 Negotiation in Progress
-                     </Typography>
-                     
-                     {selectedBid.negotiationDetails.shipperCounterRate && (
-                       <Box sx={{ mb: 1 }}>
-                         <Typography sx={{ 
-                           fontWeight: 600, 
-                           fontSize: 12, 
-                           color: '#333',
-                           mb: 0.5
-                         }}>
-                           Your Counter Offer:
-                         </Typography>
-                         <Typography sx={{ 
-                           fontWeight: 700, 
-                           fontSize: 16, 
-                           color: '#ff9800'
-                         }}>
-                           ${selectedBid.negotiationDetails.shipperCounterRate.toLocaleString()}
-                         </Typography>
-                       </Box>
-                     )}
+                  {selectedBid.negotiationDetails.shipperCounterRate && (
+                    <Box sx={{ mb: 1 }}>
+                      <Typography sx={{
+                        fontWeight: 600,
+                        fontSize: 12,
+                        color: '#333',
+                        mb: 0.5
+                      }}>
+                        Your Counter Offer:
+                      </Typography>
+                      <Typography sx={{
+                        fontWeight: 700,
+                        fontSize: 16,
+                        color: '#ff9800'
+                      }}>
+                        ${selectedBid.negotiationDetails.shipperCounterRate.toLocaleString()}
+                      </Typography>
+                    </Box>
+                  )}
 
-                     {selectedBid.negotiationDetails.shipperNegotiationMessage && (
-                       <Box sx={{ mb: 1 }}>
-                         <Typography sx={{ 
-                           fontWeight: 600, 
-                           fontSize: 12, 
-                           color: '#333',
-                           mb: 0.5
-                         }}>
-                           Your Message:
-                         </Typography>
-                         <Typography sx={{ 
-                           fontWeight: 500, 
-                           fontSize: 13, 
-                           color: '#333',
-                           fontStyle: 'italic'
-                         }}>
-                           "{selectedBid.negotiationDetails.shipperNegotiationMessage}"
-                         </Typography>
-                       </Box>
-                     )}
+                  {selectedBid.negotiationDetails.shipperNegotiationMessage && (
+                    <Box sx={{ mb: 1 }}>
+                      <Typography sx={{
+                        fontWeight: 600,
+                        fontSize: 12,
+                        color: '#333',
+                        mb: 0.5
+                      }}>
+                        Your Message:
+                      </Typography>
+                      <Typography sx={{
+                        fontWeight: 500,
+                        fontSize: 13,
+                        color: '#333',
+                        fontStyle: 'italic'
+                      }}>
+                        "{selectedBid.negotiationDetails.shipperNegotiationMessage}"
+                      </Typography>
+                    </Box>
+                  )}
 
-                     {selectedBid.negotiationDetails.truckerResponse && selectedBid.negotiationDetails.truckerResponse !== 'Pending' && (
-                       <Box sx={{ mb: 1 }}>
-                         <Typography sx={{ 
-                           fontWeight: 600, 
-                           fontSize: 12, 
-                           color: '#333',
-                           mb: 0.5
-                         }}>
-                           Trucker Response:
-                         </Typography>
-                         <Typography sx={{ 
-                           fontWeight: 600, 
-                           fontSize: 13, 
-                           color: selectedBid.negotiationDetails.truckerResponse === 'Accepted' ? '#4caf50' : 
-                                  selectedBid.negotiationDetails.truckerResponse === 'Rejected' ? '#f44336' : '#ff9800'
-                         }}>
-                           {selectedBid.negotiationDetails.truckerResponse}
-                         </Typography>
-                         {selectedBid.negotiationDetails.truckerNegotiationMessage && (
-                           <Typography sx={{ 
-                             fontWeight: 500, 
-                             fontSize: 12, 
-                             color: '#333',
-                             fontStyle: 'italic',
-                             mt: 0.5
-                           }}>
-                             "{selectedBid.negotiationDetails.truckerNegotiationMessage}"
-                           </Typography>
-                         )}
-                       </Box>
-                     )}
+                  {selectedBid.negotiationDetails.truckerResponse && selectedBid.negotiationDetails.truckerResponse !== 'Pending' && (
+                    <Box sx={{ mb: 1 }}>
+                      <Typography sx={{
+                        fontWeight: 600,
+                        fontSize: 12,
+                        color: '#333',
+                        mb: 0.5
+                      }}>
+                        Trucker Response:
+                      </Typography>
+                      <Typography sx={{
+                        fontWeight: 600,
+                        fontSize: 13,
+                        color: selectedBid.negotiationDetails.truckerResponse === 'Accepted' ? '#4caf50' :
+                          selectedBid.negotiationDetails.truckerResponse === 'Rejected' ? '#f44336' : '#ff9800'
+                      }}>
+                        {selectedBid.negotiationDetails.truckerResponse}
+                      </Typography>
+                      {selectedBid.negotiationDetails.truckerNegotiationMessage && (
+                        <Typography sx={{
+                          fontWeight: 500,
+                          fontSize: 12,
+                          color: '#333',
+                          fontStyle: 'italic',
+                          mt: 0.5
+                        }}>
+                          "{selectedBid.negotiationDetails.truckerNegotiationMessage}"
+                        </Typography>
+                      )}
+                    </Box>
+                  )}
 
-                     {selectedBid.negotiationDetails.truckerCounterRate && (
-                       <Box>
-                         <Typography sx={{ 
-                           fontWeight: 600, 
-                           fontSize: 12, 
-                           color: '#333',
-                           mb: 0.5
-                         }}>
-                           Trucker Counter Offer:
-                         </Typography>
-                         <Typography sx={{ 
-                           fontWeight: 700, 
-                           fontSize: 16, 
-                           color: '#ff9800'
-                         }}>
-                           ${selectedBid.negotiationDetails.truckerCounterRate.toLocaleString()}
-                         </Typography>
-                       </Box>
-                     )}
-                   </Box>
-                 )}
-               </Box>
-             )}
-           </DialogContent>
-          <DialogActions sx={{ p: 2, background: '#f8fafc', justifyContent: 'center' }}>
-            <Button 
-              onClick={handleCloseBidDetailsModal} 
-              variant="outlined" 
-              sx={{ 
-                borderRadius: 2, 
-                fontWeight: 600, 
-                px: 3,
-                py: 1,
-                borderColor: '#1976d2',
-                color: '#1976d2',
-                '&:hover': {
-                  borderColor: '#1565c0',
-                  color: '#1565c0'
-                }
-              }}
-            >
-              Close
-            </Button>
-          </DialogActions>
-        </Dialog>
+                  {selectedBid.negotiationDetails.truckerCounterRate && (
+                    <Box>
+                      <Typography sx={{
+                        fontWeight: 600,
+                        fontSize: 12,
+                        color: '#333',
+                        mb: 0.5
+                      }}>
+                        Trucker Counter Offer:
+                      </Typography>
+                      <Typography sx={{
+                        fontWeight: 700,
+                        fontSize: 16,
+                        color: '#ff9800'
+                      }}>
+                        ${selectedBid.negotiationDetails.truckerCounterRate.toLocaleString()}
+                      </Typography>
+                    </Box>
+                  )}
+                </Box>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2, background: '#f8fafc', justifyContent: 'center' }}>
+          <Button
+            onClick={handleCloseBidDetailsModal}
+            variant="outlined"
+            sx={{
+              borderRadius: 2,
+              fontWeight: 600,
+              px: 3,
+              py: 1,
+              borderColor: '#1976d2',
+              color: '#1976d2',
+              '&:hover': {
+                borderColor: '#1565c0',
+                color: '#1565c0'
+              }
+            }}
+          >
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Accept Bid Modal */}
-      <Dialog open={acceptModalOpen} onClose={handleCloseAcceptModal} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700, color: '#1976d2', fontSize: 22, borderBottom: '1px solid #e0e0e0' }}>
-          Accept Bid
+      <Dialog
+        open={acceptModalOpen}
+        onClose={handleCloseAcceptModal}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 4,
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15)',
+            overflow: 'hidden'
+          }
+        }}
+      >
+        <DialogTitle sx={{
+          fontWeight: 800,
+          fontSize: 26,
+          color: '#ffffff',
+          borderBottom: 'none',
+          py: 3,
+          px: 4,
+          background: 'linear-gradient(135deg, #4caf50 0%, #2e7d32 100%)',
+          position: 'relative',
+          overflow: 'hidden',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%)',
+            pointerEvents: 'none'
+          }
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, position: 'relative', zIndex: 1 }}>
+            <Box sx={{
+              background: 'rgba(255, 255, 255, 0.2)',
+              borderRadius: '50%',
+              width: 48,
+              height: 48,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backdropFilter: 'blur(10px)'
+            }}>
+              <CheckCircle sx={{ color: '#ffffff', fontSize: 32 }} />
+            </Box>
+            <Typography variant="h5" sx={{ fontWeight: 800, color: '#ffffff', letterSpacing: 0.5 }}>
+              Accept Bid
+            </Typography>
+          </Box>
         </DialogTitle>
-        <DialogContent sx={{ px: 4, py: 3, background: '#f8fafc' }}>
+        <DialogContent sx={{
+          px: 4,
+          py: 4,
+          background: 'linear-gradient(135deg, #f8fafc 0%, #ffffff 100%)',
+          minHeight: 400
+        }}>
           <Box component="form" onSubmit={handleAcceptSubmit}>
-            <Grid container spacing={2} sx={{ mt: 1.5}}>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Status"
-                  name="status"
-                  value={acceptForm.status}
-                  fullWidth
-                  InputProps={{ readOnly: true }}
-                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
+            <Grid container spacing={3} sx={{ mt: 2 }}>
+              <Grid item xs={12}>
                 <TextField
                   label="Shipment Number"
                   name="shipmentNumber"
                   value={acceptForm.shipmentNumber}
                   onChange={handleAcceptFormChange}
                   fullWidth
-                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
+                  required
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Assignment sx={{ color: '#1976d2' }} />
+                      </InputAdornment>
+                    ),
+                  }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 3,
+                      backgroundColor: '#ffffff',
+                      fontSize: '1rem',
+                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        boxShadow: '0 4px 12px rgba(25, 118, 210, 0.12)',
+                        transform: 'translateY(-1px)'
+                      },
+                      '&.Mui-focused': {
+                        boxShadow: '0 4px 16px rgba(25, 118, 210, 0.2)',
+                        transform: 'translateY(-1px)'
+                      },
+                      '& fieldset': {
+                        borderWidth: 2,
+                        borderColor: '#e0e0e0'
+                      },
+                      '&:hover fieldset': {
+                        borderColor: '#1976d2'
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: '#1976d2',
+                        borderWidth: 2
+                      }
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontWeight: 600,
+                      color: '#64748b'
+                    },
+                    '& .MuiInputLabel-root.Mui-focused': {
+                      color: '#1976d2',
+                      fontWeight: 700
+                    }
+                  }}
                   error={!!acceptErrors.shipmentNumber}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Origin Address Line 1"
-                  name="origin.addressLine1"
-                  value={acceptForm.origin.addressLine1}
-                  onChange={handleAcceptFormChange}
-                  fullWidth
-                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
-                  error={!!acceptErrors['origin.addressLine1']}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Origin Address Line 2"
-                  name="origin.addressLine2"
-                  value={acceptForm.origin.addressLine2}
-                  onChange={handleAcceptFormChange}
-                  fullWidth
-                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Destination Address Line 1"
-                  name="destination.addressLine1"
-                  value={acceptForm.destination.addressLine1}
-                  onChange={handleAcceptFormChange}
-                  fullWidth
-                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
-                  error={!!acceptErrors['destination.addressLine1']}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Destination Address Line 2"
-                  name="destination.addressLine2"
-                  value={acceptForm.destination.addressLine2}
-                  onChange={handleAcceptFormChange}
-                  fullWidth
-                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Po Number"
-                  name="poNumber"
-                  value={acceptForm.poNumber}
-                  onChange={handleAcceptFormChange}
-                  fullWidth
-                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
-                  error={!!acceptErrors.poNumber}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Bol Number"
-                  name="bolNumber"
-                  value={acceptForm.bolNumber}
-                  onChange={handleAcceptFormChange}
-                  fullWidth
-                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
-                  error={!!acceptErrors.bolNumber}
+                  helperText={acceptErrors.shipmentNumber}
                 />
               </Grid>
               <Grid item xs={12}>
                 <TextField
-                  label="Message"
-                  name="reason"
-                  value={acceptForm.reason}
+                  label="PO Number"
+                  name="poNumber"
+                  value={acceptForm.poNumber}
                   onChange={handleAcceptFormChange}
                   fullWidth
-                  multiline
-                  minRows={2}
-                  maxRows={10}
-                  placeholder="Write a message..."
-                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3, width: '29rem' } }}
-                  error={!!acceptErrors.reason}
+                  required
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Description sx={{ color: '#1976d2' }} />
+                      </InputAdornment>
+                    ),
+                  }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 3,
+                      backgroundColor: '#ffffff',
+                      fontSize: '1rem',
+                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        boxShadow: '0 4px 12px rgba(25, 118, 210, 0.12)',
+                        transform: 'translateY(-1px)'
+                      },
+                      '&.Mui-focused': {
+                        boxShadow: '0 4px 16px rgba(25, 118, 210, 0.2)',
+                        transform: 'translateY(-1px)'
+                      },
+                      '& fieldset': {
+                        borderWidth: 2,
+                        borderColor: '#e0e0e0'
+                      },
+                      '&:hover fieldset': {
+                        borderColor: '#1976d2'
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: '#1976d2',
+                        borderWidth: 2
+                      }
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontWeight: 600,
+                      color: '#64748b'
+                    },
+                    '& .MuiInputLabel-root.Mui-focused': {
+                      color: '#1976d2',
+                      fontWeight: 700
+                    }
+                  }}
+                  error={!!acceptErrors.poNumber}
+                  helperText={acceptErrors.poNumber}
                 />
               </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  label="BOL Number"
+                  name="bolNumber"
+                  value={acceptForm.bolNumber}
+                  onChange={handleAcceptFormChange}
+                  fullWidth
+                  required
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Description sx={{ color: '#1976d2' }} />
+                      </InputAdornment>
+                    ),
+                  }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 3,
+                      backgroundColor: '#ffffff',
+                      fontSize: '1rem',
+                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        boxShadow: '0 4px 12px rgba(25, 118, 210, 0.12)',
+                        transform: 'translateY(-1px)'
+                      },
+                      '&.Mui-focused': {
+                        boxShadow: '0 4px 16px rgba(25, 118, 210, 0.2)',
+                        transform: 'translateY(-1px)'
+                      },
+                      '& fieldset': {
+                        borderWidth: 2,
+                        borderColor: '#e0e0e0'
+                      },
+                      '&:hover fieldset': {
+                        borderColor: '#1976d2'
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: '#1976d2',
+                        borderWidth: 2
+                      }
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontWeight: 600,
+                      color: '#64748b'
+                    },
+                    '& .MuiInputLabel-root.Mui-focused': {
+                      color: '#1976d2',
+                      fontWeight: 700
+                    }
+                  }}
+                  error={!!acceptErrors.bolNumber}
+                  helperText={acceptErrors.bolNumber}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <Box sx={{
+                  border: '3px dashed #cbd5e1',
+                  borderRadius: 3,
+                  p: 3.5,
+                  textAlign: 'center',
+                  background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  '&::before': {
+                    content: '""',
+                    position: 'absolute',
+                    top: 0,
+                    left: '-100%',
+                    width: '100%',
+                    height: '100%',
+                    background: 'linear-gradient(90deg, transparent, rgba(25, 118, 210, 0.05), transparent)',
+                    transition: 'left 0.5s ease'
+                  },
+                  '&:hover': {
+                    borderColor: '#4caf50',
+                    backgroundColor: '#f0f9ff',
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 8px 24px rgba(76, 175, 80, 0.15)',
+                    '&::before': {
+                      left: '100%'
+                    },
+                    '& .upload-icon': {
+                      transform: 'scale(1.1)',
+                      color: '#4caf50'
+                    }
+                  }
+                }}>
+                  <input
+                    accept="image/*,.pdf,.doc,.docx"
+                    style={{ display: 'none' }}
+                    id="acceptance-attachment-upload"
+                    type="file"
+                    name="acceptanceAttachment1"
+                    onChange={handleAcceptFormChange}
+                  />
+                  <label htmlFor="acceptance-attachment-upload">
+                    <Box sx={{ cursor: 'pointer', position: 'relative', zIndex: 1 }}>
+                      {acceptFilePreview ? (
+                        <Box sx={{ position: 'relative' }}>
+                          <Box
+                            component="img"
+                            src={acceptFilePreview}
+                            alt="Preview"
+                            sx={{
+                              width: '100%',
+                              maxHeight: 180,
+                              objectFit: 'contain',
+                              borderRadius: 2,
+                              border: '2px solid #e2e8f0',
+                              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+                            }}
+                          />
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setAcceptForm(prev => ({ ...prev, acceptanceAttachment1: null }));
+                              setAcceptFilePreview(null);
+                              const fileInput = document.getElementById('acceptance-attachment-upload');
+                              if (fileInput) fileInput.value = '';
+                            }}
+                            sx={{
+                              position: 'absolute',
+                              top: 8,
+                              right: 8,
+                              backgroundColor: 'rgba(255,255,255,0.95)',
+                              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                              border: '2px solid #fff',
+                              '&:hover': {
+                                backgroundColor: '#ffffff',
+                                transform: 'scale(1.1)'
+                              }
+                            }}
+                          >
+                            <Close fontSize="small" />
+                          </IconButton>
+                        </Box>
+                      ) : acceptForm.acceptanceAttachment1 ? (
+                        <Box>
+                          <AttachFile sx={{ fontSize: 48, color: '#4caf50', mb: 1.5 }} />
+                          <Typography variant="body1" sx={{ fontWeight: 700, color: '#1e293b', mb: 1 }}>
+                            {acceptForm.acceptanceAttachment1.name}
+                          </Typography>
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setAcceptForm(prev => ({ ...prev, acceptanceAttachment1: null }));
+                              const fileInput = document.getElementById('acceptance-attachment-upload');
+                              if (fileInput) fileInput.value = '';
+                            }}
+                            sx={{
+                              mt: 0.5,
+                              color: '#f44336',
+                              '&:hover': {
+                                backgroundColor: '#ffebee'
+                              }
+                            }}
+                          >
+                            <Close fontSize="small" />
+                          </IconButton>
+                        </Box>
+                      ) : (
+                        <>
+                          <CloudUpload className="upload-icon" sx={{ fontSize: 56, color: '#94a3b8', mb: 2, transition: 'all 0.3s ease' }} />
+                          <Typography variant="body1" sx={{ color: '#64748b', fontWeight: 700, mb: 0.5, fontSize: '1.1rem' }}>
+                            Upload DO Attachment
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: '#94a3b8', display: 'block', mt: 0.5 }}>
+                            (Optional) Click to browse files
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: '#cbd5e1', display: 'block', mt: 1 }}>
+                            Supports: Images, PDF, DOC, DOCX
+                          </Typography>
+                        </>
+                      )}
+                    </Box>
+                  </label>
+                </Box>
+              </Grid>
             </Grid>
-            <DialogActions sx={{ mt: 3, p: 0 }}>
-              <Button onClick={handleCloseAcceptModal} variant="outlined" sx={{ borderRadius: 2, fontWeight: 600, color: '#1976d2', borderColor: '#1976d2' }}>Cancel</Button>
-              <Button type="submit" variant="contained" color="primary" sx={{ borderRadius: 2, fontWeight: 700 }}>Accept</Button>
+            <DialogActions sx={{ mt: 4, px: 0, gap: 2, justifyContent: 'flex-end' }}>
+              <Button
+                onClick={handleCloseAcceptModal}
+                variant="outlined"
+                sx={{
+                  borderRadius: 3,
+                  fontWeight: 700,
+                  px: 4,
+                  py: 1.5,
+                  fontSize: '1rem',
+                  color: '#64748b',
+                  borderColor: '#cbd5e1',
+                  borderWidth: 2,
+                  textTransform: 'none',
+                  background: '#ffffff',
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    borderColor: '#94a3b8',
+                    backgroundColor: '#f8fafc',
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+                  }
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="contained"
+                startIcon={<CheckCircle />}
+                sx={{
+                  borderRadius: 3,
+                  fontWeight: 800,
+                  px: 4,
+                  py: 1.5,
+                  fontSize: '1rem',
+                  textTransform: 'none',
+                  background: 'linear-gradient(135deg, #4caf50 0%, #2e7d32 100%)',
+                  boxShadow: '0 4px 16px rgba(76, 175, 80, 0.4)',
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #388e3c 0%, #1b5e20 100%)',
+                    boxShadow: '0 6px 20px rgba(76, 175, 80, 0.5)',
+                    transform: 'translateY(-2px)'
+                  },
+                  '&:active': {
+                    transform: 'translateY(0px)'
+                  }
+                }}
+              >
+                Accept Bid
+              </Button>
             </DialogActions>
           </Box>
         </DialogContent>
@@ -4248,7 +5655,7 @@ Drayage Details
                 helperText={negotiationErrors.shipperCounterRate}
                 inputProps={{ min: 0, step: 0.01 }}
               />
-              
+
               <TextField
                 label="Negotiation Message"
                 name="shipperNegotiationMessage"
@@ -4265,16 +5672,16 @@ Drayage Details
               />
             </Box>
             <DialogActions sx={{ mt: 3, p: 0 }}>
-              <Button 
-                onClick={handleCloseNegotiationModal} 
-                variant="outlined" 
+              <Button
+                onClick={handleCloseNegotiationModal}
+                variant="outlined"
                 sx={{ borderRadius: 2, fontWeight: 600, color: '#1976d2', borderColor: '#1976d2' }}
               >
                 Cancel
               </Button>
-              <Button 
-                type="submit" 
-                variant="contained" 
+              <Button
+                type="submit"
+                variant="contained"
                 sx={{ borderRadius: 2, fontWeight: 700, bgcolor: '#ff9800', '&:hover': { bgcolor: '#f57c00' } }}
               >
                 Start Negotiation
@@ -4292,15 +5699,15 @@ Drayage Details
         <DialogContent sx={{ px: 4, py: 3, background: '#f8fafc' }}>
           {rejectBidData && (
             <Box sx={{ textAlign: 'center' }}>
-              <Typography sx={{ 
-                fontWeight: 600, 
-                fontSize: 16, 
+              <Typography sx={{
+                fontWeight: 600,
+                fontSize: 16,
                 color: '#333',
                 mb: 2
               }}>
                 Are you sure you want to reject this bid?
               </Typography>
-              
+
               <Box sx={{
                 background: '#fff',
                 borderRadius: 2,
@@ -4308,34 +5715,34 @@ Drayage Details
                 border: '1px solid #e0e0e0',
                 mb: 2
               }}>
-                <Typography sx={{ 
-                  fontWeight: 600, 
-                  fontSize: 14, 
+                <Typography sx={{
+                  fontWeight: 600,
+                  fontSize: 14,
                   color: '#1976d2',
                   mb: 1
                 }}>
                   Driver: {rejectBidData.driver?.name || rejectBidData.driverName || 'N/A'}
                 </Typography>
-                <Typography sx={{ 
-                  fontWeight: 600, 
-                  fontSize: 14, 
+                <Typography sx={{
+                  fontWeight: 600,
+                  fontSize: 14,
                   color: '#333',
                   mb: 1
                 }}>
                   Vehicle: {rejectBidData.vehicle?.number || rejectBidData.vehicleNumber || 'N/A'}
                 </Typography>
-                <Typography sx={{ 
-                  fontWeight: 700, 
-                  fontSize: 16, 
+                <Typography sx={{
+                  fontWeight: 700,
+                  fontSize: 16,
                   color: '#4caf50'
                 }}>
                   Bid Amount: ${rejectBidData.intermediateRate?.toLocaleString() || '-'}
                 </Typography>
               </Box>
 
-              <Typography sx={{ 
-                fontWeight: 500, 
-                fontSize: 14, 
+              <Typography sx={{
+                fontWeight: 500,
+                fontSize: 14,
                 color: '#666',
                 fontStyle: 'italic'
               }}>
@@ -4345,12 +5752,12 @@ Drayage Details
           )}
         </DialogContent>
         <DialogActions sx={{ p: 3, background: '#f8fafc', justifyContent: 'center', gap: 2 }}>
-          <Button 
-            onClick={handleCloseRejectModal} 
-            variant="outlined" 
-            sx={{ 
-              borderRadius: 2, 
-              fontWeight: 600, 
+          <Button
+            onClick={handleCloseRejectModal}
+            variant="outlined"
+            sx={{
+              borderRadius: 2,
+              fontWeight: 600,
               px: 3,
               py: 1,
               borderColor: '#666',
@@ -4363,12 +5770,12 @@ Drayage Details
           >
             Cancel
           </Button>
-          <Button 
-            onClick={handleConfirmReject} 
-            variant="contained" 
-            sx={{ 
-              borderRadius: 2, 
-              fontWeight: 600, 
+          <Button
+            onClick={handleConfirmReject}
+            variant="contained"
+            sx={{
+              borderRadius: 2,
+              fontWeight: 600,
               px: 3,
               py: 1,
               bgcolor: '#f44336',
@@ -4382,355 +5789,1891 @@ Drayage Details
         </DialogActions>
       </Dialog>
 
-      {/* Edit Load Modal */}
-      <Dialog open={editModalOpen} onClose={handleCloseEditModal} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700, color: '#1976d2', fontSize: 22, borderBottom: '1px solid #e0e0e0' }}>
-          Edit Load
+      {/* Negotiation History Modal */}
+      <Dialog
+        open={negotiationHistoryModalOpen}
+        onClose={handleCloseNegotiationHistoryModal}
+        maxWidth="sm"
+        fullWidth={false}
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
+            background: '#f0f2f5',
+            maxWidth: '450px',
+            width: '450px',
+            height: '600px',
+            display: 'flex',
+            flexDirection: 'column'
+          }
+        }}
+      >
+        <DialogTitle sx={{
+          fontWeight: 700,
+          color: '#fff',
+          fontSize: 18,
+          borderBottom: '1px solid #e0e0e0',
+          background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          py: 1.5,
+          px: 2
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography sx={{ fontWeight: 700 }}>Negotiation History</Typography>
+          </Box>
+          <IconButton onClick={handleCloseNegotiationHistoryModal} size="small" sx={{ color: '#fff' }}>
+            <Close fontSize="small" />
+          </IconButton>
         </DialogTitle>
-        <DialogContent sx={{ pb: 4 }}>
-          <Box component="form" onSubmit={handleEditSubmit} sx={{ mt: 1, px: 2 }}>
-            {/* Tab Toggle */}
-            <Stack direction="row" spacing={1} sx={{ mb: 3 }} justifyContent="center">
-              <Button
-                variant={editForm.loadType === 'OTR' ? 'contained' : 'outlined'}
-                onClick={() => setEditForm({ ...editForm, loadType: 'OTR', vehicleType: '' })}
-                sx={{ borderRadius: 5, minWidth: 120 }}
-              >
-                OTR
-              </Button>
-              <Button
-                variant={editForm.loadType === 'DRAYAGE' ? 'contained' : 'outlined'}
-                onClick={() => setEditForm({ ...editForm, loadType: 'DRAYAGE', vehicleType: '' })}
-                sx={{ borderRadius: 5, minWidth: 120 }}
-              >
-                DRAYAGE
-              </Button>
-            </Stack>
+        <DialogContent sx={{
+          px: 2,
+          py: 2,
+          background: '#f0f2f5',
+          flex: 1,
+          overflowY: 'auto',
+          pb: '100px', // Add padding bottom so content doesn't get hidden behind fixed input
+          '&::-webkit-scrollbar': {
+            width: '6px',
+          },
+          '&::-webkit-scrollbar-track': {
+            background: '#f1f1f1',
+          },
+          '&::-webkit-scrollbar-thumb': {
+            background: '#888',
+            borderRadius: '3px',
+          },
+        }}>
+          {negotiationHistoryLoading ? (
+            <Box sx={{ textAlign: 'center', py: 8 }}>
+              <CircularProgress size={30} />
+              <Typography sx={{ mt: 2, color: '#666', fontSize: '0.875rem' }}>Loading...</Typography>
+            </Box>
+          ) : negotiationHistoryError ? (
+            <Alert severity="error" sx={{ fontSize: '0.875rem' }}>
+              {negotiationHistoryError}
+            </Alert>
+          ) : negotiationHistory?.internalNegotiation?.history ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              {negotiationHistory.internalNegotiation.history.length > 0 ? (
+                negotiationHistory.internalNegotiation.history.map((item, index) => {
+                  const isShipper = item.by === 'shipper';
+                  return (
+                    <Box
+                      key={item._id || index}
+                      sx={{
+                        display: 'flex',
+                        justifyContent: isShipper ? 'flex-end' : 'flex-start',
+                        mb: 1
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          maxWidth: '75%',
+                          background: isShipper ? '#dcf8c6' : '#ffffff',
+                          borderRadius: isShipper ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
+                          padding: '10px 12px',
+                          boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+                          border: isShipper ? 'none' : '1px solid #e0e0e0'
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              fontWeight: 600,
+                              color: isShipper ? '#128c7e' : '#ff9800',
+                              fontSize: '0.7rem',
+                              textTransform: 'capitalize'
+                            }}
+                          >
+                            {item.by === 'shipper' ? 'You' : (viewBidData?.driver?.name || viewBidData?.driverName || 'Driver')}
+                          </Typography>
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              color: '#999',
+                              fontSize: '0.65rem',
+                              ml: 1
+                            }}
+                          >
+                            {item.at ? new Date(item.at).toLocaleTimeString('en-US', {
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            }) : ''}
+                          </Typography>
+                        </Box>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            fontWeight: 700,
+                            color: '#2e7d32',
+                            mb: 0.5,
+                            fontSize: '1rem'
+                          }}
+                        >
+                          ${item.rate?.toLocaleString() || 'N/A'}
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            color: '#333',
+                            fontSize: '0.875rem',
+                            lineHeight: 1.4,
+                            wordBreak: 'break-word'
+                          }}
+                        >
+                          {item.message || 'No message'}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  );
+                })
+              ) : (
+                <Typography sx={{ textAlign: 'center', py: 4, color: '#666', fontSize: '0.875rem' }}>
+                  No negotiation history available
+                </Typography>
+              )}
+            </Box>
+          ) : (
+            <Typography sx={{ textAlign: 'center', py: 4, color: '#666', fontSize: '0.875rem' }}>
+              No negotiation history found
+            </Typography>
+          )}
+        </DialogContent>
 
-            {/* Grid Fields */}
-            <Grid container spacing={2} sx={{ mb: 2 }}>
-              {/* From City - From State */}
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="From City"
-                  name="fromCity"
-                  value={editForm.fromCity}
-                  onChange={handleEditFormChange}
-                  fullWidth
-                  error={!!editErrors.fromCity}
-                  sx={{
-                    '& .MuiInputBase-root': {
-                      borderRadius: '12px',
-                      paddingRight: 3,
-                    },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="From State"
-                  name="fromState"
-                  value={editForm.fromState}
-                  onChange={handleEditFormChange}
-                  fullWidth
-                  error={!!editErrors.fromState}
-                  sx={{
-                    '& .MuiInputBase-root': {
-                      borderRadius: '12px',
-                      paddingRight: 3,
-                    },
-                  }}
-                />
-              </Grid>
-
-              {/* To City - To State */}
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="To City"
-                  name="toCity"
-                  value={editForm.toCity}
-                  onChange={handleEditFormChange}
-                  fullWidth
-                  error={!!editErrors.toCity}
-                  sx={{
-                    '& .MuiInputBase-root': {
-                      borderRadius: '12px',
-                      paddingRight: 3,
-                    },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="To State"
-                  name="toState"
-                  value={editForm.toState}
-                  onChange={handleEditFormChange}
-                  fullWidth
-                  error={!!editErrors.toState}
-                  sx={{
-                    '& .MuiInputBase-root': {
-                      borderRadius: '12px',
-                      paddingRight: 3,
-                    },
-                  }}
-                />
-              </Grid>
-
-              {/* Pickup Date - Drop Date */}
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  type="date"
-                  label="Pickup Date"
-                  name="pickupDate"
-                  value={editForm.pickupDate}
-                  onChange={handleEditFormChange}
-                  fullWidth
-                  error={!!editErrors.pickupDate}
-                  InputLabelProps={{ shrink: true }}
-                  sx={{
-                    '& .MuiInputBase-root': {
-                      borderRadius: '12px',
-                      paddingRight: 3,
-                    },
-                    '& input[type="date"]': {
-                      fontSize: '16px',
-                      height: '1.4375em',
-                      padding: '16.5px 14px',
-                      width: '195px',
-                    },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  type="date"
-                  label="Drop Date"
-                  name="deliveryDate"
-                  value={editForm.deliveryDate}
-                  onChange={handleEditFormChange}
-                  fullWidth
-                  error={!!editErrors.deliveryDate}
-                  InputLabelProps={{ shrink: true }}
-                  sx={{
-                    '& .MuiInputBase-root': {
-                      borderRadius: '12px',
-                      paddingRight: 3,
-                    },
-                    '& input[type="date"]': {
-                      fontSize: '16px',
-                      height: '1.4375em',
-                      padding: '16.5px 14px',
-                      width: '195px',
-                    },
-                  }}
-                />
-              </Grid>
-
-              {/* Vehicle Type - Commodity */}
-              <Grid item xs={12} sm={8}>
-                <FormControl fullWidth error={!!editErrors.vehicleType}>
-                  <InputLabel>Vehicle Type</InputLabel>
-                  <Select
-                    name="vehicleType"
-                    value={editForm.vehicleType}
-                    onChange={handleEditFormChange}
-                    label="Vehicle Type"
+        {/* Fixed Input Section at Bottom - WhatsApp style */}
+        {!negotiationHistoryLoading && !negotiationHistoryError && viewBidId && (
+          <DialogActions sx={{
+            p: 2,
+            pt: 1.5,
+            background: '#fff',
+            borderTop: '1px solid #e0e0e0',
+            position: 'sticky',
+            bottom: 0,
+            zIndex: 10
+          }}>
+            <Box component="form" onSubmit={(e) => {
+              e.preventDefault();
+              if (negotiationForm.shipperCounterRate && negotiationForm.shipperNegotiationMessage && viewBidId) {
+                handleNegotiationSubmit(e, viewBidId);
+              } else if (!viewBidId) {
+                alertify.error('Bid ID not found. Please try again.');
+              }
+            }} sx={{ width: '100%' }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                {/* Rate Field with Send Button */}
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    type="number"
+                    placeholder="Rate"
+                    value={negotiationForm.shipperCounterRate}
+                    onChange={(e) => setNegotiationForm({ ...negotiationForm, shipperCounterRate: e.target.value })}
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                    }}
                     sx={{
-                      borderRadius: '12px',
-                      paddingRight: 3,
-                      minWidth: 300
+                      '& .MuiInputBase-root': {
+                        borderRadius: '8px',
+                        background: '#f0f0f0',
+                        border: '1px solid #e0e0e0',
+                      },
+                    }}
+                  />
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    sx={{
+                      minWidth: 'auto',
+                      width: '48px',
+                      height: '40px',
+                      borderRadius: '50%',
+                      background: '#4caf50',
+                      border: '2px solid #fff',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                      '&:hover': {
+                        background: '#45a049',
+                      },
                     }}
                   >
-                    {(editForm.loadType === 'DRAYAGE' ? DRAYAGE_VEHICLE_TYPES : OTR_VEHICLE_TYPES).map((vehicleType) => (
-                      <MenuItem key={vehicleType} value={vehicleType} sx={{ whiteSpace: 'normal', wordWrap: 'break-word' }}>
-                        {vehicleType}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Commodity"
-                  name="commodity"
-                  value={editForm.commodity}
-                  onChange={handleEditFormChange}
-                  fullWidth
-                  error={!!editErrors.commodity}
-                  sx={{
-                    '& .MuiInputBase-root': {
-                      borderRadius: '12px',
-                      paddingRight: 3,
-                    },
-                  }}
-                />
-              </Grid>
+                    <Send sx={{ fontSize: 20, color: '#fff' }} />
+                  </Button>
+                </Box>
 
-              {/* Weight (kg) - Container No (Optional) */}
-              <Grid item xs={12} sm={6}>
+                {/* Message Field - Full Width */}
                 <TextField
-                  label="Weight (kg)"
-                  name="weight"
-                  value={editForm.weight}
-                  onChange={handleEditFormChange}
                   fullWidth
-                  error={!!editErrors.weight}
+                  multiline
+                  rows={1}
+                  size="small"
+                  placeholder="Type your message..."
+                  value={negotiationForm.shipperNegotiationMessage}
+                  onChange={(e) => setNegotiationForm({ ...negotiationForm, shipperNegotiationMessage: e.target.value })}
                   sx={{
                     '& .MuiInputBase-root': {
-                      borderRadius: '12px',
-                      paddingRight: 3,
+                      borderRadius: '8px',
+                      background: '#fff',
+                      border: '1px solid #e0e0e0',
+                    },
+                    '& .MuiInputBase-input': {
+                      padding: '10px 14px',
                     },
                   }}
                 />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Container No (Optional)"
-                  name="containerNo"
-                  value={editForm.containerNo}
-                  onChange={handleEditFormChange}
-                  fullWidth
-                  sx={{
-                    '& .MuiInputBase-root': {
-                      borderRadius: '12px',
-                      paddingRight: 3,
-                    },
-                  }}
-                />
-              </Grid>
+              </Box>
+            </Box>
+          </DialogActions>
+        )}
+      </Dialog>
 
-              {/* PO Number (Optional) - BOL Number (Optional) */}
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="PO Number (Optional)"
-                  name="poNumber"
-                  value={editForm.poNumber}
-                  onChange={handleEditFormChange}
-                  fullWidth
-                  sx={{
-                    '& .MuiInputBase-root': {
-                      borderRadius: '12px',
-                      paddingRight: 3,
-                    },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="BOL Number (Optional)"
-                  name="bolNumber"
-                  value={editForm.bolNumber}
-                  onChange={handleEditFormChange}
-                  fullWidth
-                  sx={{
-                    '& .MuiInputBase-root': {
-                      borderRadius: '12px',
-                      paddingRight: 3,
-                    },
-                  }}
-                />
-              </Grid>
+      {/* Modern Edit Load Modal */}
+      <Dialog
+        open={editModalOpen}
+        onClose={handleCloseEditModal}
+        maxWidth="lg"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 4,
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15)',
+            background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+            minHeight: '85vh',
+            maxHeight: '95vh',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column'
+          }
+        }}
+      >
+        <DialogTitle className="border-b-0 bg-[#1976d2] flex items-center justify-between gap-3 py-4 px-6 relative rounded-t-lg" sx={{ backgroundColor: '#1976d2' }}>
+          <Box className="flex items-center gap-3 flex-1">
+            <Box className="bg-white rounded-lg w-12 h-12 flex items-center justify-center border-2 border-blue-300 shadow-sm">
+              <LocalShipping className="text-xl text-blue-500" />
+            </Box>
+            <Box>
+              <Typography variant="h5" className="font-bold text-white mb-0.5 text-xl">
+                Edit Load
+              </Typography>
+              <Typography variant="body2" className="text-white text-sm opacity-95">
+                Update the load details
+              </Typography>
+            </Box>
+          </Box>
 
-              {/* Drayage specific fields */}
-              {editForm.loadType === 'DRAYAGE' && (
+          {/* Load Type Toggle and Close Button */}
+          <Stack direction="row" spacing={1.5} className="items-center">
+            {/* OTR Button */}
+            <Button
+              onClick={() => {
+                setEditLoadType('OTR');
+                setEditForm({ ...editForm, loadType: 'OTR', vehicleType: '' });
+              }}
+              variant="contained"
+              className={`rounded-lg min-w-[90px] font-semibold normal-case py-1.5 px-3 text-sm transition-all duration-200 ${editLoadType === 'OTR'
+                ? 'bg-white text-[#1976d2] hover:bg-gray-100'
+                : 'bg-transparent text-white border border-white hover:bg-white/10'
+                }`}
+              sx={{
+                textTransform: 'none',
+                ...(editLoadType === 'OTR' ? {
+                  backgroundColor: '#ffffff',
+                  color: '#1976d2',
+                  border: 'none',
+                  boxShadow: 'none',
+                  '&:hover': {
+                    backgroundColor: '#f3f4f6',
+                    boxShadow: 'none'
+                  }
+                } : {
+                  backgroundColor: 'transparent',
+                  color: '#ffffff',
+                  borderColor: '#ffffff',
+                  borderWidth: 1,
+                  borderStyle: 'solid',
+                  boxShadow: 'none',
+                  '&:hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                    boxShadow: 'none'
+                  }
+                })
+              }}
+            >
+              OTR
+            </Button>
+            {/* DRAYAGE Button */}
+            <Button
+              onClick={() => {
+                setEditLoadType('DRAYAGE');
+                setEditForm({ ...editForm, loadType: 'DRAYAGE', vehicleType: '' });
+              }}
+              variant="contained"
+              className={`rounded-lg min-w-[110px] font-semibold normal-case py-1.5 px-3 text-sm transition-all duration-200 ${editLoadType === 'DRAYAGE'
+                ? 'bg-white text-[#1976d2] hover:bg-gray-100'
+                : 'bg-transparent text-white border border-white hover:bg-white/10'
+                }`}
+              sx={{
+                textTransform: 'none',
+                ...(editLoadType === 'DRAYAGE' ? {
+                  backgroundColor: '#ffffff',
+                  color: '#1976d2',
+                  border: 'none',
+                  boxShadow: 'none',
+                  '&:hover': {
+                    backgroundColor: '#f3f4f6',
+                    boxShadow: 'none'
+                  }
+                } : {
+                  backgroundColor: 'transparent',
+                  color: '#ffffff',
+                  borderColor: '#ffffff',
+                  borderWidth: 1,
+                  borderStyle: 'solid',
+                  boxShadow: 'none',
+                  '&:hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                    boxShadow: 'none'
+                  }
+                })
+              }}
+            >
+              DRAYAGE
+            </Button>
+            {/* Close Button */}
+            <IconButton
+              onClick={handleCloseEditModal}
+              sx={{
+                color: '#ffffff',
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.2)'
+                },
+                ml: 0.5
+              }}
+              size="small"
+            >
+              <Close />
+            </IconButton>
+          </Stack>
+        </DialogTitle>
+
+        <DialogContent className="p-0 bg-gray-100 flex-1 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-gray-200 [&::-webkit-scrollbar-thumb]:bg-gray-400 [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb:hover]:bg-gray-500">
+          <Box component="form" onSubmit={handleEditSubmit} className="p-3">
+
+            {/* Form Sections */}
+            <Box className="flex flex-col gap-3">
+
+              {/* DRAYAGE Location Section - Only for DRAYAGE */}
+              {editLoadType === 'DRAYAGE' && (
                 <>
-                  <Grid item xs={12} sm={6}>
+                  {/* Location Details Section */}
+                  <Paper elevation={0} className="p-3 rounded-lg bg-white shadow-sm">
+                    <Box className="flex items-center gap-2 mb-3">
+                      <Box className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
+                        <LocationOn className="text-green-600 text-2xl" />
+                      </Box>
+                      <Typography variant="h6" className="font-semibold text-gray-800 text-lg">
+                        Location Details
+                      </Typography>
+                    </Box>
+
+                    {/* Pick Up Location Sub-section */}
+                    <Box
+                      className="mb-6 p-4 rounded-2xl shadow-sm bg-gradient-to-b from-white to-gray-50 border border-gray-200"
+                    >
+                      <Typography
+                        variant="subtitle1"
+                        sx={{
+                          fontWeight: 700,
+                          color: '#2D3748',
+                          fontSize: '1rem',
+                          mb: 2.5,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                          letterSpacing: '0.3px',
+                        }}
+                      >
+                        <LocationOn sx={{ color: '#4A90E2', fontSize: 20 }} />
+                        Pickup Location
+                      </Typography>
+
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            label="Pickup Full Address *"
+                            name="fromAddress"
+                            value={editForm.fromAddress}
+                            onChange={handleEditFormChange}
+                            fullWidth
+                            error={!!editErrors.fromAddress}
+                            placeholder="Select from dropdown or type full address"
+                            InputLabelProps={{ shrink: true }}
+                            sx={{
+                              '& .MuiInputBase-root': {
+                                borderRadius: 2,
+                                backgroundColor: '#fff',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                                transition: 'border-color 0.2s ease',
+                              },
+                              '& .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#E2E8F0',
+                              },
+                              '&:hover .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '& .MuiInputLabel-root': {
+                                color: '#4A5568',
+                                fontSize: '0.875rem',
+                              },
+                            }}
+                          />
+                        </Grid>
+
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            label="City *"
+                            name="fromCity"
+                            value={editForm.fromCity}
+                            onChange={handleEditFormChange}
+                            fullWidth
+                            error={!!editErrors.fromCity}
+                            placeholder="Auto filled from ZIP (editable)"
+                            InputLabelProps={{ shrink: true }}
+                            sx={{
+                              '& .MuiInputBase-root': {
+                                borderRadius: 2,
+                                backgroundColor: '#fff',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                              },
+                              '& .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#E2E8F0',
+                              },
+                              '&:hover .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '& .MuiInputLabel-root': {
+                                color: '#4A5568',
+                                fontSize: '0.875rem',
+                              },
+                            }}
+                          />
+                        </Grid>
+
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            label="State *"
+                            name="fromState"
+                            value={editForm.fromState}
+                            onChange={handleEditFormChange}
+                            fullWidth
+                            error={!!editErrors.fromState}
+                            placeholder="Auto filled from ZIP (editable, e.g., NJ)"
+                            InputLabelProps={{ shrink: true }}
+                            sx={{
+                              '& .MuiInputBase-root': {
+                                borderRadius: 2,
+                                backgroundColor: '#fff',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                              },
+                              '& .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#E2E8F0',
+                              },
+                              '&:hover .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '& .MuiInputLabel-root': {
+                                color: '#4A5568',
+                                fontSize: '0.875rem',
+                              },
+                            }}
+                          />
+                        </Grid>
+
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            label="ZIP Code *"
+                            name="fromZip"
+                            value={editForm.fromZip}
+                            onChange={handleEditFormChange}
+                            fullWidth
+                            error={!!editErrors.fromZip}
+                            placeholder="Enter 5 digit ZIP code"
+                            InputLabelProps={{ shrink: true }}
+                            sx={{
+                              '& .MuiInputBase-root': {
+                                borderRadius: 2,
+                                backgroundColor: '#fff',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                              },
+                              '& .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#E2E8F0',
+                              },
+                              '&:hover .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '& .MuiInputLabel-root': {
+                                color: '#4A5568',
+                                fontSize: '0.875rem',
+                              },
+                            }}
+                          />
+                        </Grid>
+                      </Grid>
+                    </Box>
+
+                    {/* Loading/Unloading Location Sub-section */}
+                    <Box
+                      className="mb-6 p-4 rounded-2xl shadow-sm bg-gradient-to-b from-white to-gray-50 border border-gray-200"
+                    >
+                      <Typography
+                        variant="subtitle1"
+                        sx={{
+                          fontWeight: 700,
+                          color: '#2D3748',
+                          fontSize: '1rem',
+                          mb: 2.5,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                          letterSpacing: '0.3px',
+                        }}
+                      >
+                        <LocationOn sx={{ color: '#4A90E2', fontSize: 20 }} />
+                        Loading/Unloading Location
+                      </Typography>
+
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            label="Loading/Unloading Full Address *"
+                            name="toAddress"
+                            value={editForm.toAddress}
+                            onChange={handleEditFormChange}
+                            fullWidth
+                            error={!!editErrors.toAddress}
+                            placeholder="Select from dropdown or type full address"
+                            InputLabelProps={{ shrink: true }}
+                            sx={{
+                              '& .MuiInputBase-root': {
+                                borderRadius: 2,
+                                backgroundColor: '#fff',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                                transition: 'border-color 0.2s ease',
+                              },
+                              '& .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#E2E8F0',
+                              },
+                              '&:hover .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '& .MuiInputLabel-root': {
+                                color: '#4A5568',
+                                fontSize: '0.875rem',
+                              },
+                            }}
+                          />
+                        </Grid>
+
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            label="City *"
+                            name="toCity"
+                            value={editForm.toCity}
+                            onChange={handleEditFormChange}
+                            fullWidth
+                            error={!!editErrors.toCity}
+                            placeholder="Auto filled from ZIP (editable)"
+                            InputLabelProps={{ shrink: true }}
+                            sx={{
+                              '& .MuiInputBase-root': {
+                                borderRadius: 2,
+                                backgroundColor: '#fff',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                              },
+                              '& .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#E2E8F0',
+                              },
+                              '&:hover .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '& .MuiInputLabel-root': {
+                                color: '#4A5568',
+                                fontSize: '0.875rem',
+                              },
+                            }}
+                          />
+                        </Grid>
+
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            label="State *"
+                            name="toState"
+                            value={editForm.toState}
+                            onChange={handleEditFormChange}
+                            fullWidth
+                            error={!!editErrors.toState}
+                            placeholder="Auto filled from ZIP (editable, e.g., AZ)"
+                            InputLabelProps={{ shrink: true }}
+                            sx={{
+                              '& .MuiInputBase-root': {
+                                borderRadius: 2,
+                                backgroundColor: '#fff',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                              },
+                              '& .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#E2E8F0',
+                              },
+                              '&:hover .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '& .MuiInputLabel-root': {
+                                color: '#4A5568',
+                                fontSize: '0.875rem',
+                              },
+                            }}
+                          />
+                        </Grid>
+
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            label="ZIP Code *"
+                            name="toZip"
+                            value={editForm.toZip}
+                            onChange={handleEditFormChange}
+                            fullWidth
+                            error={!!editErrors.toZip}
+                            placeholder="Enter 5 digit ZIP code"
+                            InputLabelProps={{ shrink: true }}
+                            sx={{
+                              '& .MuiInputBase-root': {
+                                borderRadius: 2,
+                                backgroundColor: '#fff',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                              },
+                              '& .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#E2E8F0',
+                              },
+                              '&:hover .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '& .MuiInputLabel-root': {
+                                color: '#4A5568',
+                                fontSize: '0.875rem',
+                              },
+                            }}
+                          />
+                        </Grid>
+                      </Grid>
+                    </Box>
+
+                    {/* Return Location Sub-section */}
+                    <Box
+                      className="mb-6 p-4 rounded-2xl shadow-sm bg-gradient-to-b from-white to-gray-50 border border-gray-200"
+                    >
+                      <Typography
+                        variant="subtitle1"
+                        sx={{
+                          fontWeight: 700,
+                          color: '#2D3748',
+                          fontSize: '1rem',
+                          mb: 2.5,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                          letterSpacing: '0.3px',
+                        }}
+                      >
+                        <Room sx={{ color: '#4A90E2', fontSize: 20 }} />
+                        Return Location
+                      </Typography>
+
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            label="Return Full Address *"
+                            name="returnAddress"
+                            value={editForm.returnAddress}
+                            onChange={handleEditFormChange}
+                            fullWidth
+                            error={!!editErrors.returnAddress}
+                            placeholder="Enter full address"
+                            InputLabelProps={{ shrink: true }}
+                            sx={{
+                              '& .MuiInputBase-root': {
+                                borderRadius: 2,
+                                backgroundColor: '#fff',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                              },
+                              '& .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#E2E8F0',
+                              },
+                              '&:hover .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '& .MuiInputLabel-root': {
+                                color: '#4A5568',
+                                fontSize: '0.875rem',
+                              },
+                            }}
+                          />
+                        </Grid>
+
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            label="City *"
+                            name="returnCity"
+                            value={editForm.returnCity}
+                            onChange={handleEditFormChange}
+                            fullWidth
+                            error={!!editErrors.returnCity}
+                            placeholder="Enter city"
+                            InputLabelProps={{ shrink: true }}
+                            sx={{
+                              '& .MuiInputBase-root': {
+                                borderRadius: 2,
+                                backgroundColor: '#fff',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                              },
+                              '& .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#E2E8F0',
+                              },
+                              '&:hover .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '& .MuiInputLabel-root': {
+                                color: '#4A5568',
+                                fontSize: '0.875rem',
+                              },
+                            }}
+                          />
+                        </Grid>
+
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            label="State *"
+                            name="returnState"
+                            value={editForm.returnState}
+                            onChange={handleEditFormChange}
+                            fullWidth
+                            error={!!editErrors.returnState}
+                            placeholder="Enter state (e.g., CA)"
+                            InputLabelProps={{ shrink: true }}
+                            sx={{
+                              '& .MuiInputBase-root': {
+                                borderRadius: 2,
+                                backgroundColor: '#fff',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                              },
+                              '& .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#E2E8F0',
+                              },
+                              '&:hover .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '& .MuiInputLabel-root': {
+                                color: '#4A5568',
+                                fontSize: '0.875rem',
+                              },
+                            }}
+                          />
+                        </Grid>
+
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            label="ZIP Code *"
+                            name="returnZip"
+                            value={editForm.returnZip}
+                            onChange={handleEditFormChange}
+                            fullWidth
+                            error={!!editErrors.returnZip}
+                            placeholder="Enter 5 digit ZIP code"
+                            InputLabelProps={{ shrink: true }}
+                            sx={{
+                              '& .MuiInputBase-root': {
+                                borderRadius: 2,
+                                backgroundColor: '#fff',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                              },
+                              '& .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#E2E8F0',
+                              },
+                              '&:hover .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '& .MuiInputLabel-root': {
+                                color: '#4A5568',
+                                fontSize: '0.875rem',
+                              },
+                            }}
+                          />
+                        </Grid>
+                      </Grid>
+                    </Box>
+                  </Paper>
+                </>
+              )}
+
+              {/* OTR Origins and Destinations - Only for OTR */}
+              {editLoadType === 'OTR' && (
+                <>
+                  {/* 🟦 PICKUP SECTION */}
+                  <Box
+                    sx={{
+                      backgroundColor: '#fff',
+                      borderRadius: 3,
+                      p: 3,
+                      mt: 3,
+                      boxShadow: '0px 2px 6px rgba(0,0,0,0.08)',
+                      border: '1px solid #E0E0E0',
+                    }}
+                  >
+                    {/* Header */}
+                    <Typography
+                      variant="h6"
+                      sx={{
+                        fontWeight: 700,
+                        color: '#1976D2',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                        mb: 3,
+                        borderLeft: '4px solid #1976D2',
+                        pl: 1.5,
+                        letterSpacing: '0.3px',
+                      }}
+                    >
+                      <LocationOn sx={{ fontSize: 22, color: '#1976D2' }} />
+                      Pickup Locations
+                    </Typography>
+
+                    {editForm.origins.map((origin, index) => (
+                      <Paper
+                        key={index}
+                        elevation={0}
+                        sx={{
+                          p: 3,
+                          mb: 3,
+                          border: '1px solid #E0E0E0',
+                          borderRadius: 2,
+                          backgroundColor: '#FAFAFA',
+                        }}
+                      >
+                        {/* Header Row */}
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#333' }}>
+                            Pickup Location {index + 1}
+                          </Typography>
+                          {editForm.origins.length > 1 && (
+                            <Button
+                              variant="outlined"
+                              color="error"
+                              size="small"
+                              startIcon={<Delete />}
+                              onClick={() => {
+                                const newOrigins = editForm.origins.filter((_, i) => i !== index);
+                                setEditForm({ ...editForm, origins: newOrigins });
+                              }}
+                              sx={{
+                                minWidth: 'auto',
+                                px: 1,
+                                py: 0.5,
+                                fontSize: '0.75rem',
+                              }}
+                            >
+                              Delete
+                            </Button>
+                          )}
+                        </Box>
+
+                        {/* Fields */}
+                        <Grid container spacing={2.5}>
+                          {[
+                            { label: 'Full Address *', name: 'addressLine1', value: origin.addressLine1, placeholder: 'Enter full address', required: true },
+                            { label: 'City *', name: 'city', value: origin.city, placeholder: 'Enter city', required: true },
+                            { label: 'State *', name: 'state', value: origin.state, placeholder: 'Enter state', required: true },
+                            { label: 'Zip Code *', name: 'zip', value: origin.zip, placeholder: 'Enter zip code', required: true },
+                            { label: 'Weight (lbs) *', name: 'weight', value: origin.weight, placeholder: 'e.g., 26000', required: true },
+                            { label: 'Commodity *', name: 'commodity', value: origin.commodity, placeholder: 'Enter commodity', required: true },
+                            { label: 'Pickup Date *', name: 'pickupDate', value: origin.pickupDate, type: 'date', required: true },
+                            { label: 'Delivery Date', name: 'deliveryDate', value: origin.deliveryDate, type: 'date' },
+                          ].map((field) => (
+                            <Grid item xs={12} sm={6} key={field.name}>
+                              <TextField
+                                label={field.label}
+                                type={field.type || 'text'}
+                                value={field.value}
+                                onChange={(e) => handleEditOriginChange(index, field.name, e.target.value)}
+                                fullWidth
+                                placeholder={field.placeholder}
+                                InputLabelProps={field.type === 'date' ? { shrink: true } : {}}
+                                sx={{
+                                  '& .MuiInputBase-root': {
+                                    borderRadius: 2,
+                                    backgroundColor: '#fff',
+                                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                                  },
+                                  '& .MuiInputLabel-root': { color: '#555', fontSize: '0.875rem' },
+                                }}
+                              />
+                            </Grid>
+                          ))}
+                        </Grid>
+                      </Paper>
+                    ))}
+
+                    {/* Add Origin Button */}
+                    <Button
+                      variant="outlined"
+                      startIcon={<Add />}
+                      onClick={handleAddEditOrigin}
+                      sx={{
+                        mt: 2,
+                        borderRadius: 2,
+                        textTransform: 'none',
+                        borderColor: '#4A90E2',
+                        color: '#4A90E2',
+                        '&:hover': {
+                          borderColor: '#357ABD',
+                          backgroundColor: '#f0f7ff',
+                        },
+                      }}
+                    >
+                      Add Another Pickup Location
+                    </Button>
+                  </Box>
+
+                  {/* 🟩 DESTINATION SECTION */}
+                  <Box
+                    sx={{
+                      backgroundColor: '#fff',
+                      borderRadius: 3,
+                      p: 3,
+                      mt: 3,
+                      boxShadow: '0px 2px 6px rgba(0,0,0,0.08)',
+                      border: '1px solid #E0E0E0',
+                    }}
+                  >
+                    {/* Header */}
+                    <Typography
+                      variant="h6"
+                      sx={{
+                        fontWeight: 700,
+                        color: '#2E7D32',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                        mb: 3,
+                        borderLeft: '4px solid #2E7D32',
+                        pl: 1.5,
+                        letterSpacing: '0.3px',
+                      }}
+                    >
+                      <LocationOn sx={{ fontSize: 22, color: '#2E7D32' }} />
+                      Delivery Locations
+                    </Typography>
+
+                    {editForm.destinations.map((destination, index) => (
+                      <Paper
+                        key={index}
+                        elevation={0}
+                        sx={{
+                          p: 3,
+                          mb: 3,
+                          border: '1px solid #E0E0E0',
+                          borderRadius: 2,
+                          backgroundColor: '#FAFAFA',
+                        }}
+                      >
+                        {/* Header Row */}
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#333' }}>
+                            Delivery Location {index + 1}
+                          </Typography>
+                          {editForm.destinations.length > 1 && (
+                            <Button
+                              variant="outlined"
+                              color="error"
+                              size="small"
+                              startIcon={<Delete />}
+                              onClick={() => {
+                                const newDestinations = editForm.destinations.filter((_, i) => i !== index);
+                                setEditForm({ ...editForm, destinations: newDestinations });
+                              }}
+                              sx={{
+                                minWidth: 'auto',
+                                px: 1,
+                                py: 0.5,
+                                fontSize: '0.75rem',
+                              }}
+                            >
+                              Delete
+                            </Button>
+                          )}
+                        </Box>
+
+                        {/* Fields */}
+                        <Grid container spacing={2.5}>
+                          {[
+                            { label: 'Full Address *', name: 'addressLine1', value: destination.addressLine1, placeholder: 'Enter full address', required: true },
+                            { label: 'City *', name: 'city', value: destination.city, placeholder: 'Enter city', required: true },
+                            { label: 'State *', name: 'state', value: destination.state, placeholder: 'Enter state', required: true },
+                            { label: 'Zip Code *', name: 'zip', value: destination.zip, placeholder: 'Enter zip code', required: true },
+                            { label: 'Weight (lbs) *', name: 'weight', value: destination.weight, placeholder: 'e.g., 26000', required: true },
+                            { label: 'Commodity *', name: 'commodity', value: destination.commodity, placeholder: 'Enter commodity', required: true },
+                            { label: 'Delivery Date *', name: 'deliveryDate', value: destination.deliveryDate, type: 'date', required: true },
+                          ].map((field) => (
+                            <Grid item xs={12} sm={6} key={field.name}>
+                              <TextField
+                                label={field.label}
+                                type={field.type || 'text'}
+                                value={field.value}
+                                onChange={(e) => handleEditDestinationChange(index, field.name, e.target.value)}
+                                fullWidth
+                                placeholder={field.placeholder}
+                                InputLabelProps={field.type === 'date' ? { shrink: true } : {}}
+                                sx={{
+                                  '& .MuiInputBase-root': {
+                                    borderRadius: 2,
+                                    backgroundColor: '#fff',
+                                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                                  },
+                                  '& .MuiInputLabel-root': { color: '#555', fontSize: '0.875rem' },
+                                }}
+                              />
+                            </Grid>
+                          ))}
+                        </Grid>
+                      </Paper>
+                    ))}
+
+                    {/* Add Destination Button */}
+                    <Button
+                      variant="outlined"
+                      startIcon={<Add />}
+                      onClick={handleAddEditDestination}
+                      sx={{
+                        mt: 2,
+                        borderRadius: 2,
+                        textTransform: 'none',
+                        borderColor: '#2E7D32',
+                        color: '#2E7D32',
+                        '&:hover': {
+                          borderColor: '#1B5E20',
+                          backgroundColor: '#e8f5e9',
+                        },
+                      }}
+                    >
+                      Add Another Delivery Location
+                    </Button>
+                  </Box>
+                </>
+              )}
+
+              {/* Load Details Section - Common for both */}
+              <Paper elevation={2} sx={{
+                p: 3,
+                borderRadius: 3,
+                background: 'white',
+                border: '1px solid #e0e0e0',
+                mt: 3
+              }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                  <Box sx={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)'
+                  }}>
+                    <Inventory2 sx={{ color: '#fff', fontSize: 24 }} />
+                  </Box>
+                  <Typography variant="h6" sx={{ fontWeight: 700, color: '#2D3748' }}>
+                    Load Details
+                  </Typography>
+                </Box>
+
+                <Grid container spacing={2.5}>
+                  {/* Pickup Date */}
+                  <Grid item xs={12} sm={6} md={3}>
                     <TextField
                       type="date"
-                      label="Return Date"
-                      name="returnDate"
-                      value={editForm.returnDate || ''}
+                      label="Pickup Date *"
+                      name="pickupDate"
+                      value={editForm.pickupDate}
+                      onChange={handleEditFormChange}
+                      fullWidth
+                      error={!!editErrors.pickupDate}
+                      InputLabelProps={{ shrink: true }}
+                      sx={{
+                        minWidth: '270px',
+                        '& .MuiInputBase-root': {
+                          borderRadius: 2,
+                          backgroundColor: '#fff',
+                          '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                        },
+                        '& .MuiInputLabel-root': { color: '#555', fontSize: '0.875rem' },
+                      }}
+                    />
+                  </Grid>
+
+                  {/* Delivery Date */}
+                  <Grid item xs={12} sm={6} md={3}>
+                    <TextField
+                      type="date"
+                      label="Delivery Date *"
+                      name="deliveryDate"
+                      value={editForm.deliveryDate}
+                      onChange={handleEditFormChange}
+                      fullWidth
+                      error={!!editErrors.deliveryDate}
+                      InputLabelProps={{ shrink: true }}
+                      sx={{
+                        minWidth: '270px',
+                        '& .MuiInputBase-root': {
+                          borderRadius: 2,
+                          backgroundColor: '#fff',
+                          '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                        },
+                        '& .MuiInputLabel-root': { color: '#555', fontSize: '0.875rem' },
+                      }}
+                    />
+                  </Grid>
+
+                  {/* Return Date - Only for DRAYAGE */}
+                  {editLoadType === 'DRAYAGE' && (
+                    <Grid item xs={12} sm={6} md={3}>
+                      <TextField
+                        type="date"
+                        label="Return Date *"
+                        name="returnDate"
+                        value={editForm.returnDate}
+                        onChange={handleEditFormChange}
+                        fullWidth
+                        error={!!editErrors.returnDate}
+                        InputLabelProps={{ shrink: true }}
+                        sx={{
+                          minWidth: '270px',
+                          '& .MuiInputBase-root': {
+                            borderRadius: 2,
+                            backgroundColor: '#fff',
+                            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                          },
+                          '& .MuiInputLabel-root': { color: '#555', fontSize: '0.875rem' },
+                        }}
+                      />
+                    </Grid>
+                  )}
+
+                  {/* Vehicle Type */}
+                  <Grid item xs={12} sm={6} md={3}>
+                    <FormControl
+                      fullWidth
+                      error={!!editErrors.vehicleType}
+                      sx={{
+                        minWidth: '270px',
+                        '& .MuiInputBase-root': {
+                          borderRadius: 2,
+                          backgroundColor: '#fff',
+                          '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                        },
+                        '& .MuiInputLabel-root': { color: '#555', fontSize: '0.875rem' },
+                      }}
+                    >
+                      <InputLabel>Vehicle Type *</InputLabel>
+                      <Select
+                        name="vehicleType"
+                        value={editForm.vehicleType}
+                        onChange={handleEditFormChange}
+                        label="Vehicle Type *"
+                        sx={{
+                          borderRadius: 2,
+                        }}
+                      >
+                        {(editLoadType === 'DRAYAGE' ? DRAYAGE_VEHICLE_TYPES : OTR_VEHICLE_TYPES).map((vehicleType) => (
+                          <MenuItem
+                            key={vehicleType}
+                            value={vehicleType}
+                            sx={{
+                              whiteSpace: 'normal',
+                              wordWrap: 'break-word'
+                            }}
+                          >
+                            {vehicleType}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+
+                  {/* Weight */}
+                  <Grid item xs={12} sm={6} md={3}>
+                    <TextField
+                      label="Weight (lbs) *"
+                      name="weight"
+                      value={editForm.weight}
+                      onChange={handleEditFormChange}
+                      fullWidth
+                      error={!!editErrors.weight}
+                      placeholder="e.g., 26000"
+                      InputLabelProps={{ shrink: true }}
+                      sx={{
+                        minWidth: '270px',
+                        '& .MuiInputBase-root': {
+                          borderRadius: 2,
+                          backgroundColor: '#fff',
+                          '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                        },
+                        '& .MuiInputLabel-root': { color: '#555', fontSize: '0.875rem' },
+                      }}
+                    />
+                  </Grid>
+
+                  {/* Commodity */}
+                  <Grid item xs={12} sm={6} md={3}>
+                    <TextField
+                      label="Commodity *"
+                      name="commodity"
+                      value={editForm.commodity}
+                      onChange={handleEditFormChange}
+                      fullWidth
+                      error={!!editErrors.commodity}
+                      placeholder="Enter commodity"
+                      InputLabelProps={{ shrink: true }}
+                      sx={{
+                        minWidth: '270px',
+                        '& .MuiInputBase-root': {
+                          borderRadius: 2,
+                          backgroundColor: '#fff',
+                          '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                        },
+                        '& .MuiInputLabel-root': { color: '#555', fontSize: '0.875rem' },
+                      }}
+                    />
+                  </Grid>
+
+                  {/* Container No - Only for DRAYAGE */}
+                  {editLoadType === 'DRAYAGE' && (
+                    <Grid item xs={12} sm={6} md={3}>
+                      <TextField
+                        label="Container No"
+                        name="containerNo"
+                        value={editForm.containerNo}
+                        onChange={handleEditFormChange}
+                        fullWidth
+                        placeholder="Optional"
+                        InputLabelProps={{ shrink: true }}
+                        sx={{
+                          minWidth: '270px',
+                          '& .MuiInputBase-root': {
+                            borderRadius: 2,
+                            backgroundColor: '#fff',
+                            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                          },
+                          '& .MuiInputLabel-root': { color: '#555', fontSize: '0.875rem' },
+                        }}
+                      />
+                    </Grid>
+                  )}
+
+                  {/* PO Number */}
+                  <Grid item xs={12} sm={6} md={3}>
+                    <TextField
+                      label="PO Number"
+                      name="poNumber"
+                      value={editForm.poNumber}
+                      onChange={handleEditFormChange}
+                      fullWidth
+                      placeholder="Optional"
+                      InputLabelProps={{ shrink: true }}
+                      sx={{
+                        minWidth: '270px',
+                        '& .MuiInputBase-root': {
+                          borderRadius: 2,
+                          backgroundColor: '#fff',
+                          '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                        },
+                        '& .MuiInputLabel-root': { color: '#555', fontSize: '0.875rem' },
+                      }}
+                    />
+                  </Grid>
+
+                  {/* BOL Number */}
+                  <Grid item xs={12} sm={6} md={3}>
+                    <TextField
+                      label="BOL Number"
+                      name="bolNumber"
+                      value={editForm.bolNumber}
+                      onChange={handleEditFormChange}
+                      fullWidth
+                      placeholder="Optional"
+                      InputLabelProps={{ shrink: true }}
+                      sx={{
+                        minWidth: '270px',
+                        '& .MuiInputBase-root': {
+                          borderRadius: 2,
+                          backgroundColor: '#fff',
+                          '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                        },
+                        '& .MuiInputLabel-root': { color: '#555', fontSize: '0.875rem' },
+                      }}
+                    />
+                  </Grid>
+
+                  {/* BOL Deadline */}
+                  <Grid item xs={12} sm={6} md={3}>
+                    <TextField
+                      type="date"
+                      label="BOL Deadline *"
+                      name="bidDeadline"
+                      value={editForm.bidDeadline}
                       onChange={handleEditFormChange}
                       fullWidth
                       InputLabelProps={{ shrink: true }}
                       sx={{
+                        minWidth: '270px',
                         '& .MuiInputBase-root': {
-                          borderRadius: '12px',
-                          paddingRight: 3,
+                          borderRadius: 2,
+                          backgroundColor: '#fff',
+                          '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
                         },
-                        '& input[type="date"]': {
-                          fontSize: '16px',
-                          height: '1.4375em',
-                          padding: '16.5px 14px',
-                        },
+                        '& .MuiInputLabel-root': { color: '#555', fontSize: '0.875rem' },
                       }}
                     />
                   </Grid>
-                  <Grid item xs={12} sm={6}>
+                </Grid>
+              </Paper>
+
+              {/* Rate Details Section - Common for both */}
+              <Paper elevation={2} sx={{
+                p: 3,
+                borderRadius: 3,
+                background: 'white',
+                border: '1px solid #e0e0e0',
+                mt: 3
+              }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                  <Box sx={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
+                  }}>
+                    <AttachMoney sx={{ color: '#fff', fontSize: 24 }} />
+                  </Box>
+                  <Typography variant="h6" sx={{ fontWeight: 700, color: '#2D3748' }}>
+                    Rate Details
+                  </Typography>
+                </Box>
+
+                <Grid container spacing={2.5}>
+                  {/* Line Haul */}
+                  <Grid item xs={12} sm={6} md={3}>
                     <TextField
-                      label="Drayage Location"
-                      name="returnLocation"
-                      value={editForm.returnLocation || ''}
+                      label="Line Haul ($) *"
+                      name="lineHaul"
+                      type="number"
+                      value={editForm.lineHaul}
                       onChange={handleEditFormChange}
                       fullWidth
+                      error={!!editErrors.lineHaul}
+                      placeholder="Enter line haul"
+                      InputLabelProps={{ shrink: true }}
+                      InputProps={{
+                        startAdornment: <InputAdornment position="start">$</InputAdornment>
+                      }}
                       sx={{
+                        minWidth: '270px',
                         '& .MuiInputBase-root': {
-                          borderRadius: '12px',
-                          paddingRight: 3,
+                          borderRadius: 2,
+                          backgroundColor: '#fff',
+                          '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
                         },
+                        '& .MuiInputLabel-root': { color: '#555', fontSize: '0.875rem' },
                       }}
                     />
                   </Grid>
-                </>
-              )}
-            </Grid>
 
-            {/* Price */}
-            <TextField
-              label="Target Rate ($)"
-              name="rate"
-              value={editForm.rate}
-              onChange={handleEditFormChange}
-              fullWidth
-              error={!!editErrors.rate}
-              sx={{
-                '& .MuiInputBase-root': {
-                  borderRadius: '12px',
-                  fontSize: '20px',
-                  fontWeight: 600,
-                  paddingY: 1.5,
-                  width: '510px',
-                },
-                '& input': {
-                  textAlign: 'center',
-                },
-              }}
-            />
+                  {/* FSC */}
+                  <Grid item xs={12} sm={6} md={3}>
+                    <TextField
+                      label="FSC (%) *"
+                      name="fsc"
+                      type="number"
+                      value={editForm.fsc}
+                      onChange={handleEditFormChange}
+                      fullWidth
+                      error={!!editErrors.fsc}
+                      placeholder="Enter FSC percentage"
+                      InputLabelProps={{ shrink: true }}
+                      InputProps={{
+                        endAdornment: <InputAdornment position="end"><Percent sx={{ fontSize: 18, color: '#666' }} /></InputAdornment>
+                      }}
+                      sx={{
+                        minWidth: '270px',
+                        '& .MuiInputBase-root': {
+                          borderRadius: 2,
+                          backgroundColor: '#fff',
+                          '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                        },
+                        '& .MuiInputLabel-root': { color: '#555', fontSize: '0.875rem' },
+                      }}
+                    />
+                  </Grid>
 
-            {/* Buttons */}
-            <DialogActions sx={{ mt: 4, justifyContent: 'center', gap: 1 }}>
-              <Button
-                onClick={handleCloseEditModal}
-                variant="contained"
-                disabled={editLoading}
-                sx={{
-                  borderRadius: 3,
-                  backgroundColor: '#f0f0f0',
-                  color: '#000',
-                  textTransform: 'none',
-                  px: 4,
-                  '&:hover': { backgroundColor: '#e0e0e0' },
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                variant="contained"
-                color="primary"
-                disabled={editLoading}
-                sx={{
-                  borderRadius: 3,
-                  textTransform: 'none',
-                  px: 4,
-                }}
-              >
-                {editLoading ? 'Updating...' : 'Submit'}
-              </Button>
-            </DialogActions>
+                  {/* Other Charges */}
+                  <Grid item xs={12} sm={6} md={3}>
+                    <TextField
+                      label="Other Charges ($) *"
+                      name="others"
+                      value={editForm.others}
+                      onChange={handleEditFormChange}
+                      fullWidth
+                      error={!!editErrors.others}
+                      placeholder="Click to add charges"
+                      onClick={handleOpenEditChargesCalculator}
+                      InputProps={{ readOnly: true }}
+                      InputLabelProps={{ shrink: true }}
+                      sx={{
+                        minWidth: '295px',
+                        cursor: 'pointer',
+                        '& .MuiInputBase-root': {
+                          borderRadius: 2,
+                          backgroundColor: '#fff',
+                          '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                        },
+                        '& .MuiInputLabel-root': { color: '#555', fontSize: '0.875rem' },
+                      }}
+                    />
+                  </Grid>
+
+                  {/* Total Rate */}
+                  <Grid item xs={12} sm={6} md={3}>
+                    <TextField
+                      label="Total Rate ($) *"
+                      name="total"
+                      value={editForm.total}
+                      onChange={handleEditFormChange}
+                      fullWidth
+                      error={!!editErrors.total}
+                      placeholder="Auto calculated"
+                      InputLabelProps={{ shrink: true }}
+                      InputProps={{
+                        readOnly: true,
+                        startAdornment: <InputAdornment position="start">$</InputAdornment>
+                      }}
+                      sx={{
+                        minWidth: '270px',
+                        '& .MuiInputBase-root': {
+                          borderRadius: 2,
+                          backgroundColor: '#E6F7E6',
+                          '& .MuiOutlinedInput-input': {
+                            fontWeight: 600,
+                            color: '#2d5016'
+                          }
+                        },
+                        '& .MuiInputLabel-root': { color: '#555', fontSize: '0.875rem' },
+                      }}
+                    />
+                  </Grid>
+                </Grid>
+              </Paper>
+
+            </Box>
           </Box>
         </DialogContent>
+
+        <DialogActions sx={{
+          p: 4,
+          background: 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)',
+          borderTop: '2px solid #e8f4fd',
+          gap: 2,
+          justifyContent: 'flex-end'
+        }}>
+          <Button
+            onClick={handleCloseEditModal}
+            variant="outlined"
+            disabled={editLoading}
+            sx={{
+              borderRadius: 3,
+              fontWeight: 700,
+              color: '#667eea',
+              borderColor: '#667eea',
+              borderWidth: 2,
+              px: 4,
+              py: 1.5,
+              fontSize: '1rem',
+              textTransform: 'none',
+              background: '#ffffff',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                borderColor: '#764ba2',
+                color: '#764ba2',
+                backgroundColor: '#f8f9fa',
+                transform: 'translateY(-2px)',
+                boxShadow: '0 4px 12px rgba(102, 126, 234, 0.2)'
+              }
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={editLoading}
+            sx={{
+              borderRadius: 3,
+              fontWeight: 800,
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              px: 5,
+              py: 1.5,
+              fontSize: '1rem',
+              textTransform: 'none',
+              boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                transform: 'translateY(-2px)',
+                boxShadow: '0 6px 20px rgba(102, 126, 234, 0.5)'
+              },
+              '&:active': {
+                transform: 'translateY(0px)'
+              }
+            }}
+          >
+            {editLoading ? 'Updating...' : 'Update Load'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Charges Calculator Modal */}
+      <Dialog
+        open={editChargesCalculatorModalOpen}
+        onClose={handleCloseEditChargesCalculator}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
+            overflow: 'hidden',
+            maxHeight: '90vh'
+          }
+        }}
+      >
+        {/* Header with Gradient */}
+        <Box
+          sx={{
+            background: 'linear-gradient(to right, #4A90E2, #9B59B6)',
+            p: 3,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            color: '#fff'
+          }}
+        >
+          <Typography
+            variant="h5"
+            sx={{
+              fontWeight: 700,
+              fontSize: '1.5rem',
+              color: '#fff'
+            }}
+          >
+            Charges Calculator
+          </Typography>
+          <IconButton
+            onClick={handleCloseEditChargesCalculator}
+            sx={{
+              color: '#fff',
+              backgroundColor: 'rgba(255, 255, 255, 0.2)',
+              '&:hover': {
+                backgroundColor: 'rgba(255, 255, 255, 0.3)'
+              }
+            }}
+          >
+            <Close />
+          </IconButton>
+        </Box>
+
+        {/* Main Content */}
+        <DialogContent
+          sx={{
+            p: 3,
+            backgroundColor: '#fff',
+            minHeight: '400px'
+          }}
+        >
+          {/* Table Header */}
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: '2fr 1fr 1fr 1fr 80px',
+              gap: 2,
+              mb: 2,
+              pb: 1.5,
+              borderBottom: '2px solid #E2E8F0',
+              fontWeight: 600,
+              color: '#2D3748',
+              fontSize: '0.875rem'
+            }}
+          >
+            <Typography>Name *</Typography>
+            <Typography># Quantity *</Typography>
+            <Typography>$ Amount *</Typography>
+            <Typography>$ Total</Typography>
+            <Typography>Action</Typography>
+          </Box>
+
+          {/* Charges Rows */}
+          {editCharges.length === 0 ? (
+            <Box
+              sx={{
+                textAlign: 'center',
+                py: 4,
+                color: '#94a3b8'
+              }}
+            >
+              <Typography>No charges added yet. Click "+ Add New Charge" to get started.</Typography>
+            </Box>
+          ) : (
+            editCharges.map((charge) => (
+              <Box
+                key={charge.id}
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: '2fr 1fr 1fr 1fr 80px',
+                  gap: 2,
+                  mb: 2,
+                  alignItems: 'center'
+                }}
+              >
+                <TextField
+                  placeholder="Enter name"
+                  value={charge.name}
+                  onChange={(e) => handleEditChargeChange(charge.id, 'name', e.target.value)}
+                  size="small"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      backgroundColor: '#fff',
+                      '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' }
+                    }
+                  }}
+                />
+                <TextField
+                  type="number"
+                  placeholder="Qty"
+                  value={charge.quantity}
+                  onChange={(e) => handleEditChargeChange(charge.id, 'quantity', e.target.value)}
+                  size="small"
+                  inputProps={{ min: 0, step: 1 }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      backgroundColor: '#fff',
+                      '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' }
+                    }
+                  }}
+                />
+                <TextField
+                  type="number"
+                  placeholder="Amount"
+                  value={charge.amount}
+                  onChange={(e) => handleEditChargeChange(charge.id, 'amount', e.target.value)}
+                  size="small"
+                  inputProps={{ min: 0, step: 0.01 }}
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start">$</InputAdornment>
+                  }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      backgroundColor: '#fff',
+                      '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' }
+                    }
+                  }}
+                />
+                <TextField
+                  value={`$${parseFloat(charge.total || 0).toFixed(2)}`}
+                  size="small"
+                  InputProps={{ readOnly: true }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      backgroundColor: '#E6F7E6',
+                      '& .MuiOutlinedInput-input': {
+                        fontWeight: 600,
+                        color: '#2d5016'
+                      }
+                    }
+                  }}
+                />
+                <IconButton
+                  onClick={() => handleDeleteEditCharge(charge.id)}
+                  sx={{
+                    color: '#ef4444',
+                    '&:hover': {
+                      backgroundColor: '#fee2e2'
+                    }
+                  }}
+                >
+                  <Delete />
+                </IconButton>
+              </Box>
+            ))
+          )}
+
+          {/* Add New Charge Button */}
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+            <Button
+              onClick={handleAddEditCharge}
+              variant="contained"
+              startIcon={<Add />}
+              sx={{
+                background: 'linear-gradient(to right, #4A90E2, #9B59B6)',
+                color: '#fff',
+                borderRadius: 2,
+                px: 3,
+                py: 1.5,
+                fontWeight: 600,
+                textTransform: 'none',
+                fontSize: '0.9375rem',
+                boxShadow: '0 4px 12px rgba(74, 144, 226, 0.3)',
+                '&:hover': {
+                  background: 'linear-gradient(to right, #357ABD, #7B2CBF)',
+                  boxShadow: '0 6px 16px rgba(74, 144, 226, 0.4)'
+                }
+              }}
+            >
+              + Add New Charge
+            </Button>
+          </Box>
+        </DialogContent>
+
+        {/* Footer with Total */}
+        <Box
+          sx={{
+            p: 3,
+            backgroundColor: '#f8f9fa',
+            borderTop: '2px solid #E2E8F0',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <AttachMoney sx={{ fontSize: 20 }} />
+            <Typography>
+              $ Total Charges ${editCharges.reduce((sum, charge) => {
+                return sum + (parseFloat(charge.total) || 0);
+              }, 0).toFixed(2)}
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button
+              onClick={handleCloseEditChargesCalculator}
+              variant="outlined"
+              sx={{
+                borderRadius: 2,
+                textTransform: 'none',
+                color: '#4A90E2',
+                borderColor: '#4A90E2',
+                px: 3,
+                py: 1,
+                fontWeight: 500,
+                fontSize: '0.95rem',
+                '&:hover': {
+                  backgroundColor: '#f0f7ff',
+                  borderColor: '#357ABD',
+                  color: '#357ABD',
+                },
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleApplyEditCharges}
+              variant="contained"
+              sx={{
+                borderRadius: 2,
+                textTransform: 'none',
+                backgroundColor: '#4A90E2',
+                px: 4,
+                py: 1,
+                fontWeight: 600,
+                fontSize: '0.95rem',
+                '&:hover': {
+                  backgroundColor: '#357ABD',
+                },
+              }}
+            >
+              Apply to Carrier Fees
+            </Button>
+          </Box>
+        </Box>
       </Dialog>
 
       {/* CMT Agent Details Modal */}
@@ -4763,15 +7706,15 @@ Drayage Details
                     <TableRow>
                       <TableCell sx={{ fontWeight: 600, background: '#f8f9fa' }}>Origin</TableCell>
                       <TableCell sx={{ fontWeight: 500 }}>
-                        {cmtData.loadDetails?.origins && cmtData.loadDetails.origins.length > 0 ? 
-                          `${cmtData.loadDetails.origins[0].city}, ${cmtData.loadDetails.origins[0].state}` : 
+                        {cmtData.loadDetails?.origins && cmtData.loadDetails.origins.length > 0 ?
+                          `${cmtData.loadDetails.origins[0].city}, ${cmtData.loadDetails.origins[0].state}` :
                           'N/A'
                         }
                       </TableCell>
                       <TableCell sx={{ fontWeight: 600, background: '#f8f9fa' }}>Destination</TableCell>
                       <TableCell sx={{ fontWeight: 500 }}>
-                        {cmtData.loadDetails?.destinations && cmtData.loadDetails.destinations.length > 0 ? 
-                          `${cmtData.loadDetails.destinations[0].city}, ${cmtData.loadDetails.destinations[0].state}` : 
+                        {cmtData.loadDetails?.destinations && cmtData.loadDetails.destinations.length > 0 ?
+                          `${cmtData.loadDetails.destinations[0].city}, ${cmtData.loadDetails.destinations[0].state}` :
                           'N/A'
                         }
                       </TableCell>
@@ -4823,23 +7766,23 @@ Drayage Details
                         <TableCell sx={{ fontWeight: 500, fontSize: 16, color: '#2e7d32', width: '25%' }}>
                           {cmtData.cmtAssignment.assignedCMTUser?.displayName || cmtData.cmtAssignment.assignedCMTUser?.aliasName || 'N/A'}
                         </TableCell>
-                        
-                        
+
+
                       </TableRow>
-                     
+
                       <TableRow>
                         <TableCell sx={{ fontWeight: 600, background: '#e8f5e8' }}>Email</TableCell>
                         <TableCell sx={{ fontWeight: 500 }}>{cmtData.cmtAssignment.assignedCMTUser?.email || 'N/A'}</TableCell>
-                        
+
                       </TableRow>
-                      
-                     
+
+
                     </TableBody>
                   </Table>
                 </Paper>
               )}
 
-             
+
               {/* Message */}
               {cmtData.message && (
                 <Paper elevation={2} sx={{ borderRadius: 2, overflow: 'hidden' }}>
@@ -4868,10 +7811,10 @@ Drayage Details
       </Dialog>
 
       {/* Rate Suggestion Details Modal */}
-      <Dialog 
-        open={suggestionDetailsModalOpen} 
-        onClose={handleCloseSuggestionDetails} 
-        maxWidth="lg" 
+      <Dialog
+        open={suggestionDetailsModalOpen}
+        onClose={handleCloseSuggestionDetails}
+        maxWidth="lg"
         fullWidth
         PaperProps={{
           sx: {
@@ -4881,10 +7824,10 @@ Drayage Details
           }
         }}
       >
-        <DialogTitle sx={{ 
-          fontWeight: 700, 
-          color: '#1976d2', 
-          fontSize: 24, 
+        <DialogTitle sx={{
+          fontWeight: 700,
+          color: '#1976d2',
+          fontSize: 24,
           borderBottom: '2px solid #e0e0e0',
           background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
           display: 'flex',
@@ -4897,48 +7840,48 @@ Drayage Details
           {selectedSuggestion && rateSuggestions && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {/* Selected Suggestion Card */}
-              <Paper elevation={3} sx={{ 
-                p: 4, 
+              <Paper elevation={3} sx={{
+                p: 4,
                 borderRadius: 3,
                 background: 'linear-gradient(135deg, #fff 0%, #f8f9fa 100%)',
                 border: '2px solid #e0e0e0'
               }}>
                 <Box sx={{ textAlign: 'center', mb: 3 }}>
-                  <Typography variant="h4" sx={{ 
-                    fontWeight: 800, 
-                    color: '#1976d2', 
+                  <Typography variant="h4" sx={{
+                    fontWeight: 800,
+                    color: '#1976d2',
                     mb: 1
                   }}>
                     {selectedSuggestion.type}
                   </Typography>
-                  <Typography variant="h2" sx={{ 
-                    fontWeight: 900, 
-                    color: '#2e7d32', 
+                  <Typography variant="h2" sx={{
+                    fontWeight: 900,
+                    color: '#2e7d32',
                     mb: 2,
                     textShadow: '0 2px 4px rgba(0,0,0,0.1)'
                   }}>
                     ${selectedSuggestion.rate.toLocaleString()}
                   </Typography>
-                  <Typography variant="body1" sx={{ 
-                    color: '#666', 
+                  <Typography variant="body1" sx={{
+                    color: '#666',
                     mb: 2,
                     fontSize: '1.1rem'
                   }}>
                     {selectedSuggestion.description}
                   </Typography>
-                  <Chip 
+                  <Chip
                     label={`${selectedSuggestion.confidence} Confidence`}
-                    color={selectedSuggestion.confidence === 'High' ? 'success' : 
-                           selectedSuggestion.confidence === 'Medium' ? 'warning' : 'default'}
-                    sx={{ 
-                      fontSize: '0.9rem', 
+                    color={selectedSuggestion.confidence === 'High' ? 'success' :
+                      selectedSuggestion.confidence === 'Medium' ? 'warning' : 'default'}
+                    sx={{
+                      fontSize: '0.9rem',
                       fontWeight: 600,
                       px: 2,
                       py: 1
                     }}
                   />
                 </Box>
-                
+
                 <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2 }}>
                   <Button
                     variant="contained"
@@ -4967,9 +7910,9 @@ Drayage Details
 
               {/* Route Information */}
               <Paper elevation={2} sx={{ p: 3, borderRadius: 3 }}>
-                <Typography variant="h6" sx={{ 
-                  fontWeight: 700, 
-                  color: '#1976d2', 
+                <Typography variant="h6" sx={{
+                  fontWeight: 700,
+                  color: '#1976d2',
                   mb: 2,
                   display: 'flex',
                   alignItems: 'center',
@@ -5004,9 +7947,9 @@ Drayage Details
               {/* Detailed Statistics */}
               {rateSuggestions.statistics && (
                 <Paper elevation={2} sx={{ p: 3, borderRadius: 3 }}>
-                  <Typography variant="h6" sx={{ 
-                    fontWeight: 700, 
-                    color: '#1976d2', 
+                  <Typography variant="h6" sx={{
+                    fontWeight: 700,
+                    color: '#1976d2',
                     mb: 3,
                     display: 'flex',
                     alignItems: 'center',
@@ -5014,7 +7957,7 @@ Drayage Details
                   }}>
                     📊 Detailed Market Statistics
                   </Typography>
-                  
+
                   <Grid container spacing={3}>
                     {/* Overall Statistics */}
                     <Grid item xs={12} md={6}>
@@ -5089,13 +8032,13 @@ Drayage Details
                 </Paper>
               )}
 
-             
+
               {/* Market Insights */}
               {rateSuggestions.marketInsights && rateSuggestions.marketInsights.length > 0 && (
                 <Paper elevation={2} sx={{ p: 3, borderRadius: 3 }}>
-                  <Typography variant="h6" sx={{ 
-                    fontWeight: 700, 
-                    color: '#1976d2', 
+                  <Typography variant="h6" sx={{
+                    fontWeight: 700,
+                    color: '#1976d2',
                     mb: 3,
                     display: 'flex',
                     alignItems: 'center',
@@ -5106,9 +8049,9 @@ Drayage Details
                   <Grid container spacing={2}>
                     {rateSuggestions.marketInsights.map((insight, index) => (
                       <Grid item xs={12} sm={6} md={4} key={index}>
-                        <Box sx={{ 
-                          p: 2, 
-                          backgroundColor: '#e3f2fd', 
+                        <Box sx={{
+                          p: 2,
+                          backgroundColor: '#e3f2fd',
                           borderRadius: 2,
                           border: '1px solid #90caf9',
                           textAlign: 'center'
@@ -5126,12 +8069,12 @@ Drayage Details
           )}
         </DialogContent>
         <DialogActions sx={{ p: 3, background: '#f8f9fa' }}>
-          <Button 
-            onClick={handleCloseSuggestionDetails} 
-            variant="contained" 
-            sx={{ 
-              borderRadius: 2, 
-              fontWeight: 600, 
+          <Button
+            onClick={handleCloseSuggestionDetails}
+            variant="contained"
+            sx={{
+              borderRadius: 2,
+              fontWeight: 600,
               px: 3,
               py: 1,
               textTransform: 'none'
@@ -5143,10 +8086,10 @@ Drayage Details
       </Dialog>
 
       {/* Smart Rate Suggestion Modal */}
-      <Dialog 
-        open={smartRateModalOpen} 
-        onClose={handleCloseSmartRateModal} 
-        maxWidth="lg" 
+      <Dialog
+        open={smartRateModalOpen}
+        onClose={handleCloseSmartRateModal}
+        maxWidth="lg"
         fullWidth
         PaperProps={{
           sx: {
@@ -5156,10 +8099,10 @@ Drayage Details
           }
         }}
       >
-        <DialogTitle sx={{ 
-          fontWeight: 600, 
-          color: '#1976d2', 
-          fontSize: 18, 
+        <DialogTitle sx={{
+          fontWeight: 600,
+          color: '#1976d2',
+          fontSize: 18,
           borderBottom: '2px solid #e0e0e0',
           background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
           display: 'flex',
@@ -5169,23 +8112,23 @@ Drayage Details
         }}>
           💡 Smart Rate Suggestions
         </DialogTitle>
-        <DialogContent sx={{ 
-          px: 3, 
+        <DialogContent sx={{
+          px: 3,
           py: 2,
           background: '#fff'
         }}>
           {rateSuggestionsLoading ? (
-            <Box sx={{ 
-              textAlign: 'center', 
+            <Box sx={{
+              textAlign: 'center',
               py: 4,
               background: '#f8f9fa',
               borderRadius: 2,
               border: '1px solid #e0e0e0'
             }}>
-              <Box sx={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
+              <Box sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
                 gap: 2,
                 mb: 2
               }}>
@@ -5212,23 +8155,23 @@ Drayage Details
           ) : rateSuggestions ? (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
               {/* Route Header */}
-              <Paper elevation={1} sx={{ 
-                p: 2, 
-                borderRadius: 2, 
+              <Paper elevation={1} sx={{
+                p: 2,
+                borderRadius: 2,
                 background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
                 border: '1px solid #e0e0e0'
               }}>
-                <Typography variant="h6" sx={{ 
-                  fontWeight: 600, 
-                  color: '#1976d2', 
+                <Typography variant="h6" sx={{
+                  fontWeight: 600,
+                  color: '#1976d2',
                   mb: 0.5,
                   textAlign: 'center',
                   fontSize: '1.1rem'
                 }}>
                   🚛 {rateSuggestions.route.pickup} → {rateSuggestions.route.delivery}
                 </Typography>
-                <Typography variant="body2" sx={{ 
-                  color: '#666', 
+                <Typography variant="body2" sx={{
+                  color: '#666',
                   textAlign: 'center',
                   fontSize: '0.9rem'
                 }}>
@@ -5243,11 +8186,11 @@ Drayage Details
                     <Paper elevation={0} sx={{
                       p: 2,
                       borderRadius: 2,
-                      background: suggestion.confidence === 'High' ? 
+                      background: suggestion.confidence === 'High' ?
                         'linear-gradient(135deg, #e8f5e8 0%, #f1f8e9 100%)' :
-                        suggestion.confidence === 'Medium' ? 
-                        'linear-gradient(135deg, #fff3e0 0%, #fff8e1 100%)' :
-                        'linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%)',
+                        suggestion.confidence === 'Medium' ?
+                          'linear-gradient(135deg, #fff3e0 0%, #fff8e1 100%)' :
+                          'linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%)',
                       border: 'none',
                       textAlign: 'center',
                       position: 'relative',
@@ -5263,8 +8206,8 @@ Drayage Details
                         top: 6,
                         right: 6,
                         background: 'rgba(255,255,255,0.9)',
-                        color: suggestion.confidence === 'High' ? '#4caf50' : 
-                               suggestion.confidence === 'Medium' ? '#ff9800' : '#9e9e9e',
+                        color: suggestion.confidence === 'High' ? '#4caf50' :
+                          suggestion.confidence === 'Medium' ? '#ff9800' : '#9e9e9e',
                         borderRadius: '50%',
                         width: 24,
                         height: 24,
@@ -5274,14 +8217,14 @@ Drayage Details
                         fontSize: '0.7rem',
                         fontWeight: 600
                       }}>
-                        {suggestion.confidence === 'High' ? '✓' : 
-                         suggestion.confidence === 'Medium' ? '~' : '?'}
+                        {suggestion.confidence === 'High' ? '✓' :
+                          suggestion.confidence === 'Medium' ? '~' : '?'}
                       </Box>
 
                       {/* Suggestion Type */}
-                      <Typography variant="subtitle1" sx={{ 
-                        fontWeight: 600, 
-                        color: '#1976d2', 
+                      <Typography variant="subtitle1" sx={{
+                        fontWeight: 600,
+                        color: '#1976d2',
                         mb: 1,
                         fontSize: '1rem'
                       }}>
@@ -5289,9 +8232,9 @@ Drayage Details
                       </Typography>
 
                       {/* Rate */}
-                      <Typography variant="h4" sx={{ 
-                        fontWeight: 700, 
-                        color: '#2e7d32', 
+                      <Typography variant="h4" sx={{
+                        fontWeight: 700,
+                        color: '#2e7d32',
                         mb: 1,
                         fontSize: '1.8rem'
                       }}>
@@ -5299,8 +8242,8 @@ Drayage Details
                       </Typography>
 
                       {/* Description */}
-                      <Typography variant="body2" sx={{ 
-                        color: '#666', 
+                      <Typography variant="body2" sx={{
+                        color: '#666',
                         mb: 2,
                         lineHeight: 1.3,
                         minHeight: '2.5em',
@@ -5365,9 +8308,9 @@ Drayage Details
               {/* Market Statistics */}
               {rateSuggestions.statistics && (
                 <Paper elevation={2} sx={{ p: 3, borderRadius: 3 }}>
-                  <Typography variant="h6" sx={{ 
-                    fontWeight: 700, 
-                    color: '#1976d2', 
+                  <Typography variant="h6" sx={{
+                    fontWeight: 700,
+                    color: '#1976d2',
                     mb: 3,
                     display: 'flex',
                     alignItems: 'center',
@@ -5375,7 +8318,7 @@ Drayage Details
                   }}>
                     📊 Market Statistics
                   </Typography>
-                  
+
                   <Grid container spacing={3}>
                     {/* Overall Statistics */}
                     <Grid item xs={12} md={6}>
@@ -5450,14 +8393,14 @@ Drayage Details
                 </Paper>
               )}
 
-              
+
 
               {/* Market Insights */}
               {rateSuggestions.marketInsights && rateSuggestions.marketInsights.length > 0 && (
                 <Paper elevation={2} sx={{ p: 3, borderRadius: 3 }}>
-                  <Typography variant="h6" sx={{ 
-                    fontWeight: 700, 
-                    color: '#1976d2', 
+                  <Typography variant="h6" sx={{
+                    fontWeight: 700,
+                    color: '#1976d2',
                     mb: 3,
                     display: 'flex',
                     alignItems: 'center',
@@ -5468,9 +8411,9 @@ Drayage Details
                   <Grid container spacing={2}>
                     {rateSuggestions.marketInsights.map((insight, index) => (
                       <Grid item xs={12} sm={6} md={4} key={index}>
-                        <Box sx={{ 
-                          p: 2, 
-                          backgroundColor: '#e3f2fd', 
+                        <Box sx={{
+                          p: 2,
+                          backgroundColor: '#e3f2fd',
                           borderRadius: 2,
                           border: '1px solid #90caf9',
                           textAlign: 'center'
@@ -5496,17 +8439,17 @@ Drayage Details
             </Box>
           )}
         </DialogContent>
-        <DialogActions sx={{ 
-          p: 2, 
+        <DialogActions sx={{
+          p: 2,
           background: '#f8f9fa',
           borderTop: '1px solid #e0e0e0'
         }}>
-          <Button 
-            onClick={handleCloseSmartRateModal} 
-            variant="contained" 
-            sx={{ 
-              borderRadius: 2, 
-              fontWeight: 600, 
+          <Button
+            onClick={handleCloseSmartRateModal}
+            variant="contained"
+            sx={{
+              borderRadius: 2,
+              fontWeight: 600,
               px: 3,
               py: 1,
               textTransform: 'none',
@@ -5521,6 +8464,293 @@ Drayage Details
             Close
           </Button>
         </DialogActions>
+      </Dialog>
+
+      {/* Charges Calculator Modal */}
+      <Dialog
+        open={chargesCalculatorModalOpen}
+        onClose={handleCloseChargesCalculator}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
+            overflow: 'hidden',
+            maxHeight: '90vh'
+          }
+        }}
+      >
+        {/* Header with Gradient */}
+        <Box
+          sx={{
+            background: 'linear-gradient(to right, #4A90E2, #9B59B6)',
+            p: 3,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            color: '#fff'
+          }}
+        >
+          <Typography
+            variant="h5"
+            sx={{
+              fontWeight: 700,
+              fontSize: '1.5rem',
+              color: '#fff'
+            }}
+          >
+            Charges Calculator
+          </Typography>
+          <IconButton
+            onClick={handleCloseChargesCalculator}
+            sx={{
+              color: '#fff',
+              backgroundColor: 'rgba(255, 255, 255, 0.2)',
+              '&:hover': {
+                backgroundColor: 'rgba(255, 255, 255, 0.3)'
+              }
+            }}
+          >
+            <Close />
+          </IconButton>
+        </Box>
+
+        {/* Main Content */}
+        <DialogContent
+          sx={{
+            p: 3,
+            backgroundColor: '#fff',
+            minHeight: '400px'
+          }}
+        >
+          {/* Table Header */}
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: '2fr 1fr 1fr 1fr 80px',
+              gap: 2,
+              mb: 2,
+              pb: 1.5,
+              borderBottom: '2px solid #E2E8F0',
+              fontWeight: 600,
+              color: '#2D3748',
+              fontSize: '0.875rem'
+            }}
+          >
+            <Typography>Name *</Typography>
+            <Typography># Quantity *</Typography>
+            <Typography>$ Amount *</Typography>
+            <Typography>$ Total</Typography>
+            <Typography>Action</Typography>
+          </Box>
+
+          {/* Charges Rows */}
+          {charges.length === 0 ? (
+            <Box
+              sx={{
+                textAlign: 'center',
+                py: 4,
+                color: '#94a3b8'
+              }}
+            >
+              <Typography>No charges added yet. Click "Add New Charge" to get started.</Typography>
+            </Box>
+          ) : (
+            charges.map((charge) => (
+              <Box
+                key={charge.id}
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: '2fr 1fr 1fr 1fr 80px',
+                  gap: 2,
+                  mb: 2,
+                  alignItems: 'center'
+                }}
+              >
+                <TextField
+                  placeholder="Enter name"
+                  value={charge.name}
+                  onChange={(e) => handleChargeChange(charge.id, 'name', e.target.value)}
+                  size="small"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      backgroundColor: '#fff',
+                      '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' }
+                    }
+                  }}
+                />
+                <TextField
+                  type="number"
+                  placeholder="Qty"
+                  value={charge.quantity}
+                  onChange={(e) => handleChargeChange(charge.id, 'quantity', e.target.value)}
+                  size="small"
+                  inputProps={{ min: 0, step: 1 }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      backgroundColor: '#fff',
+                      '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' }
+                    }
+                  }}
+                />
+                <TextField
+                  type="number"
+                  placeholder="Amount"
+                  value={charge.amount}
+                  onChange={(e) => handleChargeChange(charge.id, 'amount', e.target.value)}
+                  size="small"
+                  inputProps={{ min: 0, step: 0.01 }}
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start">$</InputAdornment>
+                  }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      backgroundColor: '#fff',
+                      '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
+                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' }
+                    }
+                  }}
+                />
+                <TextField
+                  value={`$${parseFloat(charge.total || 0).toFixed(2)}`}
+                  size="small"
+                  InputProps={{ readOnly: true }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      backgroundColor: '#E6F7E6',
+                      '& .MuiOutlinedInput-input': {
+                        fontWeight: 600,
+                        color: '#2d5016'
+                      }
+                    }
+                  }}
+                />
+                <IconButton
+                  onClick={() => handleDeleteCharge(charge.id)}
+                  sx={{
+                    color: '#ef4444',
+                    '&:hover': {
+                      backgroundColor: '#fee2e2'
+                    }
+                  }}
+                >
+                  <Delete />
+                </IconButton>
+              </Box>
+            ))
+          )}
+
+          {/* Add New Charge Button */}
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+            <Button
+              onClick={handleAddCharge}
+              variant="contained"
+              startIcon={<Add />}
+              sx={{
+                background: 'linear-gradient(to right, #4A90E2, #9B59B6)',
+                color: '#fff',
+                borderRadius: 2,
+                px: 3,
+                py: 1.5,
+                fontWeight: 600,
+                textTransform: 'none',
+                fontSize: '0.9375rem',
+                boxShadow: '0 4px 12px rgba(74, 144, 226, 0.3)',
+                '&:hover': {
+                  background: 'linear-gradient(to right, #357ABD, #8E44AD)',
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 6px 16px rgba(74, 144, 226, 0.4)'
+                },
+                transition: 'all 0.3s ease'
+              }}
+            >
+              Add New Charge
+            </Button>
+          </Box>
+        </DialogContent>
+
+        {/* Footer */}
+        <Box
+          sx={{
+            p: 3,
+            backgroundColor: '#fff',
+            borderTop: '1px solid #E2E8F0',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}
+        >
+          {/* Total Charges Display */}
+          <Box
+            sx={{
+              backgroundColor: '#10b981',
+              color: '#fff',
+              px: 3,
+              py: 1.5,
+              borderRadius: 2,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              fontWeight: 700,
+              fontSize: '1rem'
+            }}
+          >
+            {/* <AttachMoney sx={{ fontSize: 20 }} /> */}
+            <Typography>
+              Total Charges ${charges.reduce((sum, charge) => {
+                return sum + (parseFloat(charge.total) || 0);
+              }, 0).toFixed(2)}
+            </Typography>
+          </Box>
+
+          {/* Action Buttons */}
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button
+              onClick={handleCloseChargesCalculator}
+              variant="outlined"
+              sx={{
+                borderRadius: 2,
+                px: 3,
+                py: 1,
+                fontWeight: 600,
+                textTransform: 'none',
+                borderColor: '#cbd5e1',
+                color: '#334155',
+                '&:hover': {
+                  borderColor: '#94a3b8',
+                  backgroundColor: '#f1f5f9'
+                }
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleApplyCharges}
+              variant="contained"
+              sx={{
+                borderRadius: 2,
+                px: 3,
+                py: 1,
+                fontWeight: 600,
+                textTransform: 'none',
+                backgroundColor: '#10b981',
+                color: '#fff',
+                '&:hover': {
+                  backgroundColor: '#059669'
+                }
+              }}
+            >
+              Apply to Carrier Fees
+            </Button>
+          </Box>
+        </Box>
       </Dialog>
     </Box>
   );

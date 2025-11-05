@@ -241,10 +241,10 @@ const LoadLocationMap = ({ loadDetails }) => {
               const origin = loadDetails.load.origins[index];
               let coordinates = null;
               
-              if (origin.latitude && origin.longitude) {
+              if (origin.lat != null && origin.lon != null) {
                 coordinates = {
-                  lat: parseFloat(origin.latitude),
-                  lng: parseFloat(origin.longitude)
+                  lat: parseFloat(origin.lat),
+                  lng: parseFloat(origin.lon)
                 };
               } else {
                 const address = `${origin.addressLine1 || ''}, ${origin.city || ''}, ${origin.state || ''}`.trim();
@@ -265,10 +265,10 @@ const LoadLocationMap = ({ loadDetails }) => {
           } else if (loadDetails.load.originPlace) {
             let coordinates = null;
             
-            if (loadDetails.load.originPlace.latitude && loadDetails.load.originPlace.longitude) {
+            if (loadDetails.load.originPlace.lat != null && loadDetails.load.originPlace.lon != null) {
               coordinates = {
-                lat: parseFloat(loadDetails.load.originPlace.latitude),
-                lng: parseFloat(loadDetails.load.originPlace.longitude)
+                lat: parseFloat(loadDetails.load.originPlace.lat),
+                lng: parseFloat(loadDetails.load.originPlace.lon)
               };
             } else if (loadDetails.load.originPlace.location) {
               coordinates = await geocodeAddress(loadDetails.load.originPlace.location);
@@ -290,10 +290,10 @@ const LoadLocationMap = ({ loadDetails }) => {
               const destination = loadDetails.load.destinations[index];
               let coordinates = null;
               
-              if (destination.latitude && destination.longitude) {
+              if (destination.lat != null && destination.lon != null) {
                 coordinates = {
-                  lat: parseFloat(destination.latitude),
-                  lng: parseFloat(destination.longitude)
+                  lat: parseFloat(destination.lat),
+                  lng: parseFloat(destination.lon)
                 };
               } else {
                 const address = `${destination.addressLine1 || ''}, ${destination.city || ''}, ${destination.state || ''}`.trim();
@@ -314,10 +314,10 @@ const LoadLocationMap = ({ loadDetails }) => {
           } else if (loadDetails.load.destinationPlace) {
             let coordinates = null;
             
-            if (loadDetails.load.destinationPlace.latitude && loadDetails.load.destinationPlace.longitude) {
+            if (loadDetails.load.destinationPlace.lat != null && loadDetails.load.destinationPlace.lon != null) {
               coordinates = {
-                lat: parseFloat(loadDetails.load.destinationPlace.latitude),
-                lng: parseFloat(loadDetails.load.destinationPlace.longitude)
+                lat: parseFloat(loadDetails.load.destinationPlace.lat),
+                lng: parseFloat(loadDetails.load.destinationPlace.lon)
               };
             } else if (loadDetails.load.destinationPlace.location) {
               coordinates = await geocodeAddress(loadDetails.load.destinationPlace.location);

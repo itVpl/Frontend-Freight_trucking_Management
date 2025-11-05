@@ -1681,7 +1681,9 @@ const Consignment = () => {
                               <TableCell>
                                 <TextField
                                   fullWidth
-                                  value={loadDetails?.load?.weight ? `${(loadDetails.load.weight * 0.453592).toFixed(2)}` : 'N/A'}
+                                  value={loadDetails?.load?.weight && typeof loadDetails.load.weight === 'number' 
+                                    ? `${(loadDetails.load.weight * 0.453592).toFixed(2)}` 
+                                    : 'N/A'}
                                   variant="outlined"
                                   size="small"
                                   InputProps={{ readOnly: true }}
@@ -3225,7 +3227,9 @@ const Consignment = () => {
                                     <strong>Coordinates:</strong>
                                   </Typography>
                                   <Typography variant="body2">
-                                    {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
+                                    {location.latitude != null && location.longitude != null 
+                                      ? `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`
+                                      : 'N/A'}
                                   </Typography>
                                 </Box>
                                 

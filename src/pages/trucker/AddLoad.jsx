@@ -760,16 +760,16 @@ const AddLoad = () => {
             <Paper elevation={2} sx={{ p: 3, borderRadius: 3, mb: 2 }}>
               <Typography sx={{ fontWeight: 700, mb: 1 }}>Customer Name</Typography>
               <Grid container spacing={2}>
-                <Grid item xs={12}>
-                  <TextField
+              <Grid item xs={12}>
+                <TextField 
                     label="Customer Name"
                     name="customerName"
                     value={formData.customerName}
-                    onChange={handleFormInputChange}
-                    fullWidth
+                  onChange={handleFormInputChange} 
+                  fullWidth
                     sx={{ '& .MuiInputBase-root': { borderRadius: 2 } }}
-                  />
-                </Grid>
+                />
+              </Grid>
               </Grid>
             </Paper>
 
@@ -1086,7 +1086,7 @@ const AddLoad = () => {
               </Grid>
               <Grid item xs={12} sm={4}>
                     <TextField label="To City" name="toCity" value={formData.toCity} onChange={handleFormInputChange} fullWidth />
-                  </Grid>
+              </Grid>
                   <Grid item xs={12} sm={4}>
                     <TextField label="To State" name="toState" value={formData.toState} onChange={handleFormInputChange} fullWidth />
                   </Grid>
