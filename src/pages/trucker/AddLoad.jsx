@@ -46,6 +46,7 @@ import {
   Cancel,
   Business,
   Room,
+  Person,
 } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
 import { BASE_API_URL } from '../../apiConfig';
@@ -96,6 +97,15 @@ const AddLoad = () => {
   const [charges, setCharges] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [customersLoading, setCustomersLoading] = useState(false);
+  const [assignDriverModalOpen, setAssignDriverModalOpen] = useState(false);
+  const [selectedLoadForDriver, setSelectedLoadForDriver] = useState(null);
+  const [driverData, setDriverData] = useState({
+    driverId: '',
+    driverName: '',
+    vehicleNo: ''
+  });
+  const [drivers, setDrivers] = useState([]);
+  const [driversLoading, setDriversLoading] = useState(false);
   const [formData, setFormData] = useState(() => ({
     customerId: '',
     loadType: 'OTR',
@@ -251,6 +261,41 @@ const AddLoad = () => {
       setError(err.message || 'Failed to fetch customers');
     } finally {
       setCustomersLoading(false);
+    }
+  };
+
+  const fetchDrivers = async () => {
+    try {
+      setDriversLoading(true);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await fetch(`${BASE_API_URL}/api/v1/driver/my-drivers`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        setDrivers(result.drivers || []);
+      } else {
+        throw new Error(result.message || 'Failed to fetch drivers');
+      }
+    } catch (err) {
+      console.error('Error fetching drivers:', err);
+      setError(err.message || 'Failed to fetch drivers');
+    } finally {
+      setDriversLoading(false);
     }
   };
 
@@ -938,6 +983,106 @@ const AddLoad = () => {
     }
   };
 
+  const handleOpenAssignDriver = async (load) => {
+    setSelectedLoadForDriver(load);
+    setDriverData({
+      driverId: load.assignedDriver?.driverId || '',
+      driverName: load.assignedDriver?.driverName || '',
+      vehicleNo: load.assignedDriver?.vehicleNumber || load.assignedDriver?.vehicleNo || ''
+    });
+    setAssignDriverModalOpen(true);
+    // Fetch drivers when modal opens
+    await fetchDrivers();
+  };
+
+  const handleCloseAssignDriver = () => {
+    setAssignDriverModalOpen(false);
+    setSelectedLoadForDriver(null);
+    setDriverData({
+      driverId: '',
+      driverName: '',
+      vehicleNo: ''
+    });
+  };
+
+  const handleDriverInputChange = (e) => {
+    const { name, value } = e.target;
+    
+    // If driver name is selected, also set driverId
+    if (name === 'driverName') {
+      const selectedDriver = drivers.find(d => d.fullName === value);
+      setDriverData(prev => ({
+        ...prev,
+        driverId: selectedDriver?._id || '',
+        driverName: value
+      }));
+    } else {
+      setDriverData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
+  };
+
+  const handleAssignDriver = async () => {
+    if (!driverData.driverName || !driverData.vehicleNo) {
+      setError('Please fill in both Driver Name and Vehicle No');
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+
+    if (!driverData.driverId) {
+      setError('Please select a driver from the dropdown');
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      const loadId = selectedLoadForDriver.loadId || selectedLoadForDriver._id;
+      
+      // Get truckerId from user or load data
+      const truckerId = user?.truckerId || user?.id || selectedLoadForDriver.createdByTrucker?.truckerId || '';
+
+      const response = await fetch(`${BASE_API_URL}/api/v1/customer-load/${loadId}/assign-driver`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          driverId: driverData.driverId,
+          driverName: driverData.driverName,
+          vehicleNumber: driverData.vehicleNo,
+          truckerId: truckerId
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        setSuccess('Driver assigned successfully');
+        setTimeout(() => setSuccess(null), 3000);
+        handleCloseAssignDriver();
+        // Refresh the load list
+        await fetchAllLoads();
+      } else {
+        throw new Error(result.message || 'Failed to assign driver');
+      }
+    } catch (err) {
+      console.error('Error assigning driver:', err);
+      setError(err.message || 'Failed to assign driver');
+      setTimeout(() => setError(null), 3000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSaveLoad = async (e) => {
     if (e) {
       e.preventDefault();
@@ -1159,12 +1304,11 @@ const AddLoad = () => {
           <TableHead>
             <TableRow sx={{ backgroundColor: '#f0f4f8' }}>
               <TableCell sx={{ fontWeight: 600, width: '120px' }}>Load Type</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: '150px' }}>Pickup</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: '150px' }}>Delivery</TableCell>
+              <TableCell sx={{ fontWeight: 600, width: '400px' }}>Pickup</TableCell>
+              <TableCell sx={{ fontWeight: 600, width: '300px' }}>Delivery</TableCell>
               <TableCell sx={{ fontWeight: 600, width: '100px' }}>Weight</TableCell>
               <TableCell sx={{ fontWeight: 600, width: '100px' }}>Rate</TableCell>
               <TableCell sx={{ fontWeight: 600, width: '120px' }}>Customer</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: '100px' }}>Status</TableCell>
               <TableCell sx={{ fontWeight: 600, width: '150px' }}>Actions</TableCell>
             </TableRow>
           </TableHead>
@@ -1184,7 +1328,7 @@ const AddLoad = () => {
                     <TableCell sx={{ width: '120px', fontWeight: 600 }}>
                       {load.loadType}
                     </TableCell>
-                    <TableCell sx={{ width: '150px' }}>
+                    <TableCell sx={{ width: '200px' }}>
                       {load.origins?.[0]?.addressLine1 || 'N/A'}
                     </TableCell>
                     <TableCell sx={{ width: '150px' }}>
@@ -1198,14 +1342,6 @@ const AddLoad = () => {
                     </TableCell>
                     <TableCell sx={{ width: '120px' }}>
                       {load.customerLoadDetails?.customerName || 'N/A'}
-                    </TableCell>
-                    <TableCell sx={{ width: '100px' }}>
-                      <Chip
-                        label={load.status}
-                        size="small"
-                        color={load.status === 'Auto-Approved' ? 'success' : 'default'}
-                        sx={{ fontWeight: 600 }}
-                      />
                     </TableCell>
                     <TableCell sx={{ width: '150px' }}>
                       <Stack direction="row" spacing={1}>
@@ -1229,6 +1365,7 @@ const AddLoad = () => {
                           size="small"
                           startIcon={<Edit />}
                           onClick={() => handleEditLoad(load)}
+                          disabled={load.status === 'Assigned'}
                           sx={{
                             fontSize: '0.75rem',
                             px: 1,
@@ -1242,8 +1379,35 @@ const AddLoad = () => {
                         <Button
                           variant="outlined"
                           size="small"
+                          startIcon={<Person />}
+                          onClick={() => handleOpenAssignDriver(load)}
+                          disabled={load.status === 'Assigned'}
+                          sx={{
+                            fontSize: '0.75rem',
+                            px: 1,
+                            py: 0.5,
+                            textTransform: 'none',
+                            minWidth: 'auto',
+                            color: 'primary.main',
+                            borderColor: 'primary.main',
+                            '&:hover': {
+                              backgroundColor: 'primary.main',
+                              color: 'white'
+                            },
+                            '&.Mui-disabled': {
+                              color: 'rgba(0, 0, 0, 0.26)',
+                              borderColor: 'rgba(0, 0, 0, 0.12)'
+                            }
+                          }}
+                        >
+                          Assign
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          size="small"
                           startIcon={<Delete />}
                           onClick={() => handleDeleteLoad(load._id)}
+                          disabled={load.status === 'Assigned'}
                           sx={{
                             fontSize: '0.75rem',
                             px: 1,
@@ -1255,6 +1419,10 @@ const AddLoad = () => {
                             '&:hover': {
                               backgroundColor: 'error.main',
                               color: 'white'
+                            },
+                            '&.Mui-disabled': {
+                              color: 'rgba(0, 0, 0, 0.26)',
+                              borderColor: 'rgba(0, 0, 0, 0.12)'
                             }
                           }}
                         >
@@ -1266,7 +1434,7 @@ const AddLoad = () => {
                 ))
             ) : (
               <TableRow>
-                <TableCell colSpan={8} sx={{ textAlign: 'center', py: 4 }}>
+                <TableCell colSpan={7} sx={{ textAlign: 'center', py: 4 }}>
                   <Typography variant="body1" color="text.secondary">
                     {loadsData.length === 0 ? 'No loads found. Add your first load!' : 'No loads match your search criteria'}
                   </Typography>
@@ -4003,6 +4171,228 @@ const AddLoad = () => {
             </Button>
           </Box>
         </Box>
+      </Dialog>
+
+      {/* Assign Driver Modal */}
+      <Dialog
+        open={assignDriverModalOpen}
+        onClose={handleCloseAssignDriver}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
+            overflow: 'hidden',
+          }
+        }}
+      >
+        {/* Header with Gradient */}
+        <Box
+          sx={{
+            background: 'linear-gradient(to right, #4A90E2, #9B59B6)',
+            p: 3,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            color: '#fff'
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box
+              sx={{
+                width: 48,
+                height: 48,
+                borderRadius: '50%',
+                backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              <Person sx={{ fontSize: 28, color: '#fff' }} />
+            </Box>
+            <Box>
+              <Typography variant="h5" sx={{ fontWeight: 700, color: '#fff', mb: 0.5 }}>
+                Assign Driver
+              </Typography>
+              <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.8)' }}>
+                Assign a driver to this load
+              </Typography>
+            </Box>
+          </Box>
+          <IconButton
+            onClick={handleCloseAssignDriver}
+            sx={{
+              color: '#fff',
+              '&:hover': {
+                backgroundColor: 'rgba(255, 255, 255, 0.1)'
+              }
+            }}
+          >
+            <Close />
+          </IconButton>
+        </Box>
+
+        <DialogContent sx={{ p: 3, backgroundColor: '#f5f5f5' }}>
+          <Grid container spacing={3}>
+            <Grid item xs={12}>
+              <FormControl fullWidth>
+                <InputLabel 
+                  id="driver-name-label" 
+                  shrink
+                  sx={{
+                    color: '#4A5568',
+                    fontSize: '0.875rem',
+                  }}
+                >
+                  Driver Name *
+                </InputLabel>
+                <Select
+                  labelId="driver-name-label"
+                  name="driverName"
+                  value={driverData.driverName}
+                  onChange={handleDriverInputChange}
+                  displayEmpty
+                  disabled={driversLoading}
+                  renderValue={(selected) => {
+                    if (!selected) {
+                      return <span style={{ color: '#999' }}>Select Driver</span>;
+                    }
+                    const selectedDriver = drivers.find(d => d.fullName === selected);
+                    return selectedDriver ? selectedDriver.fullName : selected;
+                  }}
+                  sx={{
+                    width: '247px',
+                    height: '56px',
+                    borderRadius: 2,
+                    backgroundColor: '#fff',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      borderColor: '#E2E8F0',
+                    },
+                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                      borderColor: '#4A90E2',
+                    },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                      borderColor: '#4A90E2',
+                    },
+                    '& .MuiSelect-select': {
+                      py: 1.5,
+                      color: '#2D3748',
+                    },
+                    '& .MuiInputBase-root': {
+                      borderRadius: 2,
+                      backgroundColor: '#fff',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                    },
+                  }}
+                  MenuProps={{
+                    PaperProps: {
+                      sx: {
+                        maxHeight: 300,
+                        borderRadius: 2,
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                      }
+                    }
+                  }}
+                >
+                  {driversLoading ? (
+                    <MenuItem disabled>
+                      <CircularProgress size={20} sx={{ mr: 2 }} />
+                      Loading drivers...
+                    </MenuItem>
+                  ) : drivers.length === 0 ? (
+                    <MenuItem disabled>No drivers available</MenuItem>
+                  ) : (
+                    drivers.map((driver) => (
+                      <MenuItem key={driver._id} value={driver.fullName}>
+                        {driver.fullName} {driver.phone ? `(${driver.phone})` : ''}
+                      </MenuItem>
+                    ))
+                  )}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                label="Vehicle No *"
+                name="vehicleNo"
+                value={driverData.vehicleNo}
+                onChange={handleDriverInputChange}
+                fullWidth
+                placeholder="Enter vehicle number"
+                InputLabelProps={{ shrink: true }}
+                sx={{
+                  '& .MuiInputBase-root': {
+                    borderRadius: 2,
+                    backgroundColor: '#fff',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                  },
+                  '& .MuiOutlinedInput-notchedOutline': {
+                    borderColor: '#E2E8F0',
+                  },
+                  '&:hover .MuiOutlinedInput-notchedOutline': {
+                    borderColor: '#4A90E2',
+                  },
+                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                    borderColor: '#4A90E2',
+                  },
+                  '& .MuiInputLabel-root': {
+                    color: '#4A5568',
+                    fontSize: '0.875rem',
+                  },
+                }}
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, pb: 3, justifyContent: 'flex-end', backgroundColor: '#f5f5f5', gap: 2 }}>
+          <Button
+            onClick={handleCloseAssignDriver}
+            variant="outlined"
+            startIcon={<Cancel />}
+            sx={{
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 600,
+              px: 3,
+              py: 1,
+              borderColor: '#E2E8F0',
+              color: '#4A5568',
+              '&:hover': {
+                borderColor: '#4A90E2',
+                backgroundColor: '#f0f4f8',
+              },
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleAssignDriver}
+            variant="contained"
+            startIcon={<Save />}
+            disabled={loading}
+            sx={{
+              background: 'linear-gradient(to right, #4A90E2, #9B59B6)',
+              color: '#fff',
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 600,
+              px: 3,
+              py: 1,
+              '&:hover': {
+                background: 'linear-gradient(to right, #357ABD, #8E44AD)',
+              },
+              '&.Mui-disabled': {
+                background: '#ccc',
+              },
+            }}
+          >
+            {loading ? 'Assigning...' : 'Assign Driver'}
+          </Button>
+        </DialogActions>
       </Dialog>
     </Box>
   );
