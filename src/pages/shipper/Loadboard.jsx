@@ -1384,190 +1384,308 @@ const LoadBoard = () => {
     setAcceptFilePreview(null);
   };
 
-  // Edit handlers
-  const handleEditLoad = (load) => {
-    setSelectedLoad(load);
-    const loadType = load.loadType || 'OTR';
-    setEditLoadType(loadType);
-    
-    if (loadType === 'DRAYAGE') {
-      setEditForm({
-        loadType: 'DRAYAGE',
-        vehicleType: load.vehicleType || '',
-        rate: load.rate || '',
-        rateType: load.rateType || 'Flat Rate',
-        bidDeadline: load.bidDeadline ? new Date(load.bidDeadline).toISOString().split('T')[0] : '',
-        fromAddress: load.fromAddress || load.fromAddressLine1 || '',
-        fromCity: load.fromCity || '',
-        fromState: load.fromState || '',
-        fromZip: load.fromZip || '',
-        toAddress: load.toAddress || load.toAddressLine1 || '',
-        toCity: load.toCity || '',
-        toState: load.toState || '',
-        toZip: load.toZip || '',
-        weight: load.weight || '',
-        commodity: load.commodity || '',
-        pickupDate: load.pickupDate ? new Date(load.pickupDate).toISOString().split('T')[0] : '',
-        deliveryDate: load.deliveryDate ? new Date(load.deliveryDate).toISOString().split('T')[0] : '',
-        containerNo: load.containerNo || '',
-        poNumber: load.poNumber || '',
-        bolNumber: load.bolNumber || '',
-        returnDate: load.returnDate ? new Date(load.returnDate).toISOString().split('T')[0] : '',
-        returnLocation: load.returnLocation || '',
-        returnAddress: load.returnAddress || '',
-        returnCity: load.returnCity || '',
-        returnState: load.returnState || '',
-        returnZip: load.returnZip || '',
-        lineHaul: load.rateDetails?.lineHaul || '',
-        fsc: load.rateDetails?.fsc || '',
-        others: load.rateDetails?.other?.reduce((sum, item) => sum + (item.total || item.amount || 0), 0) || '',
-        total: load.rateDetails?.totalRates || load.rate || '',
-        origins: [],
-        destinations: []
-      });
-    } else {
-      // OTR load
-      setEditForm({
-        loadType: 'OTR',
-        vehicleType: load.vehicleType || '',
-        rate: load.rate || '',
-        rateType: load.rateType || 'Flat Rate',
-        bidDeadline: load.bidDeadline ? new Date(load.bidDeadline).toISOString().split('T')[0] : '',
-        origins: load.origins && load.origins.length > 0 ? load.origins.map(origin => ({
-          addressLine1: origin.addressLine1 || '',
-          addressLine2: origin.addressLine2 || '',
-          city: origin.city || '',
-          state: origin.state || '',
-          zip: origin.zip || '',
-          weight: origin.weight || '',
-          commodity: origin.commodity || '',
-          pickupDate: origin.pickupDate ? new Date(origin.pickupDate).toISOString().split('T')[0] : '',
-          deliveryDate: origin.deliveryDate ? new Date(origin.deliveryDate).toISOString().split('T')[0] : ''
-        })) : [{
-          addressLine1: '',
-          addressLine2: '',
-          city: '',
-          state: '',
-          zip: '',
-          weight: '',
-          commodity: '',
-          pickupDate: '',
-          deliveryDate: ''
-        }],
-        destinations: load.destinations && load.destinations.length > 0 ? load.destinations.map(destination => ({
-          addressLine1: destination.addressLine1 || '',
-          addressLine2: destination.addressLine2 || '',
-          city: destination.city || '',
-          state: destination.state || '',
-          zip: destination.zip || '',
-          weight: destination.weight || '',
-          commodity: destination.commodity || '',
-          deliveryDate: destination.deliveryDate ? new Date(destination.deliveryDate).toISOString().split('T')[0] : ''
-        })) : [{
-          addressLine1: '',
-          addressLine2: '',
-          city: '',
-          state: '',
-          zip: '',
-          weight: '',
-          commodity: '',
-          deliveryDate: ''
-        }],
-        lineHaul: load.rateDetails?.lineHaul || '',
-        fsc: load.rateDetails?.fsc || '',
-        others: load.rateDetails?.other?.reduce((sum, item) => sum + (item.total || item.amount || 0), 0) || '',
-        total: load.rateDetails?.totalRates || load.rate || '',
-        fromAddress: '',
-        fromCity: '',
-        fromState: '',
-        fromZip: '',
-        toAddress: '',
-        toCity: '',
-        toState: '',
-        toZip: '',
+ // Edit handlers
+const handleEditLoad = (load) => {
+  setSelectedLoad(load);
+  const loadType = load.loadType || 'OTR';
+  setEditLoadType(loadType);
+  
+  console.log('Editing load:', load); // Debug log
+  
+  if (loadType === 'DRAYAGE') {
+    setEditForm({
+      loadType: 'DRAYAGE',
+      vehicleType: load.vehicleType || '',
+      rate: load.rate || '',
+      rateType: load.rateType || 'Flat Rate',
+      bidDeadline: load.bidDeadline ? new Date(load.bidDeadline).toISOString().split('T')[0] : '',
+      
+      // DRAYAGE specific fields - using origins/destinations from API
+      fromAddress: load.origins && load.origins.length > 0 ? load.origins[0].addressLine1 || '' : '',
+      fromCity: load.origins && load.origins.length > 0 ? load.origins[0].city || '' : '',
+      fromState: load.origins && load.origins.length > 0 ? load.origins[0].state || '' : '',
+      fromZip: load.origins && load.origins.length > 0 ? load.origins[0].zip || '' : '',
+      
+      toAddress: load.destinations && load.destinations.length > 0 ? load.destinations[0].addressLine1 || '' : '',
+      toCity: load.destinations && load.destinations.length > 0 ? load.destinations[0].city || '' : '',
+      toState: load.destinations && load.destinations.length > 0 ? load.destinations[0].state || '' : '',
+      toZip: load.destinations && load.destinations.length > 0 ? load.destinations[0].zip || '' : '',
+      
+      weight: load.weight || '',
+      commodity: load.commodity || '',
+      pickupDate: load.pickupDate ? new Date(load.pickupDate).toISOString().split('T')[0] : '',
+      deliveryDate: load.deliveryDate ? new Date(load.deliveryDate).toISOString().split('T')[0] : '',
+      containerNo: load.containerNo || '',
+      poNumber: load.poNumber || '',
+      bolNumber: load.bolNumber || '',
+      returnDate: load.returnDate ? new Date(load.returnDate).toISOString().split('T')[0] : '',
+      returnLocation: load.returnLocation || '',
+      returnAddress: load.returnAddress || '',
+      returnCity: load.returnCity || '',
+      returnState: load.returnState || '',
+      returnZip: load.returnZip || '',
+      
+      // Rate details
+      lineHaul: load.rateDetails?.lineHaul || '',
+      fsc: load.rateDetails?.fsc || '',
+      others: load.rateDetails?.other?.reduce((sum, item) => sum + (item.total || item.amount || 0), 0) || '',
+      total: load.rateDetails?.totalRates || load.rate || '',
+      
+      // Clear OTR fields
+      origins: [],
+      destinations: []
+    });
+  } else {
+    // OTR load
+    setEditForm({
+      loadType: 'OTR',
+      vehicleType: load.vehicleType || '',
+      rate: load.rate || '',
+      rateType: load.rateType || 'Flat Rate',
+      bidDeadline: load.bidDeadline ? new Date(load.bidDeadline).toISOString().split('T')[0] : '',
+      
+      // OTR specific fields - origins and destinations arrays
+      origins: load.origins && load.origins.length > 0 ? load.origins.map(origin => ({
+        addressLine1: origin.addressLine1 || '',
+        addressLine2: origin.addressLine2 || '',
+        city: origin.city || '',
+        state: origin.state || '',
+        zip: origin.zip || '',
+        weight: origin.weight || '',
+        commodity: origin.commodity || '',
+        pickupDate: origin.pickupDate ? new Date(origin.pickupDate).toISOString().split('T')[0] : '',
+        deliveryDate: origin.deliveryDate ? new Date(origin.deliveryDate).toISOString().split('T')[0] : ''
+      })) : [{
+        addressLine1: '',
+        addressLine2: '',
+        city: '',
+        state: '',
+        zip: '',
         weight: '',
         commodity: '',
         pickupDate: '',
-        deliveryDate: '',
-        containerNo: '',
-        poNumber: '',
-        bolNumber: '',
-        returnDate: '',
-        returnLocation: '',
-        returnAddress: '',
-        returnCity: '',
-        returnState: '',
-        returnZip: ''
-      });
-    }
-    setEditErrors({});
-    setEditModalOpen(true);
-  };
+        deliveryDate: ''
+      }],
+      
+      destinations: load.destinations && load.destinations.length > 0 ? load.destinations.map(destination => ({
+        addressLine1: destination.addressLine1 || '',
+        addressLine2: destination.addressLine2 || '',
+        city: destination.city || '',
+        state: destination.state || '',
+        zip: destination.zip || '',
+        weight: destination.weight || '',
+        commodity: destination.commodity || '',
+        deliveryDate: destination.deliveryDate ? new Date(destination.deliveryDate).toISOString().split('T')[0] : ''
+      })) : [{
+        addressLine1: '',
+        addressLine2: '',
+        city: '',
+        state: '',
+        zip: '',
+        weight: '',
+        commodity: '',
+        deliveryDate: ''
+      }],
+      
+      // Rate details
+      lineHaul: load.rateDetails?.lineHaul || '',
+      fsc: load.rateDetails?.fsc || '',
+      others: load.rateDetails?.other?.reduce((sum, item) => sum + (item.total || item.amount || 0), 0) || '',
+      total: load.rateDetails?.totalRates || load.rate || '',
+      
+      // Clear DRAYAGE fields
+      fromAddress: '',
+      fromCity: '',
+      fromState: '',
+      fromZip: '',
+      toAddress: '',
+      toCity: '',
+      toState: '',
+      toZip: '',
+      weight: '',
+      commodity: '',
+      pickupDate: '',
+      deliveryDate: '',
+      containerNo: '',
+      poNumber: '',
+      bolNumber: '',
+      returnDate: '',
+      returnLocation: '',
+      returnAddress: '',
+      returnCity: '',
+      returnState: '',
+      returnZip: ''
+    });
+  }
+  
+  // Set edit charges for charges calculator
+  if (load.rateDetails?.other && load.rateDetails.other.length > 0) {
+    const chargesFromLoad = load.rateDetails.other.map(charge => ({
+      id: Date.now() + Math.random(),
+      name: charge.name || '',
+      quantity: charge.quantity || 1,
+      amount: charge.amount || 0,
+      total: charge.total || (charge.amount * (charge.quantity || 1))
+    }));
+    setEditCharges(chargesFromLoad);
+  } else {
+    setEditCharges([]);
+  }
+  
+  setEditErrors({});
+  setEditModalOpen(true);
+};
 
   const handleDuplicateLoad = (load) => {
-    // Set load type first
-    setLoadType(load.loadType || 'OTR');
+  // Set load type first
+  setLoadType(load.loadType || 'OTR');
 
-    // Populate form with existing load data for duplication
-    if (load.loadType === 'DRAYAGE') {
-      setForm({
-        loadType: 'DRAYAGE',
-        fromAddress: load.fromAddress || '',
-        fromCity: load.fromCity || '',
-        fromState: load.fromState || '',
-        toAddress: load.toAddress || '',
-        toCity: load.toCity || '',
-        toState: load.toState || '',
-        weight: load.weight || '',
-        commodity: load.commodity || '',
-        vehicleType: load.vehicleType || '',
-        pickupDate: load.pickupDate ? new Date(load.pickupDate).toISOString().split('T')[0] : '',
-        deliveryDate: load.deliveryDate ? new Date(load.deliveryDate).toISOString().split('T')[0] : '',
-        rate: load.rate || '',
-        rateType: load.rateType || 'Flat Rate',
-        bidDeadline: load.bidDeadline || '',
-        containerNo: load.containerNo || '',
-        poNumber: load.poNumber || '',
-        bolNumber: load.bolNumber || '',
-        returnDate: load.returnDate ? new Date(load.returnDate).toISOString().split('T')[0] : '',
-        returnLocation: load.returnLocation || '',
-        drayageLocation: load.drayageLocation || ''
-      });
-    } else {
-      // OTR load duplication
-      setForm({
-        loadType: 'OTR',
-        vehicleType: load.vehicleType || '',
-        rate: load.rate || '',
-        rateType: load.rateType || 'Flat Rate',
-        bidDeadline: load.bidDeadline || '',
-        origins: load.origins ? load.origins.map(origin => ({
-          addressLine1: origin.addressLine1 || '',
-          addressLine2: origin.addressLine2 || '',
-          city: origin.city || '',
-          state: origin.state || '',
-          zip: origin.zip || '',
-          weight: origin.weight || '',
-          commodity: origin.commodity || '',
-          pickupDate: origin.pickupDate ? new Date(origin.pickupDate).toISOString().split('T')[0] : '',
-          deliveryDate: origin.deliveryDate ? new Date(origin.deliveryDate).toISOString().split('T')[0] : ''
-        })) : [],
-        destinations: load.destinations ? load.destinations.map(destination => ({
-          addressLine1: destination.addressLine1 || '',
-          addressLine2: destination.addressLine2 || '',
-          city: destination.city || '',
-          state: destination.state || '',
-          zip: destination.zip || '',
-          weight: destination.weight || '',
-          commodity: destination.commodity || '',
-          deliveryDate: destination.deliveryDate ? new Date(destination.deliveryDate).toISOString().split('T')[0] : ''
-        })) : []
-      });
-    }
+  console.log('Duplicating load:', load); // Debug log
 
-    setErrors({});
-    setModalOpen(true);
-  };
+  // Populate form with existing load data for duplication
+  if (load.loadType === 'DRAYAGE') {
+    setForm({
+      loadType: 'DRAYAGE',
+      
+      // DRAYAGE specific fields - using origins/destinations from API
+      fromAddress: load.origins && load.origins.length > 0 ? load.origins[0].addressLine1 || '' : '',
+      fromCity: load.origins && load.origins.length > 0 ? load.origins[0].city || '' : '',
+      fromState: load.origins && load.origins.length > 0 ? load.origins[0].state || '' : '',
+      fromZip: load.origins && load.origins.length > 0 ? load.origins[0].zip || '' : '',
+      
+      toAddress: load.destinations && load.destinations.length > 0 ? load.destinations[0].addressLine1 || '' : '',
+      toCity: load.destinations && load.destinations.length > 0 ? load.destinations[0].city || '' : '',
+      toState: load.destinations && load.destinations.length > 0 ? load.destinations[0].state || '' : '',
+      toZip: load.destinations && load.destinations.length > 0 ? load.destinations[0].zip || '' : '',
+      
+      weight: load.weight || '',
+      commodity: load.commodity || '',
+      vehicleType: load.vehicleType || '',
+      pickupDate: load.pickupDate ? new Date(load.pickupDate).toISOString().split('T')[0] : '',
+      deliveryDate: load.deliveryDate ? new Date(load.deliveryDate).toISOString().split('T')[0] : '',
+      rate: load.rate || '',
+      rateType: load.rateType || 'Flat Rate',
+      bidDeadline: load.bidDeadline ? new Date(load.bidDeadline).toISOString().split('T')[0] : '',
+      containerNo: load.containerNo || '',
+      poNumber: load.poNumber || '',
+      bolNumber: load.bolNumber || '',
+      returnDate: load.returnDate ? new Date(load.returnDate).toISOString().split('T')[0] : '',
+      returnLocation: load.returnLocation || '',
+      returnAddress: load.returnAddress || '',
+      returnCity: load.returnCity || '',
+      returnState: load.returnState || '',
+      returnZip: load.returnZip || '',
+      
+      // Rate details
+      lineHaul: load.rateDetails?.lineHaul || '',
+      fsc: load.rateDetails?.fsc || '',
+      others: load.rateDetails?.other?.reduce((sum, item) => sum + (item.total || item.amount || 0), 0) || '',
+      total: load.rateDetails?.totalRates || load.rate || '',
+      
+      // Clear OTR fields
+      origins: [],
+      destinations: []
+    });
+  } else {
+    // OTR load duplication
+    setForm({
+      loadType: 'OTR',
+      vehicleType: load.vehicleType || '',
+      rate: load.rate || '',
+      rateType: load.rateType || 'Flat Rate',
+      bidDeadline: load.bidDeadline ? new Date(load.bidDeadline).toISOString().split('T')[0] : '',
+      
+      // OTR specific fields - origins and destinations arrays
+      origins: load.origins && load.origins.length > 0 ? load.origins.map(origin => ({
+        addressLine1: origin.addressLine1 || '',
+        addressLine2: origin.addressLine2 || '',
+        city: origin.city || '',
+        state: origin.state || '',
+        zip: origin.zip || '',
+        weight: origin.weight || '',
+        commodity: origin.commodity || '',
+        pickupDate: origin.pickupDate ? new Date(origin.pickupDate).toISOString().split('T')[0] : '',
+        deliveryDate: origin.deliveryDate ? new Date(origin.deliveryDate).toISOString().split('T')[0] : ''
+      })) : [{
+        addressLine1: '',
+        addressLine2: '',
+        city: '',
+        state: '',
+        zip: '',
+        weight: '',
+        commodity: '',
+        pickupDate: '',
+        deliveryDate: ''
+      }],
+      
+      destinations: load.destinations && load.destinations.length > 0 ? load.destinations.map(destination => ({
+        addressLine1: destination.addressLine1 || '',
+        addressLine2: destination.addressLine2 || '',
+        city: destination.city || '',
+        state: destination.state || '',
+        zip: destination.zip || '',
+        weight: destination.weight || '',
+        commodity: destination.commodity || '',
+        deliveryDate: destination.deliveryDate ? new Date(destination.deliveryDate).toISOString().split('T')[0] : ''
+      })) : [{
+        addressLine1: '',
+        addressLine2: '',
+        city: '',
+        state: '',
+        zip: '',
+        weight: '',
+        commodity: '',
+        deliveryDate: ''
+      }],
+      
+      // Rate details
+      lineHaul: load.rateDetails?.lineHaul || '',
+      fsc: load.rateDetails?.fsc || '',
+      others: load.rateDetails?.other?.reduce((sum, item) => sum + (item.total || item.amount || 0), 0) || '',
+      total: load.rateDetails?.totalRates || load.rate || '',
+      
+      // Clear DRAYAGE fields
+      fromAddress: '',
+      fromCity: '',
+      fromState: '',
+      fromZip: '',
+      toAddress: '',
+      toCity: '',
+      toState: '',
+      toZip: '',
+      weight: '',
+      commodity: '',
+      pickupDate: '',
+      deliveryDate: '',
+      containerNo: '',
+      poNumber: '',
+      bolNumber: '',
+      returnDate: '',
+      returnLocation: '',
+      returnAddress: '',
+      returnCity: '',
+      returnState: '',
+      returnZip: ''
+    });
+  }
+
+  // Set charges for charges calculator
+  if (load.rateDetails?.other && load.rateDetails.other.length > 0) {
+    const chargesFromLoad = load.rateDetails.other.map(charge => ({
+      id: Date.now() + Math.random(),
+      name: charge.name || '',
+      quantity: charge.quantity || 1,
+      amount: charge.amount || 0,
+      total: charge.total || (charge.amount * (charge.quantity || 1))
+    }));
+    setCharges(chargesFromLoad);
+  } else {
+    setCharges([]);
+  }
+
+  setErrors({});
+  setModalOpen(true);
+};
 
   const handleCloseEditModal = () => {
     setEditModalOpen(false);
@@ -8757,3 +8875,5 @@ const LoadBoard = () => {
 };
 
 export default LoadBoard;
+
+

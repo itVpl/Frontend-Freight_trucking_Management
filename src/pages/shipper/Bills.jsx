@@ -44,7 +44,8 @@ import {
   ArrowDownward,
   TrendingUp,
   TrendingDown,
-  AttachMoney
+  AttachMoney,
+  LocalShipping
 } from '@mui/icons-material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
@@ -68,13 +69,10 @@ import {
 import SearchNavigationFeedback from '../../components/SearchNavigationFeedback';
 import { BASE_API_URL } from '../../apiConfig';
 
-// API service function to fetch unverified loads
-const fetchUnverifiedLoads = async (shipperId, loadId = null) => {
+// API service function to fetch VERIFIED loads
+const fetchVerifiedLoads = async (shipperId) => {
   try {
-    let url = `${BASE_API_URL}/api/v1/accountant/shipper/all-unverified-loads?shipperId=${shipperId}`;
-    if (loadId) {
-      url += `&loadId=${loadId}`;
-    }
+    let url = `${BASE_API_URL}/api/v1/accountant/shipper/all-verified-loads?shipperId=${shipperId}`;
     
     // Get token from various possible storage locations
     const token = sessionStorage.getItem('token') || 
@@ -119,7 +117,7 @@ const fetchUnverifiedLoads = async (shipperId, loadId = null) => {
     console.log('API Response data:', data);
     return data;
   } catch (error) {
-    console.error('Error fetching unverified loads:', error);
+    console.error('Error fetching verified loads:', error);
     throw error;
   }
 };
@@ -148,50 +146,89 @@ const Bills = () => {
       setLoading(true);
       setError(null);
       try {
-        // Using the shipperId from the API example
-        const shipperId = '68cd6ee176b6c23c1d2a87b3';
-        
-        // Try different API call approaches
-        let response;
-        try {
-          // First try without loadId
-          response = await fetchUnverifiedLoads(shipperId);
-        } catch (firstError) {
-          console.log('First attempt failed, trying with loadId...');
-          // If that fails, try with loadId
-          const loadId = '68e7eecea78740db1d29848e';
-          response = await fetchUnverifiedLoads(shipperId, loadId);
+        // Resolve shipperId dynamically
+        const shipperId =
+          // from route state if passed
+          location.state?.shipperId ||
+          // from local/session storage common keys
+          localStorage.getItem('shipperId') ||
+          sessionStorage.getItem('shipperId') ||
+          // from persisted user profile object
+          (() => {
+            try {
+              const userRaw =
+                localStorage.getItem('user') ||
+                sessionStorage.getItem('user') ||
+                localStorage.getItem('profile') ||
+                sessionStorage.getItem('profile');
+              if (!userRaw) return null;
+              const user = JSON.parse(userRaw);
+              return user?.shipperId || user?._id || user?.id || null;
+            } catch {
+              return null;
+            }
+          })();
+
+        if (!shipperId) {
+          throw new Error('Missing shipperId. Please login or pass shipperId via navigation.');
         }
+
+        const response = await fetchVerifiedLoads(shipperId);
         setApiData(response);
         
-        // Transform API data to match existing structure
-        if (response.success && response.data.allLoads) {
-          const transformedData = response.data.allLoads.map(load => ({
-            billId: load.shipmentNumber || load._id,
-            chargeSetId: load.poNumber || load._id,
-            containerId: load.containerNo || 'N/A',
-            secondaryRef: load.bolNumber || load._id,
-            date: format(new Date(load.pickupDate), 'yyyy-MM-dd'),
-            dueDate: format(new Date(load.deliveryDate), 'yyyy-MM-dd'),
-            amount: load.rate || 0,
-            status: load.status || 'Pending',
-            amount0_30: load.status === 'Delivered' ? load.rate || 0 : 0,
+        // Transform VERIFIED DOs to match existing table structure
+        if (response.success && Array.isArray(response?.data?.verifiedDOs)) {
+          const transformedData = response.data.verifiedDOs.map((doItem) => {
+            const lr = doItem.loadReference || {};
+            const cust = Array.isArray(doItem.customers) ? doItem.customers[0] : undefined;
+            const amount = Number(cust?.calculatedTotal ?? cust?.totalAmount ?? lr?.rate ?? 0) || 0;
+
+            // Origin/Destination best-effort extraction
+            const origin = lr.origins?.[0] || lr.originPlace || (doItem.shipper?.pickUpLocations?.[0] ? {
+              city: doItem.shipper.pickUpLocations[0].city,
+              state: doItem.shipper.pickUpLocations[0].state,
+              zipCode: doItem.shipper.pickUpLocations[0].zipCode,
+              address: doItem.shipper.pickUpLocations[0].address,
+            } : undefined);
+            const destination = lr.destinations?.[0] || lr.destinationPlace || (doItem.shipper?.dropLocations?.[0] ? {
+              city: doItem.shipper.dropLocations[0].city,
+              state: doItem.shipper.dropLocations[0].state,
+              zipCode: doItem.shipper.dropLocations[0].zipCode,
+              address: doItem.shipper.dropLocations[0].address,
+            } : undefined);
+
+            // Dates
+            const pickupDate = lr.pickupDate || doItem.shipper?.pickUpLocations?.[0]?.pickUpDate || doItem.date;
+            const deliveryDate = lr.deliveryDate || doItem.shipper?.dropLocations?.[0]?.dropDate || doItem.date;
+
+            return {
+              billId: lr.shipmentNumber || doItem._id,
+              chargeSetId: lr.poNumber || doItem._id,
+              containerId: lr.containerNo || doItem.shipper?.containerNo || 'N/A',
+              secondaryRef: lr.bolNumber || doItem.bols?.[0]?.bolNo || doItem._id,
+              date: pickupDate ? format(new Date(pickupDate), 'yyyy-MM-dd') : 'N/A',
+              dueDate: deliveryDate ? format(new Date(deliveryDate), 'yyyy-MM-dd') : 'N/A',
+              amount,
+              status: (doItem.paymentStatus?.status || 'Pending'),
+              amount0_30: amount, // treat verified DOs as current
             amount30_60: 0,
             amount60_90: 0,
-            // Additional load-specific data
             loadData: {
-              origin: load.origin,
-              destination: load.destination,
-              weight: load.weight,
-              commodity: load.commodity,
-              vehicleType: load.vehicleType,
-              carrier: load.carrier,
-              shipper: load.shipper,
-              acceptedBid: load.acceptedBid,
-              deliveryOrder: load.deliveryOrder,
-              verificationStatus: load.verificationStatus
-            }
-          }));
+                origin,
+                destination,
+                weight: lr.weight ?? doItem.shipper?.weight,
+                commodity: lr.commodity ?? doItem.shipper?.commodity,
+                vehicleType: lr.vehicleType ?? doItem.shipper?.containerType,
+                carrier: doItem.carrier,
+                shipper: doItem.shipper,
+                acceptedBid: lr.acceptedBid,
+                deliveryOrder: {
+                  customers: doItem.customers
+                },
+                verificationStatus: doItem.assignmentStatus || doItem.accountantApproval?.status || doItem.salesApproval?.status
+              }
+            };
+          });
           
           setOriginalBillsData(transformedData);
           setFilteredData(transformedData);
@@ -375,7 +412,7 @@ const Bills = () => {
   };
 
   const exportToCSV = () => {
-    const headers = ['Shipment #', 'PO Number', 'Container #', 'BOL Number', 'Pickup Location', 'Drop Location', 'Rate ($)', 'Status', 'Verification Status'];
+    const headers = ['Shipment #', 'PO Number', 'Container #', 'BOL Number', 'Pickup Location', 'Drop Location', 'Rate ($)'];
     const csvRows = [headers.join(',')];
 
     displayData.forEach((row) => {
@@ -386,9 +423,7 @@ const Bills = () => {
         row.secondaryRef,
         row.loadData?.origin?.city ? `${row.loadData.origin.city}, ${row.loadData.origin.state}` : 'N/A',
         row.loadData?.destination?.city ? `${row.loadData.destination.city}, ${row.loadData.destination.state}` : 'N/A',
-        row.amount,
-        row.status,
-        row.loadData?.verificationStatus || 'N/A'
+        row.amount
       ];
       csvRows.push(values.join(','));
     });
@@ -646,6 +681,8 @@ const Bills = () => {
     setSelectedBill(null);
   };
 
+  // Note: View modal uses the already-fetched apiData.data.verifiedDOs; no extra API call.
+
   const handleDownloadPDF = (bill) => {
     // Create new PDF document
     const doc = new jsPDF();
@@ -690,26 +727,27 @@ const Bills = () => {
     try {
       const printWindow = window.open('', '_blank');
 
-      // Find the matching load from API data to get complete information
-      const matchedLoad = (Array.isArray(apiData?.data?.allLoads) ? apiData.data.allLoads : []).find(
-        load => load.shipmentNumber === order.billId || load._id === order.billId
-      );
+      // Find the matching DO from API data to get complete information
+      const matchedLoad = (Array.isArray(apiData?.data?.verifiedDOs) ? apiData.data.verifiedDOs : []).find((doItem) => {
+        const lr = doItem.loadReference || {};
+        return lr.shipmentNumber === order.billId || doItem._id === order.billId;
+      });
       
       // Debug logging
       console.log('Order billId:', order.billId);
       console.log('Matched load:', matchedLoad);
-      console.log('API data allLoads:', apiData?.data?.allLoads);
+      console.log('API data verifiedDOs:', apiData?.data?.verifiedDOs);
       
       // ---- Bill To + Address (from shippers list if available) ----
-      const deliveryOrder = matchedLoad?.deliveryOrder || order?.loadData?.deliveryOrder;
+      const deliveryOrder = order?.loadData?.deliveryOrder || { customers: matchedLoad?.customers || [] };
       const cust = deliveryOrder?.customers?.[0] || {};
-      const companyName = (cust.billTo || '').trim();
+      const companyName = (cust.billTo || matchedLoad?.shipper?.name || '').trim();
       
       const billAddr = [
-        matchedLoad?.shipper?.compAdd,
+        matchedLoad?.shipper?.address,
         matchedLoad?.shipper?.city,
         matchedLoad?.shipper?.state,
-        matchedLoad?.shipper?.zipcode,
+        matchedLoad?.shipper?.zipCode,
       ].filter(Boolean).join(', ');
       const billToDisplay = [companyName || 'N/A', billAddr].filter(Boolean).join('<br>');
       const workOrderNo = cust.workOrderNo || 'N/A';
@@ -744,31 +782,47 @@ const Bills = () => {
       const fullAddr = (loc) =>
         [loc?.address, loc?.city, loc?.state, loc?.zipCode].filter(Boolean).join(', ') || 'N/A';
 
-      // Create pickup and drop location data from the matched load
-      const pickRows = matchedLoad ? [
-        {
-          name: matchedLoad.origin?.city || 'Pickup Location',
-          address: matchedLoad.origin?.city,
-          city: matchedLoad.origin?.city,
-          state: matchedLoad.origin?.state,
-          zipCode: matchedLoad.origin?.zipCode
-        }
-      ] : [];
+      // Create pickup and drop location data from the matched DO
+      const lr = matchedLoad?.loadReference || {};
+      const origin = lr.origins?.[0] || lr.originPlace || matchedLoad?.shipper?.pickUpLocations?.[0];
+      const destination = lr.destinations?.[0] || lr.destinationPlace || matchedLoad?.shipper?.dropLocations?.[0];
+
+      const pickRows = matchedLoad && origin ? [{
+        name: origin?.city || origin?.name || 'Pickup Location',
+        address: origin?.address,
+        city: origin?.city,
+        state: origin?.state,
+        zipCode: origin?.zip || origin?.zipCode
+      }] : [];
       
-      const dropRows = matchedLoad ? [
-        {
-          name: matchedLoad.destination?.city || 'Drop Location', 
-          address: matchedLoad.destination?.city,
-          city: matchedLoad.destination?.city,
-          state: matchedLoad.destination?.state,
-          zipCode: matchedLoad.destination?.zipCode
-        }
-      ] : [];
+      const dropRows = matchedLoad && destination ? [{
+        name: destination?.city || destination?.name || 'Drop Location',
+        address: destination?.address,
+        city: destination?.city,
+        state: destination?.state,
+        zipCode: destination?.zip || destination?.zipCode
+      }] : [];
       
       // Debug logging for locations
       console.log('Pick rows:', pickRows);
       console.log('Drop rows:', dropRows);
       console.log('Customer data:', cust);
+
+      // Gather all images for PDF
+      const lrImgs = lr?.dropLocationImages || {};
+      const allPickupImages = [
+        ...(Array.isArray(lr?.emptyTruckImages) ? lr.emptyTruckImages : []),
+        ...(Array.isArray(lr?.loadedTruckImages) ? lr.loadedTruckImages : []),
+        ...(Array.isArray(lr?.containerImages) ? lr.containerImages : []),
+        ...(Array.isArray(lr?.sealImages) ? lr.sealImages : []),
+        ...(Array.isArray(lr?.eirTickets) ? lr.eirTickets : []),
+      ];
+      const allDeliveryImages = [
+        ...(Array.isArray(lrImgs?.podImages) ? lrImgs.podImages : []),
+        ...(Array.isArray(lrImgs?.loadedTruckImages) ? lrImgs.loadedTruckImages : []),
+        ...(Array.isArray(lrImgs?.dropLocationImages) ? lrImgs.dropLocationImages : []),
+        ...(Array.isArray(lrImgs?.emptyTruckImages) ? lrImgs.emptyTruckImages : []),
+      ];
 
       // Logo source - using a placeholder or default logo
       const logoSrc = '/images/logo_vpower.png';
@@ -830,11 +884,11 @@ const Bills = () => {
         </thead>
         <tbody>
           ${pickRows.map(l => {
-        const weight = matchedLoad?.weight || 'N/A';
-        const contNo = matchedLoad?.containerNo || order?.containerId || 'N/A';
-        const contTp = matchedLoad?.vehicleType || order?.loadData?.vehicleType || 'N/A';
+        const weight = lr?.weight || matchedLoad?.shipper?.weight || 'N/A';
+        const contNo = lr?.containerNo || matchedLoad?.shipper?.containerNo || order?.containerId || 'N/A';
+        const contTp = lr?.vehicleType || matchedLoad?.shipper?.containerType || order?.loadData?.vehicleType || 'N/A';
         const qty = 1;
-        const dateSrc = matchedLoad?.pickupDate || order?.date;
+        const dateSrc = lr?.pickupDate || matchedLoad?.shipper?.pickUpLocations?.[0]?.pickUpDate || order?.date;
         return `
               <tr>
                 <td>${l?.name || 'N/A'}</td>
@@ -867,11 +921,11 @@ const Bills = () => {
         </thead>
         <tbody>
           ${dropRows.map(l => {
-        const weight = matchedLoad?.weight || 'N/A';
-        const contNo = matchedLoad?.containerNo || order?.containerId || 'N/A';
-        const contTp = matchedLoad?.vehicleType || order?.loadData?.vehicleType || 'N/A';
+        const weight = lr?.weight || matchedLoad?.shipper?.weight || 'N/A';
+        const contNo = lr?.containerNo || matchedLoad?.shipper?.containerNo || order?.containerId || 'N/A';
+        const contTp = lr?.vehicleType || matchedLoad?.shipper?.containerType || order?.loadData?.vehicleType || 'N/A';
         const qty = 1;
-        const dateSrc = matchedLoad?.deliveryDate || order?.dueDate;
+        const dateSrc = lr?.deliveryDate || matchedLoad?.shipper?.dropLocations?.[0]?.dropDate || order?.dueDate;
         return `
               <tr>
                 <td>${l?.name || 'N/A'}</td>
@@ -906,6 +960,20 @@ const Bills = () => {
 
     <div class="section">Thank you for your business!</div>
   </div>
+  
+  ${allPickupImages.map((imgUrl, idx) => `
+    <div style="page-break-before: always; text-align: center; padding: 40px 20px;">
+      <h2 style="margin-bottom: 20px; color: #1976d2;">Pickup Image ${idx + 1}</h2>
+      <img src="${imgUrl}" alt="Pickup Image ${idx + 1}" style="max-width: 100%; max-height: 600px; object-fit: contain; border: 1px solid #ddd; border-radius: 8px;" />
+    </div>
+  `).join('')}
+  
+  ${allDeliveryImages.map((imgUrl, idx) => `
+    <div style="page-break-before: always; text-align: center; padding: 40px 20px;">
+      <h2 style="margin-bottom: 20px; color: #1976d2;">Delivery Image ${idx + 1}</h2>
+      <img src="${imgUrl}" alt="Delivery Image ${idx + 1}" style="max-width: 100%; max-height: 600px; object-fit: contain; border: 1px solid #ddd; border-radius: 8px;" />
+    </div>
+  `).join('')}
 </body>
 </html>
     `;
@@ -1321,7 +1389,10 @@ const Bills = () => {
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ name, percent }) => `${name}\n${(percent * 100).toFixed(1)}%`}
+                  label={({ name, percent }) => {
+                    if (percent < 0.05) return ''; // Hide labels for very small slices
+                    return `${name}\n${(percent * 100).toFixed(1)}%`;
+                  }}
                   outerRadius={100}
                   innerRadius={40}
                   fill="#8884d8"
@@ -1356,13 +1427,15 @@ const Bills = () => {
                 />
                 <Legend 
                   verticalAlign="bottom" 
-                  height={36}
+                  height={60}
                   iconType="circle"
+                  layout="horizontal"
                   wrapperStyle={{
                     paddingTop: '20px',
-                    fontSize: '14px',
+                    fontSize: '12px',
                     fontWeight: '500'
                   }}
+                  formatter={(value) => value}
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -1383,8 +1456,6 @@ const Bills = () => {
                 <TableCell sx={{ fontWeight: 600 }}>Pickup Location</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Drop Location</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Rate ($)</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Verification</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Actions</TableCell>
               </TableRow>
             </TableHead>
@@ -1428,24 +1499,6 @@ const Bills = () => {
                       </TableCell>
                       <TableCell sx={{ color: 'primary.main', fontWeight: 600 }}>
                         ${bill.amount.toLocaleString()}
-                      </TableCell>
-                      <TableCell>
-                        <Chip 
-                          label={bill.status} 
-                          color={getStatusColor(bill.status)} 
-                          size="small"
-                          sx={{ fontWeight: 600 }}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        {bill.loadData?.verificationStatus && (
-                          <Chip 
-                            label={bill.loadData.verificationStatus.replace('_', ' ').toUpperCase()} 
-                            color={bill.loadData.verificationStatus === 'accountant_approved' ? 'success' : 'warning'} 
-                            size="small"
-                            sx={{ fontWeight: 600 }}
-                          />
-                        )}
                       </TableCell>
                       <TableCell>
                         <Stack direction="row" spacing={1}>
@@ -1836,14 +1889,16 @@ const Bills = () => {
        <Dialog 
          open={viewBillOpen} 
          onClose={handleViewBillClose}
-         maxWidth="md"
+         maxWidth="lg"
          fullWidth
          PaperProps={{
            sx: {
              borderRadius: 2,
-             maxHeight: '90vh',
+             maxHeight: '75vh',
              background: '#ffffff',
              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+             display: 'flex',
+             flexDirection: 'column',
            }
          }}
        >
@@ -1852,20 +1907,26 @@ const Bills = () => {
            justifyContent: 'space-between', 
            alignItems: 'center',
            pb: 2,
-           background: '#f5f5f5',
-           color: '#333',
-           borderRadius: '8px 8px 0 0'
+           pt: 2,
+           px: 3,
+           background: '#1976d2',
+           color: 'white',
+           borderRadius: '8px 8px 0 0',
+           minHeight: 64
          }}>
-           <Typography variant="h5" fontWeight={600}>
-             Bill Details
-           </Typography>
+           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+             <LocalShipping sx={{ fontSize: 28, color: 'white' }} />
+             <Typography variant="h5" fontWeight={600} color="white">
+               Consignment Details
+             </Typography>
+           </Box>
            <IconButton 
              onClick={handleViewBillClose} 
              size="small"
              sx={{
-               color: '#666',
+               color: 'white',
                '&:hover': {
-                 background: '#e0e0e0',
+                 background: 'rgba(255, 255, 255, 0.1)',
                }
              }}
            >
@@ -1875,174 +1936,385 @@ const Bills = () => {
        
        <Divider />
        
-       <DialogContent sx={{ pt: 2 }}>
+       <DialogContent sx={{ pt: 2, overflowY: 'auto', flex: 1 }}>
          {selectedBill && (
            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-             
-             {/* Bill Information Section */}
-             <Box>
-               <Typography variant="h6" fontWeight={600} mb={2} sx={{
-                 color: '#333',
-                 display: 'flex',
-                 alignItems: 'center',
-                 gap: 1
-               }}>
-                 📋 Bill Information
-               </Typography>
-               <Divider sx={{ 
-                 mb: 3,
-                 background: '#e0e0e0',
-                 height: 1
-               }} />
-               <Grid container spacing={2}>
-                 <Grid item xs={12} md={4}>
-                   <Box sx={{ p: 2, border: '1px solid #e0e0e0', borderRadius: 2, background: '#fafafa' }}>
-                     <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                       Bill ID
-                     </Typography>
-                     <Typography variant="body1" fontWeight={600}>
-                       {selectedBill.billId}
-                     </Typography>
-                   </Box>
-                 </Grid>
-                 <Grid item xs={12} md={4}>
-                   <Box sx={{ p: 2, border: '1px solid #e0e0e0', borderRadius: 2, background: '#fafafa' }}>
-                     <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                       Bill Date
-                     </Typography>
-                     <Typography variant="body1" fontWeight={600}>
-                       {selectedBill.date}
-                     </Typography>
-                   </Box>
-                 </Grid>
-                 <Grid item xs={12} md={4}>
-                   <Box sx={{ p: 2, border: '1px solid #e0e0e0', borderRadius: 2, background: '#fafafa' }}>
-                     <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                       Status
-                     </Typography>
-                     <Chip 
-                       label={selectedBill.status} 
-                       color={getStatusColor(selectedBill.status)} 
-                       size="small"
-                       sx={{ fontWeight: 600 }}
-                     />
-                   </Box>
-                 </Grid>
-               </Grid>
-             </Box>
+            {(() => {
+              const doData = (Array.isArray(apiData?.data?.verifiedDOs) ? apiData.data.verifiedDOs : []).find((d) => {
+                const sn = d?.loadReference?.shipmentNumber;
+                return sn === selectedBill?.billId || d?._id === selectedBill?.billId;
+              });
+              // compute display helpers
+              const lr = doData?.loadReference || {};
+              const customers = Array.isArray(doData?.customers) ? doData.customers : [];
+              const firstCust = customers[0] || {};
+              const lineHaul = Number(firstCust?.lineHaul || 0);
+              const fsc = Number(firstCust?.fsc || 0);
+              const other = Number(firstCust?.other || 0);
+              const totalRates = Number((firstCust?.calculatedTotal ?? firstCust?.totalAmount ?? (lineHaul + fsc + other)) ?? 0);
+              const paymentStatus = doData?.paymentStatus?.status || 'pending';
+              const equipmentType = doData?.shipper?.containerType || lr?.vehicleType || selectedBill?.loadData?.vehicleType || 'N/A';
+              const statusLabel = (doData?.assignmentStatus || doData?.accountantApproval?.status || doData?.salesApproval?.status || 'verified')
+                .toString()
+                .replace('_', ' ');
 
-             {/* Amount Details Section */}
-             <Box>
-               <Typography variant="h6" fontWeight={600} mb={2} sx={{
-                 color: '#333',
-                 display: 'flex',
-                 alignItems: 'center',
-                 gap: 1
-               }}>
-                 💰 Amount Details
-               </Typography>
-               <Divider sx={{ 
-                 mb: 3,
-                 background: '#e0e0e0',
-                 height: 1
-               }} />
-               <Grid container spacing={2}>
-                 <Grid item xs={12} md={6}>
-                   <Box sx={{ p: 3, border: '1px solid #e0e0e0', borderRadius: 2, background: '#fafafa' }}>
-                     <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                       Amount
-                     </Typography>
-                     <Typography variant="h4" fontWeight={700} color="#1976d2">
-                       ${selectedBill.amount.toLocaleString()}
-                     </Typography>
+              return (
+                <>
+                {/* Basic Information Card */}
+                <Paper elevation={0} sx={{ border: '1px solid #e0e0e0', borderRadius: 2, overflow: 'hidden' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, background: '#e3f2fd' }}>
+                    <Box sx={{ width: 32, height: 32, borderRadius: 1, background: '#1976d2', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                      i
                    </Box>
-                 </Grid>
-                 <Grid item xs={12} md={6}>
-                   <Box sx={{ p: 3, border: '1px solid #e0e0e0', borderRadius: 2, background: '#fafafa' }}>
-                     <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                       Status
-                     </Typography>
-                     <Chip 
-                       label={selectedBill.status} 
-                       color={getStatusColor(selectedBill.status)} 
-                       size="medium"
-                       sx={{ fontWeight: 600 }}
-                     />
+                    <Typography variant="h6" fontWeight={700} color="#0d47a1">Basic Information</Typography>
                    </Box>
-                 </Grid>
-               </Grid>
-             </Box>
 
-             {/* Additional Information Section */}
-             <Box>
-               <Typography variant="h6" fontWeight={600} mb={2} sx={{
-                 color: '#333',
-                 display: 'flex',
-                 alignItems: 'center',
-                 gap: 1
-               }}>
-                 ℹ️ Additional Information
-               </Typography>
-               <Divider sx={{ 
-                 mb: 3,
-                 background: '#e0e0e0',
-                 height: 1
-               }} />
-               <Box sx={{ p: 3, border: '1px solid #e0e0e0', borderRadius: 2, background: '#fafafa' }}>
-                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                   Bill Description
-                 </Typography>
-                 <Typography variant="body1">
-                   This is a detailed view of bill {selectedBill.billId}. The bill was generated on {selectedBill.date} and is currently in {selectedBill.status.toLowerCase()} status.
-                 </Typography>
+                  <Box sx={{ p: 2 }}>
+                    <Table size="small" sx={{ '& td, & th': { border: 0, py: 1.2 } }}>
+                      <TableBody>
+                        <TableRow>
+                          <TableCell sx={{ width: 220, color: 'text.secondary' }}>Consignment ID</TableCell>
+                          <TableCell sx={{ width: 80, color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{lr?.shipmentNumber || selectedBill.billId}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell sx={{ color: 'text.secondary' }}>Equipment Type</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{equipmentType}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell sx={{ color: 'text.secondary' }}>PO Number</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{lr?.poNumber || selectedBill.chargeSetId}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell sx={{ color: 'text.secondary' }}>BOL Number</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{lr?.bolNumber || selectedBill.secondaryRef}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell sx={{ color: 'text.secondary' }}>Container Number</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{lr?.containerNo || selectedBill.containerId}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                   </Box>
+                </Paper>
+
+                {/* Rate Information Card */}
+                <Paper elevation={0} sx={{ border: '1px solid #ffe0b2', borderRadius: 2, overflow: 'hidden' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, background: '#fff8e1' }}>
+                    <Box sx={{ width: 32, height: 32, borderRadius: 1, background: '#ffb300', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                      $
+                   </Box>
+                    <Typography variant="h6" fontWeight={700} color="#e65100">Rate Information</Typography>
+                   </Box>
+                  <Box sx={{ p: 2 }}>
+                    <Table size="small" sx={{ '& td, & th': { border: 0, py: 1.2 } }}>
+                      <TableBody>
+                        <TableRow>
+                          <TableCell sx={{ width: 220, color: 'text.secondary' }}>Rate</TableCell>
+                          <TableCell sx={{ width: 80, color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 800, color: 'primary.main' }}>${totalRates.toLocaleString()}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell sx={{ color: 'text.secondary' }}>Line Haul</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>${lineHaul.toLocaleString()}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell sx={{ color: 'text.secondary' }}>FSC</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>${fsc.toLocaleString()}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell sx={{ color: 'text.secondary' }}>Other</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>${other.toLocaleString()}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell sx={{ color: 'text.secondary' }}>Total Rates</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 800, color: 'success.main' }}>${totalRates.toLocaleString()}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+             </Box>
+                </Paper>
+
+                {/* Load Details */}
+                <Paper elevation={0} sx={{ border: '1px solid #b2dfdb', borderRadius: 2, overflow: 'hidden' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, background: '#e0f2f1' }}>
+                    <Box sx={{ width: 32, height: 32, borderRadius: 1, background: '#00897b', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>📦</Box>
+                    <Typography variant="h6" fontWeight={700} color="#00695c">Load Details</Typography>
                </Box>
+                  <Box sx={{ p: 2 }}>
+                    <Table size="small" sx={{ '& td, & th': { border: 0, py: 1.2 } }}>
+                      <TableBody>
+                        <TableRow>
+                          <TableCell sx={{ width: 220, color: 'text.secondary' }}>Weight</TableCell>
+                          <TableCell sx={{ width: 80, color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{lr?.weight ?? doData?.shipper?.weight ?? 'N/A'}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell sx={{ color: 'text.secondary' }}>Commodity</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{lr?.commodity ?? doData?.shipper?.commodity ?? 'N/A'}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
              </Box>
+                </Paper>
+
+                {/* Locations Card */}
+                {(Array.isArray(doData?.shipper?.pickUpLocations) || Array.isArray(doData?.shipper?.dropLocations)) && (
+                  <Paper elevation={0} sx={{ border: '1px solid #c8e6c9', borderRadius: 2, overflow: 'hidden' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, background: '#e8f5e9' }}>
+                      <Box sx={{ width: 32, height: 32, borderRadius: 1, background: '#2e7d32', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>📍</Box>
+                      <Typography variant="h6" fontWeight={700} color="#1b5e20">Locations</Typography>
+           </Box>
+                    <Box sx={{ p: 2 }}>
+                      {(doData?.shipper?.pickUpLocations || []).map((l, idx) => (
+                        <Box key={`pu-${idx}`} sx={{ mb: idx < (doData?.shipper?.pickUpLocations?.length || 0) - 1 ? 2 : 0 }}>
+                          <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1, color: '#2e7d32' }}>Pickup Location {idx + 1}</Typography>
+                          <Table size="small" sx={{ '& td, & th': { border: 0, py: 1.2 } }}>
+                            <TableBody>
+                              <TableRow>
+                                <TableCell sx={{ width: 220, color: 'text.secondary' }}>Address</TableCell>
+                                <TableCell sx={{ width: 80, color: '#9e9e9e' }}>-----</TableCell>
+                                <TableCell sx={{ fontWeight: 600 }}>{l.address || 'N/A'}</TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell sx={{ color: 'text.secondary' }}>City</TableCell>
+                                <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                                <TableCell sx={{ fontWeight: 600 }}>{l.city || 'N/A'}</TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell sx={{ color: 'text.secondary' }}>State</TableCell>
+                                <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                                <TableCell sx={{ fontWeight: 600 }}>{l.state || 'N/A'}</TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell sx={{ color: 'text.secondary' }}>Zip</TableCell>
+                                <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                                <TableCell sx={{ fontWeight: 600 }}>{l.zipCode || 'N/A'}</TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell sx={{ color: 'text.secondary' }}>Date</TableCell>
+                                <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                                <TableCell sx={{ fontWeight: 600 }}>{l.pickUpDate ? format(new Date(l.pickUpDate), 'yyyy-MM-dd') : 'N/A'}</TableCell>
+                              </TableRow>
+                            </TableBody>
+                          </Table>
+                        </Box>
+                      ))}
+                      {(doData?.shipper?.dropLocations || []).map((l, idx) => (
+                        <Box key={`dr-${idx}`} sx={{ mt: 2 }}>
+                          <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1, color: '#2e7d32' }}>Drop Location {idx + 1}</Typography>
+                          <Table size="small" sx={{ '& td, & th': { border: 0, py: 1.2 } }}>
+                            <TableBody>
+                              <TableRow>
+                                <TableCell sx={{ width: 220, color: 'text.secondary' }}>Address</TableCell>
+                                <TableCell sx={{ width: 80, color: '#9e9e9e' }}>-----</TableCell>
+                                <TableCell sx={{ fontWeight: 600 }}>{l.address || 'N/A'}</TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell sx={{ color: 'text.secondary' }}>City</TableCell>
+                                <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                                <TableCell sx={{ fontWeight: 600 }}>{l.city || 'N/A'}</TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell sx={{ color: 'text.secondary' }}>State</TableCell>
+                                <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                                <TableCell sx={{ fontWeight: 600 }}>{l.state || 'N/A'}</TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell sx={{ color: 'text.secondary' }}>Zip</TableCell>
+                                <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                                <TableCell sx={{ fontWeight: 600 }}>{l.zipCode || 'N/A'}</TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell sx={{ color: 'text.secondary' }}>Date</TableCell>
+                                <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                                <TableCell sx={{ fontWeight: 600 }}>{l.dropDate ? format(new Date(l.dropDate), 'yyyy-MM-dd') : 'N/A'}</TableCell>
+                              </TableRow>
+                            </TableBody>
+                          </Table>
+                        </Box>
+                      ))}
+                    </Box>
+                  </Paper>
+                )}
+
+                {/* Driver and Vehicle Information */}
+                <Paper elevation={0} sx={{ border: '1px solid #ce93d8', borderRadius: 2, overflow: 'hidden' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, background: '#f3e5f5' }}>
+                    <Box sx={{ width: 32, height: 32, borderRadius: 1, background: '#6a1b9a', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>🧑‍✈️</Box>
+                    <Typography variant="h6" fontWeight={700} color="#4a148c">Driver and Vehicle Information</Typography>
+                  </Box>
+                  <Box sx={{ p: 2 }}>
+                    <Table size="small" sx={{ '& td, & th': { border: 0, py: 1.2 } }}>
+                      <TableBody>
+                        <TableRow>
+                          <TableCell sx={{ width: 220, color: 'text.secondary' }}>Driver Name</TableCell>
+                          <TableCell sx={{ width: 80, color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{doData?.driver?.name || doData?.driverName || 'N/A'}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell sx={{ color: 'text.secondary' }}>Vehicle No</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{lr?.vehicleNumber || doData?.vehicleNo || 'N/A'}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </Box>
+                </Paper>
+
+                {/* Important Dates */}
+                <Paper elevation={0} sx={{ border: '1px solid #9fa8da', borderRadius: 2, overflow: 'hidden' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, background: '#e8eaf6' }}>
+                    <Box sx={{ width: 32, height: 32, borderRadius: 1, background: '#283593', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>🗓️</Box>
+                    <Typography variant="h6" fontWeight={700} color="#1a237e">Important Dates</Typography>
+                  </Box>
+                  <Box sx={{ p: 2 }}>
+                    <Table size="small" sx={{ '& td, & th': { border: 0, py: 1.2 } }}>
+                      <TableBody>
+                        <TableRow>
+                          <TableCell sx={{ width: 220, color: 'text.secondary' }}>Pickup Dated</TableCell>
+                          <TableCell sx={{ width: 80, color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{lr?.pickupDate ? format(new Date(lr.pickupDate), 'yyyy-MM-dd') : (doData?.shipper?.pickUpLocations?.[0]?.pickUpDate ? format(new Date(doData.shipper.pickUpLocations[0].pickUpDate), 'yyyy-MM-dd') : 'N/A')}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell sx={{ color: 'text.secondary' }}>Drop Dated</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{lr?.deliveryDate ? format(new Date(lr.deliveryDate), 'yyyy-MM-dd') : (doData?.shipper?.dropLocations?.[0]?.dropDate ? format(new Date(doData.shipper.dropLocations[0].dropDate), 'yyyy-MM-dd') : 'N/A')}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </Box>
+                </Paper>
+
+                {/* Images Section - Pickup and Delivery */}
+                {(() => {
+                  const lrImgs = lr?.dropLocationImages || {};
+                  // Gather pickup-related images from either loadReference or root
+                  const pickupGroups = [
+                    { title: 'Empty Truck Images', urls: lr?.emptyTruckImages || doData?.emptyTruckImages || [] },
+                    { title: 'Loaded Truck Images', urls: lr?.loadedTruckImages || doData?.loadedTruckImages || [] },
+                    { title: 'Container Images', urls: lr?.containerImages || doData?.containerImages || [] },
+                    { title: 'Seal Images', urls: lr?.sealImages || doData?.sealImages || [] },
+                    { title: 'EIR Tickets', urls: lr?.eirTickets || doData?.eirTickets || [] },
+                  ].filter(g => Array.isArray(g.urls) && g.urls.length > 0);
+
+                  // Gather drop-related images from nested dropLocationImages structure
+                  const dropGroups = [
+                    { title: 'POD Images', urls: lrImgs?.podImages || [] },
+                    { title: 'Loaded Truck Images (Drop)', urls: lrImgs?.loadedTruckImages || [] },
+                    { title: 'Drop Location Images', urls: lrImgs?.dropLocationImages || [] },
+                    { title: 'Empty Truck Images (Drop)', urls: lrImgs?.emptyTruckImages || [] },
+                  ].filter(g => Array.isArray(g.urls) && g.urls.length > 0);
+
+                  const GroupCard = ({ title, urls }) => {
+                    const preview = Array.isArray(urls) && urls.length > 0 ? urls[0] : null;
+                    return (
+                      <Paper
+           variant="outlined"
+           sx={{ 
+                          width: 220,
+             borderRadius: 2, 
+                          overflow: 'hidden',
+                          p: 2,
+                        }}
+                      >
+                        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>
+                          {title} ({urls?.length || 0})
+                        </Typography>
+                        {preview ? (
+                          <Box
+                            component="img"
+                            src={preview}
+                            alt={title}
+                            onClick={() => window.open(preview, '_blank')}
+            sx={{ 
+                              width: '100%',
+                              height: 140,
+                              objectFit: 'cover',
+                              borderRadius: 1,
+                              border: '1px solid #e0e0e0',
+                              cursor: 'pointer',
+                              boxShadow: 0.5,
+                            }}
+                          />
+                        ) : (
+                          <Box
+                            sx={{
+                              width: '100%',
+                              height: 140,
+                              borderRadius: 1,
+                              border: '1px dashed #cfd8dc',
+                 display: 'flex',
+                 alignItems: 'center',
+                              justifyContent: 'center',
+                              color: 'text.secondary',
+                              fontSize: 12,
+                            }}
+                          >
+                            No image
+                          </Box>
+                        )}
+                      </Paper>
+                    );
+                  };
+
+                  if (pickupGroups.length === 0 && dropGroups.length === 0) return null;
+
+                  return (
+                    <Paper elevation={0} sx={{ border: '1px solid #90caf9', borderRadius: 2, overflow: 'hidden' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, background: '#e3f2fd' }}>
+                        <Box sx={{ width: 32, height: 32, borderRadius: 1, background: '#3949ab', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>🖼️</Box>
+                        <Typography variant="h6" fontWeight={700} color="#1565c0">Images</Typography>
+                      </Box>
+                      <Box sx={{ p: 2 }}>
+               <Grid container spacing={2}>
+                 <Grid item xs={12} md={6}>
+                            <Typography variant="subtitle1" fontWeight={800} color="#1b5e20" sx={{ mb: 1.5 }}>Pickup Images</Typography>
+                            {pickupGroups.length > 0 ? (
+                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                                {pickupGroups.map((g, idx) => (
+                                  <GroupCard key={`pu-${idx}`} title={g.title} urls={g.urls} />
+                                ))}
+                   </Box>
+                            ) : (
+                              <Typography variant="body2" color="text.secondary">No pickup images</Typography>
+                            )}
+                 </Grid>
+                 <Grid item xs={12} md={6}>
+                            <Typography variant="subtitle1" fontWeight={800} color="#b71c1c" sx={{ mb: 1.5 }}>Delivery Images</Typography>
+                            {dropGroups.length > 0 ? (
+                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                                {dropGroups.map((g, idx) => (
+                                  <GroupCard key={`dr-${idx}`} title={g.title} urls={g.urls} />
+                                ))}
+                   </Box>
+                            ) : (
+                              <Typography variant="body2" color="text.secondary">No delivery images</Typography>
+                            )}
+                 </Grid>
+               </Grid>
+             </Box>
+                    </Paper>
+                  );
+                })()}
+                {!doData && (
+                  <Alert severity="info">No detailed data found for this shipment in loaded results.</Alert>
+                )}
+              </>
+              );
+            })()}
            </Box>
          )}
        </DialogContent>
-       
-       <Divider />
-       
-       <DialogActions sx={{ p: 2, gap: 2, background: '#f5f5f5' }}>
-         <Button 
-           onClick={handleViewBillClose}
-           variant="outlined"
-           sx={{ 
-             borderRadius: 2, 
-             textTransform: 'none',
-             borderColor: '#ccc',
-             color: '#666',
-             fontWeight: 500,
-             px: 3,
-             py: 1,
-             '&:hover': {
-               borderColor: '#999',
-               color: '#333',
-               background: '#f0f0f0'
-             }
-           }}
-         >
-           Close
-         </Button>
-                   <Button 
-            variant="contained"
-            startIcon={<Download />}
-             onClick={() => selectedBill && generateInvoicePDF(selectedBill)}
-            sx={{ 
-              borderRadius: 2, 
-              textTransform: 'none',
-              backgroundColor: '#1976d2',
-              fontWeight: 500,
-              px: 3,
-              py: 1,
-              '&:hover': {
-                backgroundColor: '#1565c0',
-              },
-            }}
-          >
-            Download PDF
-          </Button>
-       </DialogActions>
      </Dialog>
      </LocalizationProvider>
    );

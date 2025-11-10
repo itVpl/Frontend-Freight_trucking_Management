@@ -170,14 +170,14 @@ const AddLoad = () => {
     poNumber: '',
     bolNumber: '',
     shipmentNo: '',
-      customerName: '',
-      customerPhone: '',
-      customerEmail: '',
-      specialInstructions: '',
-      returnDate: '',
-      returnLocation: '',
-      chargesArray: []
-    }));
+    customerName: '',
+    customerPhone: '',
+    customerEmail: '',
+    specialInstructions: '',
+    returnDate: '',
+    returnLocation: '',
+    chargesArray: []
+  }));
 
   // Fetch all loads on component mount
   useEffect(() => {
@@ -196,7 +196,7 @@ const AddLoad = () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const token = localStorage.getItem('token');
       if (!token) {
         throw new Error('No authentication token found');
@@ -215,7 +215,7 @@ const AddLoad = () => {
       }
 
       const result = await response.json();
-      
+
       if (result.success) {
         setLoadsData(result.data.loads || []);
       } else {
@@ -250,7 +250,7 @@ const AddLoad = () => {
       }
 
       const result = await response.json();
-      
+
       if (result.success) {
         setCustomers(result.data || []);
       } else {
@@ -285,7 +285,7 @@ const AddLoad = () => {
       }
 
       const result = await response.json();
-      
+
       if (result.success) {
         setDrivers(result.drivers || []);
       } else {
@@ -320,7 +320,7 @@ const AddLoad = () => {
       }
 
       const result = await response.json();
-      
+
       if (result.success) {
         return result.data;
       } else {
@@ -343,24 +343,24 @@ const AddLoad = () => {
 
       // Transform form data to match API structure
       const hasArrays = Array.isArray(loadData.origins) && loadData.origins.length > 0 && Array.isArray(loadData.destinations) && loadData.destinations.length > 0;
-      
+
       // Prepare origins
       let origins = [];
-      
+
       // For DRAYAGE, always use the DRAYAGE fields regardless of hasArrays
       if (loadData.loadType === 'DRAYAGE') {
         const fromAddress = loadData.fromAddress ? String(loadData.fromAddress).trim() : '';
         const fromCity = loadData.fromCity ? String(loadData.fromCity).trim() : '';
         const fromState = loadData.fromState ? String(loadData.fromState).trim() : '';
         const fromZip = loadData.fromZip ? String(loadData.fromZip).trim() : '';
-        
+
         // Helper function to safely convert date
         const safeDateISO = (dateValue) => {
           if (!dateValue) return undefined;
           const date = new Date(dateValue);
           return isNaN(date.getTime()) ? undefined : date.toISOString();
         };
-        
+
         // Always create origin for DRAYAGE
         const originObj = {
           addressLine1: fromAddress,
@@ -369,7 +369,7 @@ const AddLoad = () => {
           state: fromState,
           zip: fromZip
         };
-        
+
         // Only add optional fields if they have valid values
         if (loadData.weight) {
           originObj.weight = parseFloat(loadData.weight);
@@ -385,7 +385,7 @@ const AddLoad = () => {
         if (deliveryDateISO) {
           originObj.deliveryDate = deliveryDateISO;
         }
-        
+
         origins = [originObj];
       } else if (hasArrays) {
         // OTR with arrays
@@ -395,7 +395,7 @@ const AddLoad = () => {
           const date = new Date(dateValue);
           return isNaN(date.getTime()) ? undefined : date.toISOString();
         };
-        
+
         origins = loadData.origins
           .filter(o => o !== null && o !== undefined && typeof o === 'object') // Filter out null/undefined items
           .map(o => {
@@ -406,7 +406,7 @@ const AddLoad = () => {
               state: (o && o.state) ? String(o.state) : '',
               zip: (o && o.zip) ? String(o.zip) : ''
             };
-            
+
             // Only add optional fields if they have valid values
             if (o && o.weight) {
               originObj.weight = parseFloat(o.weight);
@@ -422,7 +422,7 @@ const AddLoad = () => {
             if (deliveryDateISO) {
               originObj.deliveryDate = deliveryDateISO;
             }
-            
+
             return originObj;
           })
           .filter(o => o.city !== '' || o.addressLine1 !== ''); // Filter out completely empty entries
@@ -434,7 +434,7 @@ const AddLoad = () => {
           const date = new Date(dateValue);
           return isNaN(date.getTime()) ? undefined : date.toISOString();
         };
-        
+
         const originObj = {
           addressLine1: (loadData.pickupLocation) ? String(loadData.pickupLocation) : '',
           addressLine2: '',
@@ -442,7 +442,7 @@ const AddLoad = () => {
           state: (loadData.pickupState) ? String(loadData.pickupState) : '',
           zip: (loadData.pickupZip) ? String(loadData.pickupZip) : ''
         };
-        
+
         // Only add optional fields if they have valid values
         if (loadData.weight) {
           originObj.weight = parseFloat(loadData.weight);
@@ -458,27 +458,27 @@ const AddLoad = () => {
         if (deliveryDateISO) {
           originObj.deliveryDate = deliveryDateISO;
         }
-        
+
         origins = [originObj];
       }
 
       // Prepare destinations
       let destinations = [];
-      
+
       // For DRAYAGE, always use the DRAYAGE fields regardless of hasArrays
       if (loadData.loadType === 'DRAYAGE') {
         const toAddress = loadData.toAddress ? String(loadData.toAddress).trim() : '';
         const toCity = loadData.toCity ? String(loadData.toCity).trim() : '';
         const toState = loadData.toState ? String(loadData.toState).trim() : '';
         const toZip = loadData.toZip ? String(loadData.toZip).trim() : '';
-        
+
         // Helper function to safely convert date
         const safeDateISO = (dateValue) => {
           if (!dateValue) return undefined;
           const date = new Date(dateValue);
           return isNaN(date.getTime()) ? undefined : date.toISOString();
         };
-        
+
         // Always create destination for DRAYAGE
         const destObj = {
           addressLine1: toAddress,
@@ -487,7 +487,7 @@ const AddLoad = () => {
           state: toState,
           zip: toZip
         };
-        
+
         // Only add optional fields if they have valid values
         if (loadData.weight) {
           destObj.weight = parseFloat(loadData.weight);
@@ -499,7 +499,7 @@ const AddLoad = () => {
         if (deliveryDateISO) {
           destObj.deliveryDate = deliveryDateISO;
         }
-        
+
         destinations = [destObj];
       } else if (hasArrays) {
         // OTR with arrays
@@ -509,7 +509,7 @@ const AddLoad = () => {
           const date = new Date(dateValue);
           return isNaN(date.getTime()) ? undefined : date.toISOString();
         };
-        
+
         destinations = loadData.destinations
           .filter(d => d !== null && d !== undefined && typeof d === 'object') // Filter out null/undefined items
           .map(d => {
@@ -520,7 +520,7 @@ const AddLoad = () => {
               state: (d && d.state) ? String(d.state) : '',
               zip: (d && d.zip) ? String(d.zip) : ''
             };
-            
+
             // Only add optional fields if they have valid values
             if (d && d.weight) {
               destObj.weight = parseFloat(d.weight);
@@ -532,7 +532,7 @@ const AddLoad = () => {
             if (deliveryDateISO) {
               destObj.deliveryDate = deliveryDateISO;
             }
-            
+
             return destObj;
           })
           .filter(d => d.city !== '' || d.addressLine1 !== ''); // Filter out completely empty entries
@@ -540,14 +540,14 @@ const AddLoad = () => {
         // OTR fallback
         const deliveryAddress = (loadData.deliveryLocation) ? String(loadData.deliveryLocation).trim() : '';
         const deliveryCity = (loadData.deliveryCity) ? String(loadData.deliveryCity).trim() : '';
-        
+
         // Helper function to safely convert date
         const safeDateISO = (dateValue) => {
           if (!dateValue) return undefined;
           const date = new Date(dateValue);
           return isNaN(date.getTime()) ? undefined : date.toISOString();
         };
-        
+
         // Only add destination if at least address or city is provided
         if (deliveryAddress || deliveryCity) {
           const destObj = {
@@ -557,7 +557,7 @@ const AddLoad = () => {
             state: (loadData.deliveryState) ? String(loadData.deliveryState) : '',
             zip: (loadData.deliveryZip) ? String(loadData.deliveryZip) : ''
           };
-          
+
           // Only add optional fields if they have valid values
           if (loadData.weight) {
             destObj.weight = parseFloat(loadData.weight);
@@ -569,7 +569,7 @@ const AddLoad = () => {
           if (deliveryDateISO) {
             destObj.deliveryDate = deliveryDateISO;
           }
-          
+
           destinations = [destObj];
         }
       }
@@ -656,7 +656,7 @@ const AddLoad = () => {
       if (loadData.shipmentNo) {
         apiPayload.shipmentNo = loadData.shipmentNo;
       }
-      
+
       // Add bidDeadline if provided
       const bidDeadlineISO = safeDateISO(loadData.bidDeadline);
       if (bidDeadlineISO) {
@@ -697,7 +697,7 @@ const AddLoad = () => {
       }
 
       const result = await response.json();
-      
+
       if (result.success) {
         return result.data;
       } else {
@@ -730,7 +730,7 @@ const AddLoad = () => {
       }
 
       const result = await response.json();
-      
+
       if (result.success) {
         return result.data;
       } else {
@@ -762,7 +762,7 @@ const AddLoad = () => {
       }
 
       const result = await response.json();
-      
+
       if (result.success) {
         return true;
       } else {
@@ -848,25 +848,25 @@ const AddLoad = () => {
       setLoading(true);
       // Fetch full load details from API
       const loadDetails = await fetchLoadById(load.loadId || load._id);
-      
+
       if (!loadDetails) {
         throw new Error('Failed to fetch load details');
       }
 
       const loadData = loadDetails.load || loadDetails;
       const loadTypeValue = loadData.loadType || 'OTR';
-      
+
       // Set load type
       setLoadType(loadTypeValue);
-      
+
       // Extract rate details
       const rateDetails = loadData.rateDetails || {};
       const lineHaul = rateDetails.lineHaul || '';
       const fsc = rateDetails.fsc || '';
-      const other = rateDetails.other ? (Array.isArray(rateDetails.other) 
+      const other = rateDetails.other ? (Array.isArray(rateDetails.other)
         ? rateDetails.other.reduce((sum, charge) => sum + (parseFloat(charge.total) || 0), 0).toFixed(2)
         : parseFloat(rateDetails.other).toFixed(2)) : '';
-      
+
       // Populate form data
       const formDataToSet = {
         customerId: loadData.customerId || '',
@@ -924,11 +924,11 @@ const AddLoad = () => {
           addressLine1: '', addressLine2: '', city: '', state: '', zip: '', weight: '', commodity: '', deliveryDate: ''
         }],
       };
-      
+
       setFormData(formDataToSet);
       setSelectedLoad(loadData);
       setAddModalOpen(true);
-      
+
       // Fetch customers when modal opens
       await fetchCustomers();
     } catch (err) {
@@ -946,7 +946,7 @@ const AddLoad = () => {
       setSelectedLoad(load);
       // Fetch full load details from API
       const loadDetails = await fetchLoadById(load.loadId || load._id);
-      
+
       if (loadDetails) {
         setViewLoadData(loadDetails.load || loadDetails);
       } else {
@@ -969,7 +969,7 @@ const AddLoad = () => {
       try {
         setLoading(true);
         await deleteLoad(loadId);
-        
+
         // Refresh the load list
         await fetchAllLoads();
         setSuccess('Load deleted successfully');
@@ -1007,7 +1007,7 @@ const AddLoad = () => {
 
   const handleDriverInputChange = (e) => {
     const { name, value } = e.target;
-    
+
     // If driver name is selected, also set driverId
     if (name === 'driverName') {
       const selectedDriver = drivers.find(d => d.fullName === value);
@@ -1041,7 +1041,7 @@ const AddLoad = () => {
       setLoading(true);
       const token = localStorage.getItem('token');
       const loadId = selectedLoadForDriver.loadId || selectedLoadForDriver._id;
-      
+
       // Get truckerId from user or load data
       const truckerId = user?.truckerId || user?.id || selectedLoadForDriver.createdByTrucker?.truckerId || '';
 
@@ -1064,7 +1064,7 @@ const AddLoad = () => {
       }
 
       const result = await response.json();
-      
+
       if (result.success) {
         setSuccess('Driver assigned successfully');
         setTimeout(() => setSuccess(null), 3000);
@@ -1087,10 +1087,10 @@ const AddLoad = () => {
     if (e) {
       e.preventDefault();
     }
-    
+
     try {
       setLoading(true);
-      
+
       if (selectedLoad && (selectedLoad.loadId || selectedLoad._id)) {
         // Update existing load with form data
         await updateLoad(selectedLoad.loadId || selectedLoad._id, formData);
@@ -1100,7 +1100,7 @@ const AddLoad = () => {
         await addLoad(formData);
         setSuccess('Load added successfully');
       }
-      
+
       // Refresh the load list
       await fetchAllLoads();
       setAddModalOpen(false);
@@ -1117,7 +1117,7 @@ const AddLoad = () => {
   // Filter loads based on search term - memoized for performance
   const filteredData = useMemo(() => {
     if (!searchTerm.trim()) return loadsData;
-    
+
     const searchLower = searchTerm.toLowerCase();
     return loadsData.filter(load =>
       load.loadType?.toLowerCase().includes(searchLower) ||
@@ -1177,8 +1177,8 @@ const AddLoad = () => {
 
     // Update form with new other charges and recalculate total
     // Store charges array for API submission with quantity
-    const updatedForm = { 
-      ...formData, 
+    const updatedForm = {
+      ...formData,
       other: totalCharges.toFixed(2),
       chargesArray: charges
         .filter(charge => charge && charge.name && (charge.total || charge.amount))
@@ -1236,7 +1236,7 @@ const AddLoad = () => {
           {success}
         </Alert>
       )}
-      
+
       <Box
         sx={{
           display: 'flex',
@@ -1300,50 +1300,81 @@ const AddLoad = () => {
       </Box>
 
       <Paper elevation={3} sx={{ borderRadius: 3, overflow: 'hidden' }}>
-        <Table>
+        <Table
+          sx={{
+            borderRadius: 3,
+            overflow: 'hidden',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
+            border: '1px solid #e5e7eb',
+          }}
+        >
           <TableHead>
-            <TableRow sx={{ backgroundColor: '#f0f4f8' }}>
-              <TableCell sx={{ fontWeight: 600, width: '120px' }}>Load Type</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: '400px' }}>Pickup</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: '300px' }}>Delivery</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: '100px' }}>Weight</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: '100px' }}>Rate</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: '120px' }}>Customer</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: '150px' }}>Actions</TableCell>
+            <TableRow
+              sx={{
+                background: 'linear-gradient(90deg, #f8fafc 0%, #f1f5f9 100%)',
+              }}
+            >
+              {[
+                'Load Type',
+                'Pickup',
+                'Delivery',
+                'Weight',
+                'Rate',
+                'Customer',
+                'Actions',
+              ].map((header) => (
+                <TableCell
+                  key={header}
+                  sx={{
+                    fontWeight: 700,
+                    color: '#374151',
+                    fontSize: '0.95rem',
+                    py: 1.5,
+                    borderBottom: '2px solid #e2e8f0',
+                  }}
+                >
+                  {header}
+                </TableCell>
+              ))}
             </TableRow>
           </TableHead>
+
           <TableBody>
             {filteredData && filteredData.length > 0 ? (
               filteredData
                 .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                 .map((load) => (
-                  <TableRow 
-                    key={load._id} 
-                    hover 
-                    sx={{ 
-                      transition: '0.3s', 
-                      '&:hover': { backgroundColor: '#e3f2fd' }
+                  <TableRow
+                    key={load._id}
+                    hover
+                    sx={{
+                      transition: 'all 0.25s ease',
+                      '&:hover': {
+                        backgroundColor: '#f0f7ff',
+                        transform: 'scale(1.01)',
+                      },
                     }}
                   >
-                    <TableCell sx={{ width: '120px', fontWeight: 600 }}>
+                    <TableCell sx={{ fontWeight: 600, color: '#334155' }}>
                       {load.loadType}
                     </TableCell>
-                    <TableCell sx={{ width: '200px' }}>
+                    <TableCell sx={{ color: '#475569' }}>
                       {load.origins?.[0]?.addressLine1 || 'N/A'}
                     </TableCell>
-                    <TableCell sx={{ width: '150px' }}>
+                    <TableCell sx={{ color: '#475569' }}>
                       {load.destinations?.[0]?.addressLine1 || 'N/A'}
                     </TableCell>
-                    <TableCell sx={{ width: '100px' }}>
+                    <TableCell sx={{ color: '#475569' }}>
                       {load.origins?.[0]?.weight || 'N/A'} lbs
                     </TableCell>
-                    <TableCell sx={{ width: '100px' }}>
+                    <TableCell sx={{ color: '#475569' }}>
                       ${load.rate}
                     </TableCell>
-                    <TableCell sx={{ width: '120px' }}>
+                    <TableCell sx={{ color: '#475569' }}>
                       {load.customerLoadDetails?.customerName || 'N/A'}
                     </TableCell>
-                    <TableCell sx={{ width: '150px' }}>
+
+                    <TableCell>
                       <Stack direction="row" spacing={1}>
                         <Button
                           variant="outlined"
@@ -1352,10 +1383,14 @@ const AddLoad = () => {
                           onClick={() => handleViewLoad(load)}
                           sx={{
                             fontSize: '0.75rem',
-                            px: 1,
-                            py: 0.5,
+                            px: 1.5,
                             textTransform: 'none',
-                            minWidth: 'auto'
+                            color: '#2563eb',
+                            borderColor: '#2563eb',
+                            '&:hover': {
+                              backgroundColor: '#2563eb',
+                              color: '#fff',
+                            },
                           }}
                         >
                           View
@@ -1368,10 +1403,14 @@ const AddLoad = () => {
                           disabled={load.status === 'Assigned'}
                           sx={{
                             fontSize: '0.75rem',
-                            px: 1,
-                            py: 0.5,
+                            px: 1.5,
                             textTransform: 'none',
-                            minWidth: 'auto'
+                            color: '#0284c7',
+                            borderColor: '#0284c7',
+                            '&:hover': {
+                              backgroundColor: '#0284c7',
+                              color: '#fff',
+                            },
                           }}
                         >
                           Edit
@@ -1384,20 +1423,14 @@ const AddLoad = () => {
                           disabled={load.status === 'Assigned'}
                           sx={{
                             fontSize: '0.75rem',
-                            px: 1,
-                            py: 0.5,
+                            px: 1.5,
                             textTransform: 'none',
-                            minWidth: 'auto',
-                            color: 'primary.main',
-                            borderColor: 'primary.main',
+                            color: '#16a34a',
+                            borderColor: '#16a34a',
                             '&:hover': {
-                              backgroundColor: 'primary.main',
-                              color: 'white'
+                              backgroundColor: '#16a34a',
+                              color: '#fff',
                             },
-                            '&.Mui-disabled': {
-                              color: 'rgba(0, 0, 0, 0.26)',
-                              borderColor: 'rgba(0, 0, 0, 0.12)'
-                            }
                           }}
                         >
                           Assign
@@ -1410,20 +1443,14 @@ const AddLoad = () => {
                           disabled={load.status === 'Assigned'}
                           sx={{
                             fontSize: '0.75rem',
-                            px: 1,
-                            py: 0.5,
+                            px: 1.5,
                             textTransform: 'none',
-                            minWidth: 'auto',
-                            color: 'error.main',
-                            borderColor: 'error.main',
+                            color: '#dc2626',
+                            borderColor: '#dc2626',
                             '&:hover': {
-                              backgroundColor: 'error.main',
-                              color: 'white'
+                              backgroundColor: '#dc2626',
+                              color: '#fff',
                             },
-                            '&.Mui-disabled': {
-                              color: 'rgba(0, 0, 0, 0.26)',
-                              borderColor: 'rgba(0, 0, 0, 0.12)'
-                            }
                           }}
                         >
                           Delete
@@ -1436,13 +1463,16 @@ const AddLoad = () => {
               <TableRow>
                 <TableCell colSpan={7} sx={{ textAlign: 'center', py: 4 }}>
                   <Typography variant="body1" color="text.secondary">
-                    {loadsData.length === 0 ? 'No loads found. Add your first load!' : 'No loads match your search criteria'}
+                    {loadsData.length === 0
+                      ? 'No loads found. Add your first load!'
+                      : 'No loads match your search criteria'}
                   </Typography>
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
+
         <TablePagination
           component="div"
           count={filteredData ? filteredData.length : 0}
@@ -1604,8 +1634,8 @@ const AddLoad = () => {
                 </Box>
                 <Grid container spacing={2}>
                   <Grid item xs={12}>
-                    <FormControl 
-                      
+                    <FormControl
+
                       sx={{
                         width: '280px',
                         '& .MuiInputBase-root': {
@@ -1684,7 +1714,7 @@ const AddLoad = () => {
                 </Grid>
               </Paper>
 
-            {/* Customer ID removed as requested */}
+              {/* Customer ID removed as requested */}
 
               {/* OTR Origins and Destinations - Only for OTR */}
               {loadType === 'OTR' ? (
@@ -3463,21 +3493,21 @@ const AddLoad = () => {
               },
             }}
           >
-            {loading 
-              ? (selectedLoad ? 'Updating...' : 'Creating...') 
+            {loading
+              ? (selectedLoad ? 'Updating...' : 'Creating...')
               : (selectedLoad ? 'Update Load' : 'Create Load')}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* View Load Dialog */}
-      <Dialog 
-        open={viewModalOpen} 
+      <Dialog
+        open={viewModalOpen}
         onClose={() => {
           setViewModalOpen(false);
           setViewLoadData(null);
-        }} 
-        maxWidth="lg" 
+        }}
+        maxWidth="lg"
         fullWidth
         PaperProps={{
           sx: {
@@ -3486,7 +3516,7 @@ const AddLoad = () => {
           }
         }}
       >
-        <DialogTitle sx={{ 
+        <DialogTitle sx={{
           background: 'linear-gradient(to right, #1976d2, #1565c0)',
           color: '#fff',
           py: 3,
@@ -3572,10 +3602,10 @@ const AddLoad = () => {
                     <TableRow>
                       <TableCell sx={{ fontWeight: 600, borderBottom: '1px solid #e0e0e0' }}>Status</TableCell>
                       <TableCell sx={{ borderBottom: '1px solid #e0e0e0' }}>
-                        <Chip 
-                          label={viewLoadData.status || 'N/A'} 
-                          color={viewLoadData.status === 'active' ? 'success' : 'default'} 
-                          size="small" 
+                        <Chip
+                          label={viewLoadData.status || 'N/A'}
+                          color={viewLoadData.status === 'active' ? 'success' : 'default'}
+                          size="small"
                         />
                       </TableCell>
                     </TableRow>
@@ -3796,7 +3826,7 @@ const AddLoad = () => {
                       <TableRow>
                         <TableCell sx={{ fontWeight: 600, borderBottom: '1px solid #e0e0e0' }}>Other Charges</TableCell>
                         <TableCell sx={{ borderBottom: '1px solid #e0e0e0' }}>
-                          ${Array.isArray(viewLoadData.rateDetails.other) 
+                          ${Array.isArray(viewLoadData.rateDetails.other)
                             ? viewLoadData.rateDetails.other.reduce((sum, charge) => sum + (parseFloat(charge.total) || 0), 0).toFixed(2)
                             : parseFloat(viewLoadData.rateDetails.other).toFixed(2)}
                         </TableCell>
@@ -4238,8 +4268,8 @@ const AddLoad = () => {
           <Grid container spacing={3}>
             <Grid item xs={12}>
               <FormControl fullWidth>
-                <InputLabel 
-                  id="driver-name-label" 
+                <InputLabel
+                  id="driver-name-label"
                   shrink
                   sx={{
                     color: '#4A5568',

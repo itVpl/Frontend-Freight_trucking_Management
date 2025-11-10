@@ -8,18 +8,16 @@ import {
 } from '@mui/material';
 import { Bar } from 'react-chartjs-2';
 import { CalendarMonth, TrendingUp, Assessment, Visibility, Close, LocalShipping, LocationOn, AttachMoney, Scale, Description, Person, DirectionsCar, DateRange, Business, CheckCircle, Photo, Note, Verified, Assignment } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { format } from 'date-fns';
 import { BASE_API_URL } from '../../apiConfig';
+import { useAuth } from '../../context/AuthContext';
 import 'chart.js/auto';
 
-// API service function to fetch unverified loads
-const fetchUnverifiedLoads = async (shipperId, loadId = null) => {
+// API service function to fetch verified loads for shipper
+const fetchVerifiedLoadsForShipper = async (shipperId) => {
   try {
-    let url = `${BASE_API_URL}/api/v1/accountant/shipper/all-unverified-loads?shipperId=${shipperId}`;
-    if (loadId) {
-      url += `&loadId=${loadId}`;
-    }
+    const url = `${BASE_API_URL}/api/v1/accountant/shipper/all-verified-loads?shipperId=${shipperId}`;
     
     // Get token from various possible storage locations
     const token = sessionStorage.getItem('token') || 
@@ -29,12 +27,45 @@ const fetchUnverifiedLoads = async (shipperId, loadId = null) => {
                   sessionStorage.getItem('accessToken') ||
                   localStorage.getItem('accessToken');
     
-    console.log('Token found:', token ? 'Yes' : 'No');
-    console.log('Available storage keys:', {
-      sessionStorage: Object.keys(sessionStorage),
-      localStorage: Object.keys(localStorage)
+    const headers = {
+      'Content-Type': 'application/json',
+    };
+    
+    // Add authorization header if token exists
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: headers,
     });
-    console.log('Making API request to:', url);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error fetching verified loads for shipper:', error);
+    throw error;
+  }
+};
+
+// API service function to fetch verified loads for trucker
+const fetchVerifiedLoadsForTrucker = async (truckerId) => {
+  try {
+    const url = `${BASE_API_URL}/api/v1/accountant/trucker/all-verified-loads?truckerId=${truckerId}`;
+    
+    // Get token from various possible storage locations
+    const token = sessionStorage.getItem('token') || 
+                  localStorage.getItem('token') ||
+                  sessionStorage.getItem('authToken') ||
+                  localStorage.getItem('authToken') ||
+                  sessionStorage.getItem('accessToken') ||
+                  localStorage.getItem('accessToken');
     
     const headers = {
       'Content-Type': 'application/json',
@@ -43,8 +74,6 @@ const fetchUnverifiedLoads = async (shipperId, loadId = null) => {
     // Add authorization header if token exists
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
-    } else {
-      console.warn('No authentication token found. API call may fail.');
     }
     
     const response = await fetch(url, {
@@ -52,25 +81,23 @@ const fetchUnverifiedLoads = async (shipperId, loadId = null) => {
       headers: headers,
     });
     
-    console.log('API Response status:', response.status);
-    
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('API Error Response:', errorText);
       throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
     }
     
     const data = await response.json();
-    console.log('API Response data:', data);
     return data;
   } catch (error) {
-    console.error('Error fetching unverified loads:', error);
+    console.error('Error fetching verified loads for trucker:', error);
     throw error;
   }
 };
 
 const Reports = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { user } = useAuth();
   const [view, setView] = useState('monthly');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -88,42 +115,166 @@ const Reports = () => {
       setLoading(true);
       setError(null);
       try {
-        // Using the shipperId from the API example
-        const shipperId = '68cd6ee176b6c23c1d2a87b3';
-        
-        // Try different API call approaches
+        // Determine user type
+        const userType = user?.type || 
+                        location.state?.userType ||
+                        localStorage.getItem('userType') ||
+                        sessionStorage.getItem('userType') ||
+                        (() => {
+                          const userRaw = localStorage.getItem('user') || sessionStorage.getItem('user');
+                          if (userRaw) {
+                            try {
+                              const parsedUser = JSON.parse(userRaw);
+                              return parsedUser?.type || parsedUser?.userType || null;
+                            } catch (e) {
+                              return null;
+                            }
+                          }
+                          return null;
+                        })();
+
+        if (!userType || (userType !== 'shipper' && userType !== 'trucker')) {
+          throw new Error('User type not detected. Please login as shipper or trucker.');
+        }
+
         let response;
-        try {
-          // First try without loadId
-          response = await fetchUnverifiedLoads(shipperId);
-        } catch (firstError) {
-          console.log('First attempt failed, trying with loadId...');
-          // If that fails, try with loadId
-          const loadId = '68e7eecea78740db1d29848e';
-          response = await fetchUnverifiedLoads(shipperId, loadId);
+        let transformedData = [];
+
+        if (userType === 'shipper') {
+          // Resolve shipperId dynamically
+          const shipperId =
+            location.state?.shipperId ||
+            localStorage.getItem('shipperId') ||
+            sessionStorage.getItem('shipperId') ||
+            (() => {
+              const userRaw =
+                localStorage.getItem('user') ||
+                sessionStorage.getItem('user') ||
+                localStorage.getItem('userData') ||
+                sessionStorage.getItem('userData');
+              if (!userRaw) return null;
+              try {
+                const user = JSON.parse(userRaw);
+                return user?.shipperId || user?._id || user?.id || null;
+              } catch (e) {
+                return null;
+              }
+            })();
+
+          if (!shipperId) {
+            throw new Error('Missing shipperId. Please login or pass shipperId via navigation.');
+          }
+
+          response = await fetchVerifiedLoadsForShipper(shipperId);
+          setApiData(response);
+
+          // Transform verifiedDOs data to match reports structure
+          if (response.success && response.data.verifiedDOs) {
+            transformedData = response.data.verifiedDOs.map((doItem) => {
+              const lr = doItem.loadReference || {};
+              const firstCust = doItem.customers?.[0] || {};
+              const lineHaul = Number(firstCust.lineHaul) || 0;
+              const fsc = Number(firstCust.fsc) || 0;
+              const other = Number(firstCust.other) || 0;
+              const totalAmount = Number((firstCust?.calculatedTotal ?? firstCust?.totalAmount ?? (lineHaul + fsc + other)) || 0);
+              
+              const origin = lr.origins?.[0] || doItem.shipper?.pickUpLocations?.[0];
+              const destination = lr.destinations?.[0] || doItem.shipper?.dropLocations?.[0];
+
+              return {
+                id: lr.shipmentNumber || doItem._id,
+                driver: doItem.carrier?.carrierName || 'N/A',
+                type: lr.vehicleType || doItem.shipper?.containerType || 'N/A',
+                date: lr.pickupDate ? format(new Date(lr.pickupDate), 'MM-dd-yyyy') : (doItem.date ? format(new Date(doItem.date), 'MM-dd-yyyy') : 'N/A'),
+                status: lr.status || doItem.status || 'Pending',
+                rate: totalAmount,
+                origin: origin ? {
+                  city: origin.city || origin.extractedCity || 'N/A',
+                  state: origin.state || 'N/A',
+                  address: origin.addressLine1 || origin.address || 'N/A'
+                } : null,
+                destination: destination ? {
+                  city: destination.city || destination.extractedCity || 'N/A',
+                  state: destination.state || 'N/A',
+                  address: destination.addressLine1 || destination.address || 'N/A'
+                } : null,
+                weight: lr.weight || doItem.shipper?.pickUpLocations?.[0]?.weight || 'N/A',
+                commodity: lr.commodity || 'N/A',
+                verificationStatus: doItem.assignmentStatus || 'N/A',
+                // Store full DO object for detailed view
+                fullLoad: doItem
+              };
+            });
+          }
+        } else if (userType === 'trucker') {
+          // Resolve truckerId dynamically
+          const truckerId =
+            location.state?.truckerId ||
+            localStorage.getItem('truckerId') ||
+            sessionStorage.getItem('truckerId') ||
+            (() => {
+              const userRaw =
+                localStorage.getItem('user') ||
+                sessionStorage.getItem('user') ||
+                localStorage.getItem('userData') ||
+                sessionStorage.getItem('userData');
+              if (!userRaw) return null;
+              try {
+                const user = JSON.parse(userRaw);
+                return user?.truckerId || user?._id || user?.id || null;
+              } catch (e) {
+                return null;
+              }
+            })();
+
+          if (!truckerId) {
+            throw new Error('Missing truckerId. Please login or pass truckerId via navigation.');
+          }
+
+          response = await fetchVerifiedLoadsForTrucker(truckerId);
+          setApiData(response);
+
+          // Transform verifiedLoads data to match reports structure
+          if (response.success && response.data.verifiedLoads) {
+            transformedData = response.data.verifiedLoads.map((doItem) => {
+              const lr = doItem.loadReference || {};
+              const firstCust = doItem.customers?.[0] || {};
+              const lineHaul = Number(firstCust.lineHaul) || 0;
+              const fsc = Number(firstCust.fsc) || 0;
+              const other = Number(firstCust.other) || 0;
+              const totalAmount = Number((firstCust?.calculatedTotal ?? firstCust?.totalAmount ?? (lineHaul + fsc + other)) || 0);
+              
+              const origin = lr.origins?.[0] || doItem.shipper?.pickUpLocations?.[0];
+              const destination = lr.destinations?.[0] || doItem.shipper?.dropLocations?.[0];
+
+              return {
+                id: lr.shipmentNumber || doItem._id,
+                driver: doItem.carrier?.carrierName || 'N/A',
+                type: lr.vehicleType || doItem.shipper?.containerType || 'N/A',
+                date: lr.pickupDate ? format(new Date(lr.pickupDate), 'MM-dd-yyyy') : (doItem.date ? format(new Date(doItem.date), 'MM-dd-yyyy') : 'N/A'),
+                status: lr.status || doItem.status || 'Pending',
+                rate: totalAmount,
+                origin: origin ? {
+                  city: origin.city || origin.extractedCity || 'N/A',
+                  state: origin.state || 'N/A',
+                  address: origin.addressLine1 || origin.address || 'N/A'
+                } : null,
+                destination: destination ? {
+                  city: destination.city || destination.extractedCity || 'N/A',
+                  state: destination.state || 'N/A',
+                  address: destination.addressLine1 || destination.address || 'N/A'
+                } : null,
+                weight: lr.weight || doItem.shipper?.pickUpLocations?.[0]?.weight || 'N/A',
+                commodity: lr.commodity || 'N/A',
+                verificationStatus: doItem.assignmentStatus || 'N/A',
+                // Store full DO object for detailed view
+                fullLoad: doItem
+              };
+            });
+          }
         }
-        setApiData(response);
-        
-        // Transform API data to match reports structure
-        if (response.success && response.data.allLoads) {
-          const transformedData = response.data.allLoads.map(load => ({
-            id: load.shipmentNumber || load._id,
-            driver: load.carrier?.name || 'N/A',
-            type: load.vehicleType || 'N/A',
-            date: format(new Date(load.pickupDate), 'MM-dd-yyyy'),
-            status: load.status || 'Pending',
-            rate: load.rate || 0,
-            origin: load.origin,
-            destination: load.destination,
-            weight: load.weight,
-            commodity: load.commodity,
-            verificationStatus: load.verificationStatus,
-            // Store full load object for detailed view
-            fullLoad: load
-          }));
-          
-          setReportsData(transformedData);
-        }
+
+        setReportsData(transformedData);
       } catch (err) {
         let errorMessage = `API Error: ${err.message}`;
         
@@ -143,7 +294,7 @@ const Reports = () => {
     };
 
     loadApiData();
-  }, []);
+  }, [user, location]);
 
   // Dynamic chart data based on view and API data
   const getChartData = () => {
@@ -719,709 +870,465 @@ const handleCloseModal = () => {
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: 3,
-            maxHeight: '90vh',
+            borderRadius: 2,
+            maxHeight: '75vh',
+            background: '#ffffff',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+            display: 'flex',
+            flexDirection: 'column',
           }
         }}
       >
         <DialogTitle sx={{ 
-          background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)',
-          color: '#fff',
-          display: 'flex',
-          justifyContent: 'space-between',
+          display: 'flex', 
+          justifyContent: 'space-between', 
           alignItems: 'center',
-          py: 2,
-          px: 3
+          pb: 2,
+          pt: 2,
+          px: 3,
+          background: '#1976d2',
+          color: 'white',
+          borderRadius: '8px 8px 0 0',
+          minHeight: 64
         }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <LocalShipping sx={{ fontSize: 28 }} />
-            <Typography variant="h5" fontWeight={700}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <LocalShipping sx={{ fontSize: 28, color: 'white' }} />
+            <Typography variant="h5" fontWeight={600} color="white">
               Consignment Details
             </Typography>
           </Box>
-          <IconButton onClick={handleCloseModal} sx={{ color: '#fff' }}>
+          <IconButton 
+            onClick={handleCloseModal} 
+            size="small"
+            sx={{
+              color: 'white',
+              '&:hover': {
+                background: 'rgba(255, 255, 255, 0.1)',
+              }
+            }}
+          >
             <Close />
           </IconButton>
         </DialogTitle>
-        
-        <DialogContent sx={{ p: 0, mt: 0, maxHeight: '70vh', overflowY: 'auto' }}>
-          {selectedConsignment && (
-            <Box sx={{ p: 3 }}>
-              {/* Basic Information Section */}
-              <Paper elevation={2} sx={{ p: 3, mb: 3, borderRadius: 2, border: '1px solid #e0e0e0' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-                  <Box sx={{ p: 1.5, borderRadius: 2, background: 'linear-gradient(135deg, #e3f2fd, #bbdefb)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Description sx={{ color: '#1976d2', fontSize: 24 }} />
+      
+      <Divider />
+      
+      <DialogContent sx={{ pt: 2, overflowY: 'auto', flex: 1 }}>
+        {selectedConsignment && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {(() => {
+              // Get user type
+              const userType = user?.type || 
+                              location.state?.userType ||
+                              localStorage.getItem('userType') ||
+                              sessionStorage.getItem('userType') ||
+                              (() => {
+                                const userRaw = localStorage.getItem('user') || sessionStorage.getItem('user');
+                                if (userRaw) {
+                                  try {
+                                    const parsedUser = JSON.parse(userRaw);
+                                    return parsedUser?.type || parsedUser?.userType || null;
+                                  } catch (e) {
+                                    return null;
+                                  }
+                                }
+                                return null;
+                              })();
+
+              // Get DO data from fullLoad
+              const doData = selectedConsignment.fullLoad || {};
+              const lr = doData?.loadReference || {};
+              const customers = Array.isArray(doData?.customers) ? doData.customers : [];
+              const firstCust = customers[0] || {};
+              const lineHaul = Number(firstCust?.lineHaul || 0);
+              const fsc = Number(firstCust?.fsc || 0);
+              const other = Number(firstCust?.other || 0);
+              const totalRates = Number((firstCust?.calculatedTotal ?? firstCust?.totalAmount ?? (lineHaul + fsc + other)) ?? 0);
+              const equipmentType = doData?.shipper?.containerType || lr?.vehicleType || selectedConsignment.type || 'N/A';
+
+              return (
+                <>
+                {/* Basic Information Card */}
+                <Paper elevation={0} sx={{ border: '1px solid #e0e0e0', borderRadius: 2, overflow: 'hidden' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, background: '#e3f2fd' }}>
+                    <Box sx={{ width: 32, height: 32, borderRadius: 1, background: '#1976d2', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                      i
+                    </Box>
+                    <Typography variant="h6" fontWeight={700} color="#0d47a1">Basic Information</Typography>
                   </Box>
-                  <Typography variant="h6" sx={{ fontWeight: 600, color: '#1976d2' }}>
-                    Basic Information
-                  </Typography>
-                </Box>
-                
-                <TableContainer>
-                  <Table size="small">
-                    <TableBody>
-                      <TableRow>
-                        <TableCell sx={{ border: 'none', fontWeight: 600, width: '40%' }}>Consignment ID</TableCell>
-                        <TableCell sx={{ border: 'none', width: '10%' }}>------</TableCell>
-                        <TableCell sx={{ border: 'none' }}>{selectedConsignment.id || 'N/A'}</TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell sx={{ border: 'none', fontWeight: 600 }}>Status</TableCell>
-                        <TableCell sx={{ border: 'none' }}>------</TableCell>
-                        <TableCell sx={{ border: 'none' }}>
-                          <Chip 
-                            label={selectedConsignment.status || 'N/A'} 
-                            color={getChipColor(selectedConsignment.status)}
-                            size="small"
+
+                  <Box sx={{ p: 2 }}>
+                    <Table size="small" sx={{ '& td, & th': { border: 0, py: 1.2 } }}>
+                      <TableBody>
+                        <TableRow>
+                          <TableCell sx={{ width: 220, color: 'text.secondary' }}>Consignment ID</TableCell>
+                          <TableCell sx={{ width: 80, color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{lr?.shipmentNumber || selectedConsignment.id || 'N/A'}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell sx={{ color: 'text.secondary' }}>Equipment Type</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{equipmentType}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell sx={{ color: 'text.secondary' }}>PO Number</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{lr?.poNumber || doData?.loadReference?.poNumber || 'N/A'}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell sx={{ color: 'text.secondary' }}>BOL Number</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{lr?.bolNumber || doData?.bols?.[0]?.bolNo || 'N/A'}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell sx={{ color: 'text.secondary' }}>Container Number</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{lr?.containerNo || doData?.shipper?.containerNo || 'N/A'}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </Box>
+                </Paper>
+
+                {/* Rate Information Card (for Shipper) or Carrier Fees (for Trucker) */}
+                {userType === 'shipper' ? (
+                  <Paper elevation={0} sx={{ border: '1px solid #ffe0b2', borderRadius: 2, overflow: 'hidden' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, background: '#fff8e1' }}>
+                      <Box sx={{ width: 32, height: 32, borderRadius: 1, background: '#ffb300', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                        $
+                      </Box>
+                      <Typography variant="h6" fontWeight={700} color="#e65100">Rate Information</Typography>
+                    </Box>
+                    <Box sx={{ p: 2 }}>
+                      <Table size="small" sx={{ '& td, & th': { border: 0, py: 1.2 } }}>
+                        <TableBody>
+                          <TableRow>
+                            <TableCell sx={{ width: 220, color: 'text.secondary' }}>Rate</TableCell>
+                            <TableCell sx={{ width: 80, color: '#9e9e9e' }}>-----</TableCell>
+                            <TableCell sx={{ fontWeight: 800, color: 'primary.main' }}>${totalRates.toLocaleString()}</TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell sx={{ color: 'text.secondary' }}>Line Haul</TableCell>
+                            <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                            <TableCell sx={{ fontWeight: 600 }}>${lineHaul.toLocaleString()}</TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell sx={{ color: 'text.secondary' }}>FSC</TableCell>
+                            <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                            <TableCell sx={{ fontWeight: 600 }}>${fsc.toLocaleString()}</TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell sx={{ color: 'text.secondary' }}>Other</TableCell>
+                            <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                            <TableCell sx={{ fontWeight: 600 }}>${other.toLocaleString()}</TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell sx={{ color: 'text.secondary' }}>Total Rates</TableCell>
+                            <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                            <TableCell sx={{ fontWeight: 800, color: 'success.main' }}>${totalRates.toLocaleString()}</TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                    </Box>
+                  </Paper>
+                ) : userType === 'trucker' && doData?.carrier?.carrierFees ? (
+                  <Paper elevation={0} sx={{ border: '1px solid #ffe0b2', borderRadius: 2, overflow: 'hidden' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, background: '#fff8e1' }}>
+                      <Box sx={{ width: 32, height: 32, borderRadius: 1, background: '#ffb300', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                        $
+                      </Box>
+                      <Typography variant="h6" fontWeight={700} color="#e65100">Carrier Fees</Typography>
+                    </Box>
+                    <Box sx={{ p: 2 }}>
+                      <Table size="small" sx={{ '& td, & th': { border: 0, py: 1.2 } }}>
+                        <TableBody>
+                          {Array.isArray(doData.carrier.carrierFees) && doData.carrier.carrierFees.map((fee, idx) => (
+                            <TableRow key={idx}>
+                              <TableCell sx={{ width: 220, color: 'text.secondary' }}>{fee.name || 'Fee'}</TableCell>
+                              <TableCell sx={{ width: 80, color: '#9e9e9e' }}>-----</TableCell>
+                              <TableCell sx={{ fontWeight: 600 }}>${Number(fee.total || fee.amount || 0).toLocaleString()}</TableCell>
+                            </TableRow>
+                          ))}
+                          <TableRow>
+                            <TableCell sx={{ color: 'text.secondary' }}>Total Carrier Fees</TableCell>
+                            <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                            <TableCell sx={{ fontWeight: 800, color: 'success.main' }}>${Number(doData.carrier.totalCarrierFees || 0).toLocaleString()}</TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                    </Box>
+                  </Paper>
+                ) : null}
+
+                {/* Load Details */}
+                <Paper elevation={0} sx={{ border: '1px solid #b2dfdb', borderRadius: 2, overflow: 'hidden' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, background: '#e0f2f1' }}>
+                    <Box sx={{ width: 32, height: 32, borderRadius: 1, background: '#00897b', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>📦</Box>
+                    <Typography variant="h6" fontWeight={700} color="#00695c">Load Details</Typography>
+                  </Box>
+                  <Box sx={{ p: 2 }}>
+                    <Table size="small" sx={{ '& td, & th': { border: 0, py: 1.2 } }}>
+                      <TableBody>
+                        <TableRow>
+                          <TableCell sx={{ width: 220, color: 'text.secondary' }}>Weight</TableCell>
+                          <TableCell sx={{ width: 80, color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{lr?.weight ?? doData?.shipper?.pickUpLocations?.[0]?.weight ?? selectedConsignment.weight ?? 'N/A'}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell sx={{ color: 'text.secondary' }}>Commodity</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{lr?.commodity ?? doData?.shipper?.commodity ?? selectedConsignment.commodity ?? 'N/A'}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </Box>
+                </Paper>
+
+                {/* Locations Card */}
+                {(Array.isArray(doData?.shipper?.pickUpLocations) || Array.isArray(doData?.shipper?.dropLocations) || lr?.origins || lr?.destinations) && (
+                  <Paper elevation={0} sx={{ border: '1px solid #c8e6c9', borderRadius: 2, overflow: 'hidden' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, background: '#e8f5e9' }}>
+                      <Box sx={{ width: 32, height: 32, borderRadius: 1, background: '#2e7d32', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>📍</Box>
+                      <Typography variant="h6" fontWeight={700} color="#1b5e20">Locations</Typography>
+                    </Box>
+                    <Box sx={{ p: 2 }}>
+                      {(doData?.shipper?.pickUpLocations || lr?.origins || []).map((l, idx) => (
+                        <Box key={`pu-${idx}`} sx={{ mb: idx < ((doData?.shipper?.pickUpLocations || lr?.origins || []).length || 0) - 1 ? 2 : 0 }}>
+                          <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1, color: '#2e7d32' }}>Pickup Location {idx + 1}</Typography>
+                          <Table size="small" sx={{ '& td, & th': { border: 0, py: 1.2 } }}>
+                            <TableBody>
+                              <TableRow>
+                                <TableCell sx={{ width: 220, color: 'text.secondary' }}>Address</TableCell>
+                                <TableCell sx={{ width: 80, color: '#9e9e9e' }}>-----</TableCell>
+                                <TableCell sx={{ fontWeight: 600 }}>{l.address || l.addressLine1 || 'N/A'}</TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell sx={{ color: 'text.secondary' }}>City</TableCell>
+                                <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                                <TableCell sx={{ fontWeight: 600 }}>{l.city || 'N/A'}</TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell sx={{ color: 'text.secondary' }}>State</TableCell>
+                                <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                                <TableCell sx={{ fontWeight: 600 }}>{l.state || 'N/A'}</TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell sx={{ color: 'text.secondary' }}>Zip</TableCell>
+                                <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                                <TableCell sx={{ fontWeight: 600 }}>{l.zipCode || l.zip || 'N/A'}</TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell sx={{ color: 'text.secondary' }}>Date</TableCell>
+                                <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                                <TableCell sx={{ fontWeight: 600 }}>{(l.pickUpDate || l.pickupDate) ? format(new Date(l.pickUpDate || l.pickupDate), 'yyyy-MM-dd') : 'N/A'}</TableCell>
+                              </TableRow>
+                            </TableBody>
+                          </Table>
+                        </Box>
+                      ))}
+                      {(doData?.shipper?.dropLocations || lr?.destinations || []).map((l, idx) => (
+                        <Box key={`dr-${idx}`} sx={{ mt: 2 }}>
+                          <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1, color: '#2e7d32' }}>Drop Location {idx + 1}</Typography>
+                          <Table size="small" sx={{ '& td, & th': { border: 0, py: 1.2 } }}>
+                            <TableBody>
+                              <TableRow>
+                                <TableCell sx={{ width: 220, color: 'text.secondary' }}>Address</TableCell>
+                                <TableCell sx={{ width: 80, color: '#9e9e9e' }}>-----</TableCell>
+                                <TableCell sx={{ fontWeight: 600 }}>{l.address || l.addressLine1 || 'N/A'}</TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell sx={{ color: 'text.secondary' }}>City</TableCell>
+                                <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                                <TableCell sx={{ fontWeight: 600 }}>{l.city || 'N/A'}</TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell sx={{ color: 'text.secondary' }}>State</TableCell>
+                                <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                                <TableCell sx={{ fontWeight: 600 }}>{l.state || 'N/A'}</TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell sx={{ color: 'text.secondary' }}>Zip</TableCell>
+                                <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                                <TableCell sx={{ fontWeight: 600 }}>{l.zipCode || l.zip || 'N/A'}</TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell sx={{ color: 'text.secondary' }}>Date</TableCell>
+                                <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                                <TableCell sx={{ fontWeight: 600 }}>{(l.dropDate || l.deliveryDate) ? format(new Date(l.dropDate || l.deliveryDate), 'yyyy-MM-dd') : 'N/A'}</TableCell>
+                              </TableRow>
+                            </TableBody>
+                          </Table>
+                        </Box>
+                      ))}
+                    </Box>
+                  </Paper>
+                )}
+
+                {/* Driver and Vehicle Information */}
+                <Paper elevation={0} sx={{ border: '1px solid #ce93d8', borderRadius: 2, overflow: 'hidden' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, background: '#f3e5f5' }}>
+                    <Box sx={{ width: 32, height: 32, borderRadius: 1, background: '#6a1b9a', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>🧑‍✈️</Box>
+                    <Typography variant="h6" fontWeight={700} color="#4a148c">Driver and Vehicle Information</Typography>
+                  </Box>
+                  <Box sx={{ p: 2 }}>
+                    <Table size="small" sx={{ '& td, & th': { border: 0, py: 1.2 } }}>
+                      <TableBody>
+                        <TableRow>
+                          <TableCell sx={{ width: 220, color: 'text.secondary' }}>Driver Name</TableCell>
+                          <TableCell sx={{ width: 80, color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{doData?.driver?.name || doData?.driverName || selectedConsignment.driver || 'N/A'}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell sx={{ color: 'text.secondary' }}>Vehicle No</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{lr?.vehicleNumber || doData?.vehicleNo || 'N/A'}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </Box>
+                </Paper>
+
+                {/* Important Dates */}
+                <Paper elevation={0} sx={{ border: '1px solid #9fa8da', borderRadius: 2, overflow: 'hidden' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, background: '#e8eaf6' }}>
+                    <Box sx={{ width: 32, height: 32, borderRadius: 1, background: '#283593', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>🗓️</Box>
+                    <Typography variant="h6" fontWeight={700} color="#1a237e">Important Dates</Typography>
+                  </Box>
+                  <Box sx={{ p: 2 }}>
+                    <Table size="small" sx={{ '& td, & th': { border: 0, py: 1.2 } }}>
+                      <TableBody>
+                        <TableRow>
+                          <TableCell sx={{ width: 220, color: 'text.secondary' }}>Pickup Dated</TableCell>
+                          <TableCell sx={{ width: 80, color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{lr?.pickupDate ? format(new Date(lr.pickupDate), 'yyyy-MM-dd') : (doData?.shipper?.pickUpLocations?.[0]?.pickUpDate ? format(new Date(doData.shipper.pickUpLocations[0].pickUpDate), 'yyyy-MM-dd') : 'N/A')}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell sx={{ color: 'text.secondary' }}>Drop Dated</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{lr?.deliveryDate ? format(new Date(lr.deliveryDate), 'yyyy-MM-dd') : (doData?.shipper?.dropLocations?.[0]?.dropDate ? format(new Date(doData.shipper.dropLocations[0].dropDate), 'yyyy-MM-dd') : 'N/A')}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </Box>
+                </Paper>
+
+                {/* Images Section - Pickup and Delivery */}
+                {(() => {
+                  const lrImgs = lr?.dropLocationImages || {};
+                  // Gather pickup-related images from either loadReference or root
+                  const pickupGroups = [
+                    { title: 'Empty Truck Images', urls: lr?.emptyTruckImages || doData?.emptyTruckImages || [] },
+                    { title: 'Loaded Truck Images', urls: lr?.loadedTruckImages || doData?.loadedTruckImages || [] },
+                    { title: 'Container Images', urls: lr?.containerImages || doData?.containerImages || [] },
+                    { title: 'Seal Images', urls: lr?.sealImages || doData?.sealImages || [] },
+                    { title: 'EIR Tickets', urls: lr?.eirTickets || doData?.eirTickets || [] },
+                  ].filter(g => Array.isArray(g.urls) && g.urls.length > 0);
+
+                  // Gather drop-related images from nested dropLocationImages structure
+                  const dropGroups = [
+                    { title: 'POD Images', urls: lrImgs?.podImages || [] },
+                    { title: 'Loaded Truck Images (Drop)', urls: lrImgs?.loadedTruckImages || [] },
+                    { title: 'Drop Location Images', urls: lrImgs?.dropLocationImages || [] },
+                    { title: 'Empty Truck Images (Drop)', urls: lrImgs?.emptyTruckImages || [] },
+                  ].filter(g => Array.isArray(g.urls) && g.urls.length > 0);
+
+                  const GroupCard = ({ title, urls }) => {
+                    const preview = Array.isArray(urls) && urls.length > 0 ? urls[0] : null;
+                    return (
+                      <Paper
+                        variant="outlined"
+                        sx={{ 
+                          width: 220,
+                          borderRadius: 2, 
+                          overflow: 'hidden',
+                          p: 2,
+                        }}
+                      >
+                        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>
+                          {title} ({urls?.length || 0})
+                        </Typography>
+                        {preview ? (
+                          <Box
+                            component="img"
+                            src={preview}
+                            alt={title}
+                            onClick={() => window.open(preview, '_blank')}
+                            sx={{ 
+                              width: '100%',
+                              height: 140,
+                              objectFit: 'cover',
+                              borderRadius: 1,
+                              border: '1px solid #e0e0e0',
+                              cursor: 'pointer',
+                              boxShadow: 0.5,
+                            }}
                           />
-                        </TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell sx={{ border: 'none', fontWeight: 600 }}>Equipment Type</TableCell>
-                        <TableCell sx={{ border: 'none' }}>------</TableCell>
-                        <TableCell sx={{ border: 'none' }}>{selectedConsignment.type || 'N/A'}</TableCell>
-                      </TableRow>
-                      {selectedConsignment.fullLoad?.shipmentNumber && (
-                        <TableRow>
-                          <TableCell sx={{ border: 'none', fontWeight: 600 }}>Shipment Number</TableCell>
-                          <TableCell sx={{ border: 'none' }}>------</TableCell>
-                          <TableCell sx={{ border: 'none' }}>{selectedConsignment.fullLoad.shipmentNumber}</TableCell>
-                        </TableRow>
-                      )}
-                      {selectedConsignment.fullLoad?.poNumber && (
-                        <TableRow>
-                          <TableCell sx={{ border: 'none', fontWeight: 600 }}>PO Number</TableCell>
-                          <TableCell sx={{ border: 'none' }}>------</TableCell>
-                          <TableCell sx={{ border: 'none' }}>{selectedConsignment.fullLoad.poNumber}</TableCell>
-                        </TableRow>
-                      )}
-                      {selectedConsignment.fullLoad?.bolNumber && (
-                        <TableRow>
-                          <TableCell sx={{ border: 'none', fontWeight: 600 }}>BOL Number</TableCell>
-                          <TableCell sx={{ border: 'none' }}>------</TableCell>
-                          <TableCell sx={{ border: 'none' }}>{selectedConsignment.fullLoad.bolNumber}</TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </Paper>
-
-              {/* Rate Information Section */}
-              <Paper elevation={2} sx={{ p: 3, mb: 3, borderRadius: 2, border: '1px solid #e0e0e0' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-                  <Box sx={{ p: 1.5, borderRadius: 2, background: 'linear-gradient(135deg, #fff3e0, #ffe0b2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <AttachMoney sx={{ color: '#ff9800', fontSize: 24 }} />
-                  </Box>
-                  <Typography variant="h6" sx={{ fontWeight: 600, color: '#ff9800' }}>
-                    Rate Information
-                  </Typography>
-                </Box>
-                
-                <TableContainer>
-                  <Table size="small">
-                    <TableBody>
-                      <TableRow>
-                        <TableCell sx={{ border: 'none', fontWeight: 600, width: '40%' }}>Rate</TableCell>
-                        <TableCell sx={{ border: 'none', width: '10%' }}>------</TableCell>
-                        <TableCell sx={{ border: 'none' }}>
-                          <Typography variant="body1" fontWeight={700} color="primary">
-                            ${selectedConsignment.rate?.toLocaleString() || '0.00'}
-                          </Typography>
-                        </TableCell>
-                      </TableRow>
-                      {selectedConsignment.fullLoad?.rateDetails?.lineHaul !== undefined && (
-                        <TableRow>
-                          <TableCell sx={{ border: 'none', fontWeight: 600 }}>Line Haul</TableCell>
-                          <TableCell sx={{ border: 'none' }}>------</TableCell>
-                          <TableCell sx={{ border: 'none' }}>${selectedConsignment.fullLoad.rateDetails.lineHaul.toLocaleString()}</TableCell>
-                        </TableRow>
-                      )}
-                      {selectedConsignment.fullLoad?.rateDetails?.fsc !== undefined && (
-                        <TableRow>
-                          <TableCell sx={{ border: 'none', fontWeight: 600 }}>FSC</TableCell>
-                          <TableCell sx={{ border: 'none' }}>------</TableCell>
-                          <TableCell sx={{ border: 'none' }}>${selectedConsignment.fullLoad.rateDetails.fsc.toLocaleString()}</TableCell>
-                        </TableRow>
-                      )}
-                      {selectedConsignment.fullLoad?.rateDetails?.totalRates !== undefined && (
-                        <TableRow>
-                          <TableCell sx={{ border: 'none', fontWeight: 600 }}>Total Rates</TableCell>
-                          <TableCell sx={{ border: 'none' }}>------</TableCell>
-                          <TableCell sx={{ border: 'none' }}>
-                            <Typography variant="body1" fontWeight={700} color="success.main">
-                              ${selectedConsignment.fullLoad.rateDetails.totalRates.toLocaleString()}
-                            </Typography>
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </Paper>
-
-              {/* Load Details Section */}
-              <Paper elevation={2} sx={{ p: 3, mb: 3, borderRadius: 2, border: '1px solid #e0e0e0' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-                  <Box sx={{ p: 1.5, borderRadius: 2, background: 'linear-gradient(135deg, #f3e5f5, #e1bee7)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Scale sx={{ color: '#9c27b0', fontSize: 24 }} />
-                  </Box>
-                  <Typography variant="h6" sx={{ fontWeight: 600, color: '#9c27b0' }}>
-                    Load Details
-                  </Typography>
-                </Box>
-                
-                <TableContainer>
-                  <Table size="small">
-                    <TableBody>
-                      {selectedConsignment.weight && (
-                        <TableRow>
-                          <TableCell sx={{ border: 'none', fontWeight: 600, width: '40%' }}>Weight</TableCell>
-                          <TableCell sx={{ border: 'none', width: '10%' }}>------</TableCell>
-                          <TableCell sx={{ border: 'none' }}>{selectedConsignment.weight} LBS</TableCell>
-                        </TableRow>
-                      )}
-                      {selectedConsignment.commodity && (
-                        <TableRow>
-                          <TableCell sx={{ border: 'none', fontWeight: 600 }}>Commodity</TableCell>
-                          <TableCell sx={{ border: 'none' }}>------</TableCell>
-                          <TableCell sx={{ border: 'none' }}>{selectedConsignment.commodity}</TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </Paper>
-
-              {/* Locations Section */}
-              {(selectedConsignment.origin || selectedConsignment.destination || 
-                selectedConsignment.fullLoad?.origins || selectedConsignment.fullLoad?.destinations) && (
-                <Paper elevation={2} sx={{ p: 3, mb: 3, borderRadius: 2, border: '1px solid #e0e0e0' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-                    <Box sx={{ p: 1.5, borderRadius: 2, background: 'linear-gradient(135deg, #e8f5e9, #c8e6c9)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <LocationOn sx={{ color: '#4caf50', fontSize: 24 }} />
-                    </Box>
-                    <Typography variant="h6" sx={{ fontWeight: 600, color: '#4caf50' }}>
-                      Locations
-                    </Typography>
-                  </Box>
-                  
-                  <Grid container spacing={3}>
-                    {/* Pickup Location */}
-                    {(selectedConsignment.fullLoad?.origins?.[0] || selectedConsignment.origin) && (
-                      <Grid xs={12} sm={6}>
-                        <Box sx={{ p: 2, background: '#f5f5f5', borderRadius: 2 }}>
-                          <Typography variant="subtitle2" fontWeight={700} color="success.main" sx={{ mb: 1 }}>
-                            Pickup Location
-                          </Typography>
-                          {selectedConsignment.fullLoad?.origins?.[0] ? (
-                            <>
-                              <Typography variant="body2">
-                                <strong>City:</strong> {selectedConsignment.fullLoad.origins[0].city || 'N/A'}
-                              </Typography>
-                              <Typography variant="body2">
-                                <strong>State:</strong> {selectedConsignment.fullLoad.origins[0].state || 'N/A'}
-                              </Typography>
-                              <Typography variant="body2">
-                                <strong>ZIP:</strong> {selectedConsignment.fullLoad.origins[0].zip || 'N/A'}
-                              </Typography>
-                              {selectedConsignment.fullLoad.origins[0].addressLine1 && (
-                                <Typography variant="body2">
-                                  <strong>Address:</strong> {selectedConsignment.fullLoad.origins[0].addressLine1}
-                                </Typography>
-                              )}
-                            </>
-                          ) : (
-                            <Typography variant="body2">
-                              {selectedConsignment.origin && typeof selectedConsignment.origin === 'object' 
-                                ? `${selectedConsignment.origin.city || ''} ${selectedConsignment.origin.state || ''}`.trim() || 'N/A'
-                                : selectedConsignment.origin || 'N/A'}
-                            </Typography>
-                          )}
-                        </Box>
-                      </Grid>
-                    )}
-
-                    {/* Delivery Location */}
-                    {(selectedConsignment.fullLoad?.destinations?.[0] || selectedConsignment.destination) && (
-                      <Grid xs={12} sm={6}>
-                        <Box sx={{ p: 2, background: '#fff3e0', borderRadius: 2 }}>
-                          <Typography variant="subtitle2" fontWeight={700} color="warning.main" sx={{ mb: 1 }}>
-                            Delivery Location
-                          </Typography>
-                          {selectedConsignment.fullLoad?.destinations?.[0] ? (
-                            <>
-                              <Typography variant="body2">
-                                <strong>City:</strong> {selectedConsignment.fullLoad.destinations[0].city || 'N/A'}
-                              </Typography>
-                              <Typography variant="body2">
-                                <strong>State:</strong> {selectedConsignment.fullLoad.destinations[0].state || 'N/A'}
-                              </Typography>
-                              <Typography variant="body2">
-                                <strong>ZIP:</strong> {selectedConsignment.fullLoad.destinations[0].zip || 'N/A'}
-                              </Typography>
-                              {selectedConsignment.fullLoad.destinations[0].addressLine1 && (
-                                <Typography variant="body2">
-                                  <strong>Address:</strong> {selectedConsignment.fullLoad.destinations[0].addressLine1}
-                                </Typography>
-                              )}
-                            </>
-                          ) : (
-                            <Typography variant="body2">
-                              {selectedConsignment.destination && typeof selectedConsignment.destination === 'object'
-                                ? `${selectedConsignment.destination.city || ''} ${selectedConsignment.destination.state || ''}`.trim() || 'N/A'
-                                : selectedConsignment.destination || 'N/A'}
-                            </Typography>
-                          )}
-                        </Box>
-                      </Grid>
-                    )}
-                  </Grid>
-                </Paper>
-              )}
-
-              {/* Driver & Vehicle Information */}
-              {(selectedConsignment.driver !== 'N/A' || selectedConsignment.fullLoad?.acceptedBid) && (
-                <Paper elevation={2} sx={{ p: 3, mb: 3, borderRadius: 2, border: '1px solid #e0e0e0' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-                    <Box sx={{ p: 1.5, borderRadius: 2, background: 'linear-gradient(135deg, #e0f2f1, #b2dfdb)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Person sx={{ color: '#00796b', fontSize: 24 }} />
-                    </Box>
-                    <Typography variant="h6" sx={{ fontWeight: 600, color: '#00796b' }}>
-                      Driver & Vehicle Information
-                    </Typography>
-                  </Box>
-                  
-                  <TableContainer>
-                    <Table size="small">
-                      <TableBody>
-                        {(selectedConsignment.fullLoad?.acceptedBid?.driverName || selectedConsignment.driver !== 'N/A') && (
-                          <TableRow>
-                            <TableCell sx={{ border: 'none', fontWeight: 600, width: '40%' }}>Driver Name</TableCell>
-                            <TableCell sx={{ border: 'none', width: '10%' }}>------</TableCell>
-                            <TableCell sx={{ border: 'none' }}>
-                              {selectedConsignment.fullLoad?.acceptedBid?.driverName || selectedConsignment.driver || 'N/A'}
-                            </TableCell>
-                          </TableRow>
+                        ) : (
+                          <Box
+                            sx={{
+                              width: '100%',
+                              height: 140,
+                              borderRadius: 1,
+                              border: '1px dashed #cfd8dc',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: 'text.secondary',
+                              fontSize: 12,
+                            }}
+                          >
+                            No image
+                          </Box>
                         )}
-                         {selectedConsignment.fullLoad?.acceptedBid?.vehicleNumber && (
-                           <TableRow>
-                             <TableCell sx={{ border: 'none', fontWeight: 600 }}>Vehicle Number</TableCell>
-                             <TableCell sx={{ border: 'none' }}>------</TableCell>
-                             <TableCell sx={{ border: 'none' }}>{selectedConsignment.fullLoad.acceptedBid.vehicleNumber}</TableCell>
-                           </TableRow>
-                         )}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                </Paper>
-              )}
+                      </Paper>
+                    );
+                  };
 
-              {/* Dates Section */}
-              {selectedConsignment.fullLoad && (
-                <Paper elevation={2} sx={{ p: 3, mb: 3, borderRadius: 2, border: '1px solid #e0e0e0' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-                    <Box sx={{ p: 1.5, borderRadius: 2, background: 'linear-gradient(135deg, #fff8e1, #ffecb3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <DateRange sx={{ color: '#f57c00', fontSize: 24 }} />
-                    </Box>
-                    <Typography variant="h6" sx={{ fontWeight: 600, color: '#f57c00' }}>
-                      Important Dates
-                  </Typography>
-                </Box>
-                
-                <TableContainer>
-                  <Table size="small">
-                    <TableBody>
-                      {selectedConsignment.fullLoad.pickupDate && (
-                        <TableRow>
-                          <TableCell sx={{ border: 'none', fontWeight: 600, width: '40%' }}>Pickup Date</TableCell>
-                          <TableCell sx={{ border: 'none', width: '10%' }}>------</TableCell>
-                          <TableCell sx={{ border: 'none' }}>
-                            {format(new Date(selectedConsignment.fullLoad.pickupDate), 'MM-dd-yyyy')}
-                          </TableCell>
-                        </TableRow>
-                      )}
-                      {selectedConsignment.fullLoad.deliveryDate && (
-                        <TableRow>
-                          <TableCell sx={{ border: 'none', fontWeight: 600 }}>Delivery Date</TableCell>
-                          <TableCell sx={{ border: 'none' }}>------</TableCell>
-                          <TableCell sx={{ border: 'none' }}>
-                            {format(new Date(selectedConsignment.fullLoad.deliveryDate), 'MM-dd-yyyy')}
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-                </Paper>
-              )}
+                  if (pickupGroups.length === 0 && dropGroups.length === 0) return null;
 
-              {/* Pickup Images Section */}
-              {(selectedConsignment.fullLoad?.emptyTruckImages?.length > 0 || 
-                selectedConsignment.fullLoad?.loadedTruckImages?.length > 0 ||
-                selectedConsignment.fullLoad?.eirTickets?.length > 0 ||
-                selectedConsignment.fullLoad?.containerImages?.length > 0 ||
-                selectedConsignment.fullLoad?.sealImages?.length > 0 ||
-                selectedConsignment.fullLoad?.damageImages?.length > 0) && (
-                <Paper elevation={2} sx={{ p: 3, mb: 3, borderRadius: 2, border: '1px solid #e0e0e0' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-                    <Box sx={{ p: 1.5, borderRadius: 2, background: 'linear-gradient(135deg, #fff3e0, #ffe0b2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Photo sx={{ color: '#ff9800', fontSize: 24 }} />
-                    </Box>
-                    <Typography variant="h6" sx={{ fontWeight: 600, color: '#ff9800' }}>
-                      Pickup Images
-                    </Typography>
-                  </Box>
-                  
-                  <Grid container spacing={2}>
-                    {selectedConsignment.fullLoad?.emptyTruckImages?.length > 0 && (
-                      <Grid xs={12} sm={6}>
-                        <Paper elevation={1} sx={{ p: 2, borderRadius: 2, border: '1px solid #e0e0e0', bgcolor: '#fafafa' }}>
-                          <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2 }}>Empty Truck Images ({selectedConsignment.fullLoad.emptyTruckImages.length})</Typography>
-                          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                            {selectedConsignment.fullLoad.emptyTruckImages.map((url, idx) => (
-                              <Box
-                                key={idx}
-                                component="img"
-                                src={url}
-                                alt={`Empty Truck ${idx + 1}`}
-                                sx={{
-                                  width: 120,
-                                  height: 120,
-                                  objectFit: 'cover',
-                                  borderRadius: 2,
-                                  cursor: 'pointer',
-                                  border: '2px solid #e0e0e0',
-                                  '&:hover': { borderColor: '#ff9800', transform: 'scale(1.05)' }
-                                }}
-                                onClick={() => window.open(url, '_blank')}
-                              />
-                            ))}
-                          </Box>
-                        </Paper>
-                      </Grid>
-                    )}
-
-                    {selectedConsignment.fullLoad?.loadedTruckImages?.length > 0 && (
-                      <Grid xs={12} sm={6}>
-                        <Paper elevation={1} sx={{ p: 2, borderRadius: 2, border: '1px solid #e0e0e0', bgcolor: '#fafafa' }}>
-                          <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2 }}>Loaded Truck Images ({selectedConsignment.fullLoad.loadedTruckImages.length})</Typography>
-                          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                            {selectedConsignment.fullLoad.loadedTruckImages.map((url, idx) => (
-                              <Box
-                                key={idx}
-                                component="img"
-                                src={url}
-                                alt={`Loaded Truck ${idx + 1}`}
-                                sx={{
-                                  width: 120,
-                                  height: 120,
-                                  objectFit: 'cover',
-                                  borderRadius: 2,
-                                  cursor: 'pointer',
-                                  border: '2px solid #e0e0e0',
-                                  '&:hover': { borderColor: '#ff9800', transform: 'scale(1.05)' }
-                                }}
-                                onClick={() => window.open(url, '_blank')}
-                              />
-                            ))}
-                          </Box>
-                        </Paper>
-                      </Grid>
-                    )}
-
-                    {selectedConsignment.fullLoad?.eirTickets?.length > 0 && (
-                      <Grid xs={12} sm={6}>
-                        <Paper elevation={1} sx={{ p: 2, borderRadius: 2, border: '1px solid #e0e0e0', bgcolor: '#fafafa' }}>
-                          <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2 }}>EIR Tickets ({selectedConsignment.fullLoad.eirTickets.length})</Typography>
-                          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                            {selectedConsignment.fullLoad.eirTickets.map((url, idx) => (
-                              <Box
-                                key={idx}
-                                component="img"
-                                src={url}
-                                alt={`EIR Ticket ${idx + 1}`}
-                                sx={{
-                                  width: 120,
-                                  height: 120,
-                                  objectFit: 'cover',
-                                  borderRadius: 2,
-                                  cursor: 'pointer',
-                                  border: '2px solid #e0e0e0',
-                                  '&:hover': { borderColor: '#ff9800', transform: 'scale(1.05)' }
-                                }}
-                                onClick={() => window.open(url, '_blank')}
-                              />
-                            ))}
-                          </Box>
-                        </Paper>
-                      </Grid>
-                    )}
-
-                    {selectedConsignment.fullLoad?.containerImages?.length > 0 && (
-                      <Grid xs={12} sm={6}>
-                        <Paper elevation={1} sx={{ p: 2, borderRadius: 2, border: '1px solid #e0e0e0', bgcolor: '#fafafa' }}>
-                          <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2 }}>Container Images ({selectedConsignment.fullLoad.containerImages.length})</Typography>
-                          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                            {selectedConsignment.fullLoad.containerImages.map((url, idx) => (
-                              <Box
-                                key={idx}
-                                component="img"
-                                src={url}
-                                alt={`Container ${idx + 1}`}
-                                sx={{
-                                  width: 120,
-                                  height: 120,
-                                  objectFit: 'cover',
-                                  borderRadius: 2,
-                                  cursor: 'pointer',
-                                  border: '2px solid #e0e0e0',
-                                  '&:hover': { borderColor: '#ff9800', transform: 'scale(1.05)' }
-                                }}
-                                onClick={() => window.open(url, '_blank')}
-                              />
-                            ))}
-                          </Box>
-                        </Paper>
-                      </Grid>
-                    )}
-
-                    {selectedConsignment.fullLoad?.sealImages?.length > 0 && (
-                      <Grid xs={12} sm={6}>
-                        <Paper elevation={1} sx={{ p: 2, borderRadius: 2, border: '1px solid #e0e0e0', bgcolor: '#fafafa' }}>
-                          <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2 }}>Seal Images ({selectedConsignment.fullLoad.sealImages.length})</Typography>
-                          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                            {selectedConsignment.fullLoad.sealImages.map((url, idx) => (
-                              <Box
-                                key={idx}
-                                component="img"
-                                src={url}
-                                alt={`Seal ${idx + 1}`}
-                                sx={{
-                                  width: 120,
-                                  height: 120,
-                                  objectFit: 'cover',
-                                  borderRadius: 2,
-                                  cursor: 'pointer',
-                                  border: '2px solid #e0e0e0',
-                                  '&:hover': { borderColor: '#ff9800', transform: 'scale(1.05)' }
-                                }}
-                                onClick={() => window.open(url, '_blank')}
-                              />
-                            ))}
-                          </Box>
-                        </Paper>
-                      </Grid>
-                    )}
-
-                    {selectedConsignment.fullLoad?.damageImages?.length > 0 && (
-                      <Grid xs={12} sm={6}>
-                        <Paper elevation={1} sx={{ p: 2, borderRadius: 2, border: '1px solid #e0e0e0', bgcolor: '#fafafa' }}>
-                          <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2 }}>Damage Images ({selectedConsignment.fullLoad.damageImages.length})</Typography>
-                          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                            {selectedConsignment.fullLoad.damageImages.map((url, idx) => (
-                              <Box
-                                key={idx}
-                                component="img"
-                                src={url}
-                                alt={`Damage ${idx + 1}`}
-                                sx={{
-                                  width: 120,
-                                  height: 120,
-                                  objectFit: 'cover',
-                                  borderRadius: 2,
-                                  cursor: 'pointer',
-                                  border: '2px solid #e0e0e0',
-                                  '&:hover': { borderColor: '#ff9800', transform: 'scale(1.05)' }
-                                }}
-                                onClick={() => window.open(url, '_blank')}
-                              />
-                            ))}
-                          </Box>
-                        </Paper>
-                      </Grid>
-                    )}
-                  </Grid>
-                </Paper>
-              )}
-
-              {/* Drop Location Images */}
-              {selectedConsignment.fullLoad?.dropLocationImages && (
-                <Paper elevation={2} sx={{ p: 3, mb: 3, borderRadius: 2, border: '1px solid #e0e0e0' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-                    <Box sx={{ p: 1.5, borderRadius: 2, background: 'linear-gradient(135deg, #fce4ec, #f8bbd0)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Photo sx={{ color: '#c2185b', fontSize: 24 }} />
-                    </Box>
-                    <Typography variant="h6" sx={{ fontWeight: 600, color: '#c2185b' }}>
-                      Delivery Images
-                    </Typography>
-                  </Box>
-                  
-                  <Grid container spacing={2}>
-                    {selectedConsignment.fullLoad.dropLocationImages.podImages?.length > 0 && (
-                      <Grid xs={12} sm={6}>
-                        <Paper elevation={1} sx={{ p: 2, borderRadius: 2, border: '1px solid #e0e0e0', bgcolor: '#fafafa' }}>
-                          <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2 }}>POD Images ({selectedConsignment.fullLoad.dropLocationImages.podImages.length})</Typography>
-                          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                            {selectedConsignment.fullLoad.dropLocationImages.podImages.map((url, idx) => (
-                              <Box
-                                key={idx}
-                                component="img"
-                                src={url}
-                                alt={`POD ${idx + 1}`}
-                                sx={{
-                                  width: 120,
-                                  height: 120,
-                                  objectFit: 'cover',
-                                  borderRadius: 2,
-                                  cursor: 'pointer',
-                                  border: '2px solid #e0e0e0',
-                                  '&:hover': { borderColor: '#c2185b', transform: 'scale(1.05)' }
-                                }}
-                                onClick={() => window.open(url, '_blank')}
-                              />
-                            ))}
-                          </Box>
-                        </Paper>
-                      </Grid>
-                    )}
-
-                    {selectedConsignment.fullLoad.dropLocationImages.loadedTruckImages?.length > 0 && (
-                      <Grid xs={12} sm={6}>
-                        <Paper elevation={1} sx={{ p: 2, borderRadius: 2, border: '1px solid #e0e0e0', bgcolor: '#fafafa' }}>
-                          <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2 }}>Loaded Truck Images ({selectedConsignment.fullLoad.dropLocationImages.loadedTruckImages.length})</Typography>
-                          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                            {selectedConsignment.fullLoad.dropLocationImages.loadedTruckImages.map((url, idx) => (
-                              <Box
-                                key={idx}
-                                component="img"
-                                src={url}
-                                alt={`Loaded Truck ${idx + 1}`}
-                                sx={{
-                                  width: 120,
-                                  height: 120,
-                                  objectFit: 'cover',
-                                  borderRadius: 2,
-                                  cursor: 'pointer',
-                                  border: '2px solid #e0e0e0',
-                                  '&:hover': { borderColor: '#c2185b', transform: 'scale(1.05)' }
-                                }}
-                                onClick={() => window.open(url, '_blank')}
-                              />
-                            ))}
-                          </Box>
-                        </Paper>
-                      </Grid>
-                    )}
-
-                    {selectedConsignment.fullLoad.dropLocationImages.dropLocationImages?.length > 0 && (
-                      <Grid xs={12} sm={6}>
-                        <Paper elevation={1} sx={{ p: 2, borderRadius: 2, border: '1px solid #e0e0e0', bgcolor: '#fafafa' }}>
-                          <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2 }}>Drop Location Images ({selectedConsignment.fullLoad.dropLocationImages.dropLocationImages.length})</Typography>
-                          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                            {selectedConsignment.fullLoad.dropLocationImages.dropLocationImages.map((url, idx) => (
-                              <Box
-                                key={idx}
-                                component="img"
-                                src={url}
-                                alt={`Drop Location ${idx + 1}`}
-                                sx={{
-                                  width: 120,
-                                  height: 120,
-                                  objectFit: 'cover',
-                                  borderRadius: 2,
-                                  cursor: 'pointer',
-                                  border: '2px solid #e0e0e0',
-                                  '&:hover': { borderColor: '#c2185b', transform: 'scale(1.05)' }
-                                }}
-                                onClick={() => window.open(url, '_blank')}
-                              />
-                            ))}
-                          </Box>
-                        </Paper>
-                      </Grid>
-                    )}
-
-                    {selectedConsignment.fullLoad.dropLocationImages.emptyTruckImages?.length > 0 && (
-                      <Grid xs={12} sm={6}>
-                        <Paper elevation={1} sx={{ p: 2, borderRadius: 2, border: '1px solid #e0e0e0', bgcolor: '#fafafa' }}>
-                          <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2 }}>Empty Truck Images ({selectedConsignment.fullLoad.dropLocationImages.emptyTruckImages.length})</Typography>
-                          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                            {selectedConsignment.fullLoad.dropLocationImages.emptyTruckImages.map((url, idx) => (
-                              <Box
-                                key={idx}
-                                component="img"
-                                src={url}
-                                alt={`Empty Truck ${idx + 1}`}
-                                sx={{
-                                  width: 120,
-                                  height: 120,
-                                  objectFit: 'cover',
-                                  borderRadius: 2,
-                                  cursor: 'pointer',
-                                  border: '2px solid #e0e0e0',
-                                  '&:hover': { borderColor: '#c2185b', transform: 'scale(1.05)' }
-                                }}
-                                onClick={() => window.open(url, '_blank')}
-                              />
-                            ))}
-                          </Box>
-                        </Paper>
-                      </Grid>
-                    )}
-                  </Grid>
-                </Paper>
-              )}
-
-              {/* Return Location */}
-              {(selectedConsignment.fullLoad?.returnLocation || selectedConsignment.fullLoad?.returnCity || selectedConsignment.fullLoad?.returnDate) && (
-                <Paper elevation={2} sx={{ p: 3, mb: 3, borderRadius: 2, border: '1px solid #e0e0e0' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-                    <Box sx={{ p: 1.5, borderRadius: 2, background: 'linear-gradient(135deg, #f3e5f5, #e1bee7)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <LocationOn sx={{ color: '#7b1fa2', fontSize: 24 }} />
-                    </Box>
-                    <Typography variant="h6" sx={{ fontWeight: 600, color: '#7b1fa2' }}>
-                      Return Location
-                    </Typography>
-                  </Box>
-                  
-                  <TableContainer>
-                    <Table size="small">
-                      <TableBody>
-                        {selectedConsignment.fullLoad?.returnLocation && (
-                          <TableRow>
-                            <TableCell sx={{ border: 'none', fontWeight: 600, width: '40%' }}>Return Location</TableCell>
-                            <TableCell sx={{ border: 'none', width: '10%' }}>------</TableCell>
-                            <TableCell sx={{ border: 'none' }}>{selectedConsignment.fullLoad.returnLocation}</TableCell>
-                          </TableRow>
-                        )}
-                        {(selectedConsignment.fullLoad?.returnCity || selectedConsignment.fullLoad?.returnState) && (
-                          <TableRow>
-                            <TableCell sx={{ border: 'none', fontWeight: 600 }}>Return Address</TableCell>
-                            <TableCell sx={{ border: 'none' }}>------</TableCell>
-                            <TableCell sx={{ border: 'none' }}>
-                              {`${selectedConsignment.fullLoad.returnCity || ''} ${selectedConsignment.fullLoad.returnState || ''} ${selectedConsignment.fullLoad.returnZip || ''}`.trim() || 'N/A'}
-                            </TableCell>
-                          </TableRow>
-                        )}
-                        {selectedConsignment.fullLoad?.returnDate && (
-                          <TableRow>
-                            <TableCell sx={{ border: 'none', fontWeight: 600 }}>Return Date</TableCell>
-                            <TableCell sx={{ border: 'none' }}>------</TableCell>
-                            <TableCell sx={{ border: 'none' }}>
-                              {format(new Date(selectedConsignment.fullLoad.returnDate), 'MM-dd-yyyy')}
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                </Paper>
-              )}
-            </Box>
-          )}
-        </DialogContent>
+                  return (
+                    <Paper elevation={0} sx={{ border: '1px solid #90caf9', borderRadius: 2, overflow: 'hidden' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, background: '#e3f2fd' }}>
+                        <Box sx={{ width: 32, height: 32, borderRadius: 1, background: '#3949ab', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>🖼️</Box>
+                        <Typography variant="h6" fontWeight={700} color="#1565c0">Images</Typography>
+                      </Box>
+                      <Box sx={{ p: 2 }}>
+                        <Grid container spacing={2}>
+                          <Grid item xs={12} md={6}>
+                            <Typography variant="subtitle1" fontWeight={800} color="#1b5e20" sx={{ mb: 1.5 }}>Pickup Images</Typography>
+                            {pickupGroups.length > 0 ? (
+                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                                {pickupGroups.map((g, idx) => (
+                                  <GroupCard key={`pu-${idx}`} title={g.title} urls={g.urls} />
+                                ))}
+                              </Box>
+                            ) : (
+                              <Typography variant="body2" color="text.secondary">No pickup images</Typography>
+                            )}
+                          </Grid>
+                          <Grid item xs={12} md={6}>
+                            <Typography variant="subtitle1" fontWeight={800} color="#b71c1c" sx={{ mb: 1.5 }}>Delivery Images</Typography>
+                            {dropGroups.length > 0 ? (
+                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                                {dropGroups.map((g, idx) => (
+                                  <GroupCard key={`dr-${idx}`} title={g.title} urls={g.urls} />
+                                ))}
+                              </Box>
+                            ) : (
+                              <Typography variant="body2" color="text.secondary">No delivery images</Typography>
+                            )}
+                          </Grid>
+                        </Grid>
+                      </Box>
+                    </Paper>
+                  );
+                })()}
+                </>
+              );
+            })()}
+          </Box>
+        )}
+      </DialogContent>
       </Dialog>
     </Box>
   );

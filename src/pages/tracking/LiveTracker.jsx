@@ -166,41 +166,51 @@ export default function LiveTracker() {
     setExpandedId((prev) => (prev === item.id ? null : item.id));
     setSelectedShipment(item);
     
-    // If expanding and route data doesn't exist, fetch it
-    if (isExpanding && !routePaths[item.id]) {
-      console.log('Route data not found for item:', item.id, 'Fetching route...');
-      console.log('Item coordinates:', {
-        origin: [item.originLat, item.originLng],
-        dest: [item.destLat, item.destLng]
-      });
-      
-      if (item.originLat && item.originLng && item.destLat && item.destLng) {
-        try {
-          const routeData = await fetchRoute(item.originLat, item.originLng, item.destLat, item.destLng);
-          if (routeData && routeData.path && routeData.path.length > 0) {
-            setRoutePaths(prev => ({
-              ...prev,
-              [item.id]: routeData
-            }));
-            console.log('✅ Route data fetched and set for item:', item.id, 'with', routeData.path.length, 'points');
-          } else {
-            console.log('❌ Failed to fetch route data for item:', item.id);
+    // Always ensure route data exists when expanding, especially for searched shipments
+    if (isExpanding) {
+      // Check if route data exists, if not fetch it
+      if (!routePaths[item.id]) {
+        console.log('Route data not found for item:', item.id, 'Fetching route...');
+        console.log('Item coordinates:', {
+          origin: [item.originLat, item.originLng],
+          dest: [item.destLat, item.destLng]
+        });
+        
+        if (item.originLat && item.originLng && item.destLat && item.destLng) {
+          try {
+            const routeData = await fetchRoute(item.originLat, item.originLng, item.destLat, item.destLng);
+            if (routeData && routeData.path && routeData.path.length > 0) {
+              setRoutePaths(prev => {
+                const updated = {
+                  ...prev,
+                  [item.id]: routeData
+                };
+                console.log('✅ Route data fetched and set for item:', item.id, 'with', routeData.path.length, 'points');
+                return updated;
+              });
+            } else {
+              console.log('❌ Failed to fetch route data for item:', item.id, '- no path data');
+            }
+          } catch (error) {
+            console.error('❌ Error fetching route for item:', item.id, error);
           }
-        } catch (error) {
-          console.error('❌ Error fetching route for item:', item.id, error);
+        } else {
+          console.log('❌ Invalid coordinates for item:', item.id, {
+            originLat: item.originLat,
+            originLng: item.originLng,
+            destLat: item.destLat,
+            destLng: item.destLng
+          });
         }
       } else {
-        console.log('❌ Invalid coordinates for item:', item.id);
+        console.log('✅ Route data already exists for item:', item.id);
       }
-    } else if (isExpanding && routePaths[item.id]) {
-      console.log('✅ Route data already exists for item:', item.id);
-    }
-    
-    // Change map view based on expand/collapse
-    if (isExpanding) {
-      setMapView("current"); // Show current location when expanded
+      
+      // Change map view to show current location when expanded
+      setMapView("current");
     } else {
-      setMapView("route"); // Show full route when collapsed
+      // Change map view to show full route when collapsed
+      setMapView("route");
     }
   };
 
@@ -209,8 +219,9 @@ export default function LiveTracker() {
     const token = getAuthToken();
     setHasToken(!!token);
     
+    // If no token and no search term, skip API call
     if (!token && !searchTerm.trim()) {
-      console.log('No token found, skipping API call');
+      console.log('No token found and no search term, skipping API call');
       setConsignments([]);
       setLoading(false);
       return;
@@ -223,68 +234,229 @@ export default function LiveTracker() {
         res = await axios.get(`https://vpl-liveproject-1.onrender.com/api/v1/load/shipment/${searchTerm.toUpperCase()}`);
         console.log('API Response for single shipment:', res.data);
         
-        // Single shipment response
+        // Handle different response structures
+        let loadData = null;
+        let trackingData = null;
+        
+        // Check if response has tracking data (old format)
         if (res.data?.tracking) {
-          const track = res.data.tracking;
-          console.log('Processing tracking data:', track);
+          trackingData = res.data.tracking;
+          loadData = res.data.tracking;
+          console.log('Processing tracking data format:', loadData);
+        } 
+        // Check if response has verifiedLoads array (new format)
+        else if (res.data?.success && res.data?.data?.verifiedLoads && Array.isArray(res.data.data.verifiedLoads) && res.data.data.verifiedLoads.length > 0) {
+          // Get first load from verifiedLoads array
+          loadData = res.data.data.verifiedLoads[0];
+          console.log('Processing verifiedLoads format:', loadData);
           
-          // Ensure coordinates are numbers
-          const originLat = parseFloat(track.originLatLng?.lat) || 0;
-          const originLng = parseFloat(track.originLatLng?.lon) || 0;
-          const destLat = parseFloat(track.destinationLatLng?.lat) || 0;
-          const destLng = parseFloat(track.destinationLatLng?.lon) || 0;
-          const currentLat = parseFloat(track.currentLocation?.lat) || originLat;
-          const currentLng = parseFloat(track.currentLocation?.lon) || originLng;
+          // Try to get tracking data separately if shipment number is available
+          if (loadData.loadReference?.shipmentNumber) {
+            try {
+              const trackingRes = await axios.get(`https://vpl-liveproject-1.onrender.com/api/v1/load/shipment/${loadData.loadReference.shipmentNumber}`);
+              if (trackingRes.data?.tracking) {
+                trackingData = trackingRes.data.tracking;
+                console.log('✅ Found separate tracking data:', trackingData);
+              }
+            } catch (err) {
+              console.log('Could not fetch separate tracking data');
+            }
+          }
+        }
+        // Check if response has data.load (single load format)
+        else if (res.data?.success && res.data?.data?.load) {
+          loadData = res.data.data.load;
+          console.log('Processing single load format:', loadData);
+        }
+        
+        if (loadData) {
+          // Extract coordinates from different possible structures
+          let originLat = 0, originLng = 0, destLat = 0, destLng = 0, currentLat = 0, currentLng = 0;
+          let driverName = "Driver";
+          let vehicleNumber = "N/A";
+          let shipmentNumber = "";
+          let originName = "Origin";
+          let destinationName = "Destination";
           
-          console.log('Coordinates:', { originLat, originLng, destLat, destLng, currentLat, currentLng });
+          // Try to get coordinates from loadReference.origins/destinations (new format)
+          if (loadData.loadReference?.origins?.[0]) {
+            originLat = parseFloat(loadData.loadReference.origins[0].lat) || 0;
+            originLng = parseFloat(loadData.loadReference.origins[0].lon) || 0;
+            originName = loadData.loadReference.origins[0].city || loadData.loadReference.origins[0].addressLine1 || "Origin";
+          }
+          
+          if (loadData.loadReference?.destinations?.[0]) {
+            destLat = parseFloat(loadData.loadReference.destinations[0].lat) || 0;
+            destLng = parseFloat(loadData.loadReference.destinations[0].lon) || 0;
+            destinationName = loadData.loadReference.destinations[0].city || loadData.loadReference.destinations[0].addressLine1 || "Destination";
+          }
+          
+          // Fallback to old format if new format doesn't have coordinates
+          if ((originLat === 0 || originLng === 0) && loadData.originLatLng) {
+            originLat = parseFloat(loadData.originLatLng.lat) || 0;
+            originLng = parseFloat(loadData.originLatLng.lon) || 0;
+          }
+          
+          if ((destLat === 0 || destLng === 0) && loadData.destinationLatLng) {
+            destLat = parseFloat(loadData.destinationLatLng.lat) || 0;
+            destLng = parseFloat(loadData.destinationLatLng.lon) || 0;
+          }
+          
+          // Get current location
+          if (loadData.currentLocation) {
+            currentLat = parseFloat(loadData.currentLocation.lat) || parseFloat(loadData.currentLocation.latitude) || originLat;
+            currentLng = parseFloat(loadData.currentLocation.lon) || parseFloat(loadData.currentLocation.longitude) || originLng;
+          } else if (loadData.loadReference?.destinationPlace?.location) {
+            // Use destination as current if no current location
+            currentLat = destLat || originLat;
+            currentLng = destLng || originLng;
+          } else {
+            currentLat = originLat;
+            currentLng = originLng;
+          }
+          
+          // Get driver name from multiple possible locations
+          // Priority: tracking data > loadReference.acceptedBid > other sources
+          driverName = trackingData?.driverName ||
+                      loadData.loadReference?.acceptedBid?.driverName || 
+                      loadData.acceptedBid?.driverName || 
+                      loadData.driverName || 
+                      loadData.tracking?.driverName ||
+                      loadData.assignedTo?.driverName ||
+                      loadData.assignedTo?.name ||
+                      loadData.assignedTo?.contactPerson ||
+                      "Driver";
+          
+          console.log('Driver name extraction:', {
+            fromTracking: trackingData?.driverName,
+            fromAcceptedBid: loadData.loadReference?.acceptedBid?.driverName,
+            final: driverName
+          });
+          
+          // Get vehicle number
+          vehicleNumber = loadData.loadReference?.acceptedBid?.vehicleNumber || 
+                         loadData.acceptedBid?.vehicleNumber || 
+                         loadData.vehicleNumber || 
+                         loadData.tracking?.vehicleNumber ||
+                         "N/A";
+          
+          // Get shipment number
+          shipmentNumber = loadData.loadReference?.shipmentNumber || 
+                         loadData.shipmentNumber || 
+                         loadData.tracking?.shipmentNumber ||
+                         searchTerm.toUpperCase();
+          
+          // Get origin/destination names
+          if (!originName || originName === "Origin") {
+            originName = loadData.originName || 
+                        loadData.loadReference?.originPlace?.location || 
+                        loadData.shipper?.pickUpLocations?.[0]?.city ||
+                        "Origin";
+          }
+          
+          if (!destinationName || destinationName === "Destination") {
+            destinationName = loadData.destinationName || 
+                             loadData.loadReference?.destinationPlace?.location || 
+                             loadData.shipper?.dropLocations?.[0]?.city ||
+                             "Destination";
+          }
+          
+          console.log('Extracted coordinates:', { 
+            originLat, originLng, destLat, destLng, currentLat, currentLng,
+            driverName, vehicleNumber, shipmentNumber
+          });
           
           const shipment = {
-            id: track._id,
-            number: track.shipmentNumber,
-            location: `${track.originName || 'Origin'} → ${track.destinationName || 'Destination'}`,
+            id: loadData._id || loadData.loadReference?._id || Date.now().toString(),
+            number: shipmentNumber,
+            location: `${originName} → ${destinationName}`,
             lat: currentLat,
             lng: currentLng,
             originLat: originLat,
             originLng: originLng,
             destLat: destLat,
             destLng: destLng,
+            driverName: driverName,
+            vehicleNumber: vehicleNumber,
+            weight: loadData.loadReference?.weight || loadData.weight,
+            commodity: loadData.loadReference?.commodity || loadData.commodity,
             status: [
               {
                 label: "Loading",
-                name: track.driverName || "Driver",
-                time: new Date(track.startedAt || Date.now()).toLocaleString(),
+                name: driverName,
+                time: new Date(loadData.loadReference?.pickupDate || loadData.pickupDate || loadData.startedAt || Date.now()).toLocaleString(),
                 done: true,
               },
               {
                 label: "In-Transit",
-                name: track.driverName || "Driver",
-                time: new Date(track.currentLocation?.updatedAt || Date.now()).toLocaleString(),
-                done: track.status !== "loading",
+                name: driverName,
+                time: new Date(loadData.currentLocation?.updatedAt || loadData.loadReference?.destinationPlace?.arrivedAt || Date.now()).toLocaleString(),
+                done: loadData.status !== "loading" && loadData.status !== "Loading",
               },
               {
                 label: "Delivered",
-                name: track.driverName || "Driver",
-                time: new Date(track.load?.deliveryDate || Date.now()).toLocaleString(),
-                done: track.status === "delivered",
+                name: driverName,
+                time: new Date(loadData.loadReference?.deliveryDate || loadData.deliveryDate || loadData.load?.deliveryDate || Date.now()).toLocaleString(),
+                done: loadData.status === "delivered" || loadData.status === "Delivered",
               },
             ],
           };
           
+          console.log('Created shipment object:', shipment);
           setConsignments([shipment]);
           
-          // Fetch optimized route for this shipment
-          if (originLat && originLng && destLat && destLng) {
-            const routeData = await fetchRoute(originLat, originLng, destLat, destLng);
-            console.log('Route data received:', routeData);
-            
-            if (routeData && routeData.path && routeData.path.length > 0) {
-              setRoutePaths(prev => ({
-                ...prev,
-                [track._id]: routeData
-              }));
+          // Fetch optimized route for this shipment immediately
+          if (originLat && originLng && destLat && destLng && originLat !== 0 && originLng !== 0 && destLat !== 0 && destLng !== 0) {
+            console.log('📍 Fetching route for searched shipment:', shipment.id, 'with coordinates:', {
+              origin: [originLat, originLng],
+              dest: [destLat, destLng],
+              shipmentId: shipment.id,
+              shipmentNumber: shipment.number
+            });
+            try {
+              const routeData = await fetchRoute(originLat, originLng, destLat, destLng);
+              console.log('✅ Route data received for searched shipment:', {
+                shipmentId: shipment.id,
+                hasPath: !!(routeData && routeData.path),
+                pathLength: routeData?.path?.length || 0,
+                routeData: routeData
+              });
+              
+              if (routeData && routeData.path && routeData.path.length > 0) {
+                setRoutePaths(prev => {
+                  const updated = {
+                    ...prev,
+                    [shipment.id]: routeData
+                  };
+                  console.log('✅✅ Route data set in state for searched shipment:', {
+                    shipmentId: shipment.id,
+                    shipmentNumber: shipment.number,
+                    pathLength: routeData.path.length,
+                    allRoutePaths: Object.keys(updated),
+                    updatedRoutePaths: Object.keys(updated)
+                  });
+                  return updated;
+                });
+                
+                // Force a small delay to ensure state is updated before rendering
+                setTimeout(() => {
+                  console.log('🔄 Route state should be updated now. Checking routePaths:', Object.keys(routePaths));
+                }, 100);
+              } else {
+                console.log('❌ No route path data received for searched shipment - routeData:', routeData);
+              }
+            } catch (error) {
+              console.error('❌ Error fetching route for searched shipment:', error);
             }
+          } else {
+            console.log('❌ Invalid coordinates for searched shipment, cannot fetch route:', {
+              originLat, originLng, destLat, destLng,
+              shipmentId: shipment.id,
+              shipmentNumber: shipment.number
+            });
           }
         } else {
+          console.log('No valid load data found in API response');
           setConsignments([]);
         }
       } else {
@@ -308,11 +480,13 @@ export default function LiveTracker() {
         }
         
         // Use different API endpoints based on user type
-        const apiEndpoint = userType === 'trucker' 
+        // Default to shipper if userType is not set
+        const currentUserType = userType || 'shipper';
+        const apiEndpoint = currentUserType === 'trucker' 
           ? 'https://vpl-liveproject-1.onrender.com/api/v1/load/trucker/in-transit-loads-with-location'
           : 'https://vpl-liveproject-1.onrender.com/api/v1/load/shipper/in-transit-loads-with-location';
         
-        console.log(`Using API endpoint for ${userType}:`, apiEndpoint);
+        console.log(`Using API endpoint for ${currentUserType}:`, apiEndpoint);
         
         res = await axios.get(apiEndpoint, {
           headers: headers
@@ -329,8 +503,9 @@ export default function LiveTracker() {
           const shipments = loads.map(load => {
             // Handle different data structures for shipper vs trucker APIs
             let originData, destinationData, currentLocationData, trackingData;
+            const currentUserType = userType || 'shipper';
             
-            if (userType === 'trucker') {
+            if (currentUserType === 'trucker') {
               // Trucker API structure
               originData = load.origins?.[0] || {};
               destinationData = load.destinations?.[0] || {};
@@ -420,8 +595,9 @@ export default function LiveTracker() {
           const routePromises = loads.map(async (load) => {
             // Handle different data structures for shipper vs trucker APIs
             let originData, destinationData;
+            const currentUserType = userType || 'shipper';
             
-            if (userType === 'trucker') {
+            if (currentUserType === 'trucker') {
               // Trucker API structure
               originData = load.origins?.[0] || {};
               destinationData = load.destinations?.[0] || {};
@@ -551,7 +727,8 @@ export default function LiveTracker() {
             // Try one more alternative endpoint
             console.log('Trying alternative endpoint...');
             try {
-              const altEndpoint = userType === 'trucker' 
+              const currentUserType = userType || 'shipper';
+              const altEndpoint = currentUserType === 'trucker' 
                 ? 'https://vpl-liveproject-1.onrender.com/api/v1/load/trucker/loads'
                 : 'https://vpl-liveproject-1.onrender.com/api/v1/load/shipper/loads';
               
@@ -565,7 +742,7 @@ export default function LiveTracker() {
                   // Handle different data structures for shipper vs trucker APIs
                   let originData, destinationData, currentLocationData;
                   
-                  if (userType === 'trucker') {
+                  if (currentUserType === 'trucker') {
                     // Trucker API structure
                     originData = load.origins?.[0] || {};
                     destinationData = load.destinations?.[0] || {};
@@ -651,18 +828,29 @@ export default function LiveTracker() {
 
   useEffect(() => {
     fetchConsignments();
-  }, [searchTerm]);
+  }, [searchTerm, userType]);
 
   // Auto-create polylines when consignments are loaded
   useEffect(() => {
-    if (consignments.length > 0 && Object.keys(routePaths).length === 0) {
-      console.log(`🚀 Auto-creating polylines for ${consignments.length} loads...`);
-      // Small delay to ensure state is fully updated
-      setTimeout(() => {
-        forceFetchAllRoutes();
-      }, 500);
+    if (consignments.length > 0) {
+      // Check for missing routes
+      const missingRoutes = consignments.filter(consignment => 
+        !routePaths[consignment.id] && 
+        consignment.originLat && 
+        consignment.originLng && 
+        consignment.destLat && 
+        consignment.destLng
+      );
+      
+      if (missingRoutes.length > 0) {
+        console.log(`🚀 Auto-creating polylines for ${missingRoutes.length} loads with missing routes...`);
+        // Small delay to ensure state is fully updated
+        setTimeout(() => {
+          forceFetchAllRoutes();
+        }, 500);
+      }
     }
-  }, [consignments]);
+  }, [consignments, routePaths]);
 
   // Monitor route data and fetch missing routes
   useEffect(() => {
@@ -1031,29 +1219,41 @@ export default function LiveTracker() {
           })}
           
           {/* Origin and Destination Markers */}
-          {consignments.map((truck) => (
-            <Marker 
-              key={`origin-${truck.id}`} 
-              position={[truck.originLat, truck.originLng]}
-              icon={new L.Icon({
-                iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyQzIgMTcuNTIgNi40OCAyMiAxMiAyMkMxNy41MiAyMiAyMiAxNy41MiAyMiAxMkMyMiA2LjQ4IDE3LjUyIDIgMTIgMloiIGZpbGw9IiM0Q0FGNTAiLz4KPHBhdGggZD0iTTEyIDZDNi40OCA2IDIgMTAuNDggMiAxNkMyIDIxLjUyIDYuNDggMjYgMTIgMjZDMjEuNTIgMjYgMjYgMjEuNTIgMjYgMTZDMjYgMTAuNDggMjEuNTIgNiAxMiA2WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTEyIDEwQzEwLjM0IDEwIDkgMTEuMzQgOSAxM0M5IDE0LjY2IDEwLjM0IDE2IDEyIDE2QzEzLjY2IDE2IDE1IDE0LjY2IDE1IDEzQzE1IDExLjM0IDEzLjY2IDEwIDEyIDEwWiIgZmlsbD0iIzRDQUY1MCIvPgo8L3N2Zz4K',
-                iconSize: [24, 24],
-                iconAnchor: [12, 12],
-              })}
-            />
-          ))}
+          {consignments.map((truck) => {
+            // Only render origin marker if coordinates are valid
+            if (truck.originLat && truck.originLng && truck.originLat !== 0 && truck.originLng !== 0) {
+              return (
+                <Marker 
+                  key={`origin-${truck.id}`} 
+                  position={[truck.originLat, truck.originLng]}
+                  icon={new L.Icon({
+                    iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyQzIgMTcuNTIgNi40OCAyMiAxMiAyMkMxNy41MiAyMiAyMiAxNy41MiAyMiAxMkMyMiA2LjQ4IDE3LjUyIDIgMTIgMloiIGZpbGw9IiM0Q0FGNTAiLz4KPHBhdGggZD0iTTEyIDZDNi40OCA2IDIgMTAuNDggMiAxNkMyIDIxLjUyIDYuNDggMjYgMTIgMjZDMjEuNTIgMjYgMjYgMjEuNTIgMjYgMTZDMjYgMTAuNDggMjEuNTIgNiAxMiA2WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTEyIDEwQzEwLjM0IDEwIDkgMTEuMzQgOSAxM0M5IDE0LjY2IDEwLjM0IDE2IDEyIDE2QzEzLjY2IDE2IDE1IDE0LjY2IDE1IDEzQzE1IDExLjM0IDEzLjY2IDEwIDEyIDEwWiIgZmlsbD0iIzRDQUY1MCIvPgo8L3N2Zz4K',
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 12],
+                  })}
+                />
+              );
+            }
+            return null;
+          })}
           
-          {consignments.map((truck) => (
-            <Marker 
-              key={`dest-${truck.id}`} 
-              position={[truck.destLat, truck.destLng]}
-              icon={new L.Icon({
-                iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyQzIgMTcuNTIgNi40OCAyMiAxMiAyMkMxNy41MiAyMiAyMiAxNy41MiAyMiAxMkMyMiA2LjQ4IDE3LjUyIDIgMTIgMloiIGZpbGw9IiNGRjU3MjIiLz4KPHBhdGggZD0iTTEyIDZDNi40OCA2IDIgMTAuNDggMiAxNkMyIDIxLjUyIDYuNDggMjYgMTIgMjZDMjEuNTIgMjYgMjYgMjEuNTIgMjYgMTZDMjYgMTAuNDggMjEuNTIgNiAxMiA2WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTEyIDEwQzEwLjM0IDEwIDkgMTEuMzQgOSAxM0M5IDE0LjY2IDEwLjM0IDE2IDEyIDE2QzEzLjY2IDE2IDE1IDE0LjY2IDE1IDEzQzE1IDExLjM0IDEzLjY2IDEwIDEyIDEwWiIgZmlsbD0iI0ZGNTcyMiIvPgo8L3N2Zz4K',
-                iconSize: [24, 24],
-                iconAnchor: [12, 12],
-              })}
-            />
-          ))}
+          {consignments.map((truck) => {
+            // Only render destination marker if coordinates are valid
+            if (truck.destLat && truck.destLng && truck.destLat !== 0 && truck.destLng !== 0) {
+              return (
+                <Marker 
+                  key={`dest-${truck.id}`} 
+                  position={[truck.destLat, truck.destLng]}
+                  icon={new L.Icon({
+                    iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyQzIgMTcuNTIgNi40OCAyMiAxMiAyMkMxNy41MiAyMiAyMiAxNy41MiAyMiAxMkMyMiA2LjQ4IDE3LjUyIDIgMTIgMloiIGZpbGw9IiNGRjU3MjIiLz4KPHBhdGggZD0iTTEyIDZDNi40OCA2IDIgMTAuNDggMiAxNkMyIDIxLjUyIDYuNDggMjYgMTIgMjZDMjEuNTIgMjYgMjYgMjEuNTIgMjYgMTZDMjYgMTAuNDggMjEuNTIgNiAxMiA2WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTEyIDEwQzEwLjM0IDEwIDkgMTEuMzQgOSAxM0M5IDE0LjY2IDEwLjM0IDE2IDEyIDE2QzEzLjY2IDE2IDE1IDE0LjY2IDE1IDEzQzE1IDExLjM0IDEzLjY2IDEwIDEyIDEwWiIgZmlsbD0iI0ZGNTcyMiIvPgo8L3N2Zz4K',
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 12],
+                  })}
+                />
+              );
+            }
+            return null;
+          })}
           
           {/* Solid Route Lines - Force render for all loads */}
           {consignments.map((truck) => {
@@ -1066,24 +1266,27 @@ export default function LiveTracker() {
                 origin: [truck.originLat, truck.originLng],
                 dest: [truck.destLat, truck.destLng]
               },
-              routePathsKeys: Object.keys(routePaths)
+              routePathsKeys: Object.keys(routePaths),
+              truckId: truck.id,
+              allConsignmentIds: consignments.map(c => c.id)
             });
             
             // Always try to render a polyline - either proper route or fallback
-            if (truck.originLat && truck.originLng && truck.destLat && truck.destLng) {
-            if (routeData && routeData.path && routeData.path.length > 0) {
-                console.log(`✅ Creating optimized polyline with ${routeData.path.length} points for truck ${truck.id}`);
-              return (
-                <Polyline
-                  key={`route-${truck.id}`}
-                  positions={routeData.path}
-                  color="#1976d2"
-                  weight={4}
-                  opacity={0.8}
-                />
-              );
-            } else {
-                console.log(`⚠️ Creating fallback polyline for truck ${truck.id} (no route data)`);
+            if (truck.originLat && truck.originLng && truck.destLat && truck.destLng && 
+                truck.originLat !== 0 && truck.originLng !== 0 && truck.destLat !== 0 && truck.destLng !== 0) {
+              if (routeData && routeData.path && routeData.path.length > 0) {
+                console.log(`✅ Creating optimized polyline with ${routeData.path.length} points for truck ${truck.id} (${truck.number})`);
+                return (
+                  <Polyline
+                    key={`route-${truck.id}`}
+                    positions={routeData.path}
+                    color="#1976d2"
+                    weight={4}
+                    opacity={0.8}
+                  />
+                );
+              } else {
+                console.log(`⚠️ Creating fallback polyline for truck ${truck.id} (${truck.number}) - no route data. RoutePaths keys:`, Object.keys(routePaths));
                 return (
                   <Polyline
                     key={`route-fallback-${truck.id}`}
@@ -1096,7 +1299,12 @@ export default function LiveTracker() {
                 );
               }
             } else {
-              console.log(`❌ No coordinates available for truck ${truck.id}, skipping polyline`);
+              console.log(`❌ No valid coordinates available for truck ${truck.id} (${truck.number}), skipping polyline:`, {
+                originLat: truck.originLat,
+                originLng: truck.originLng,
+                destLat: truck.destLat,
+                destLng: truck.destLng
+              });
               return null;
             }
           })}
