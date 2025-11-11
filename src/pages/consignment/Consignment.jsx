@@ -387,10 +387,7 @@ const Consignment = () => {
         'Weight', 
         'Pick Up', 
         'Drop', 
-        'Vehicle', 
-        'Load Type', 
-        'Driver', 
-        'Status'
+        'Load Type'
       ];
       const csvRows = [headers.join(',')];
 
@@ -402,10 +399,7 @@ const Consignment = () => {
             row.weight,
             row.pickup,
             row.drop,
-            row.vehicle,
-            row.loadType,
-            row.driver,
-            row.status
+            row.loadType
           ];
           csvRows.push(values.join(','));
         });
@@ -555,10 +549,7 @@ const Consignment = () => {
               <TableCell sx={{ fontWeight: 600, width: '80px' }}>Weight</TableCell>
               <TableCell sx={{ fontWeight: 600, width: '200px' }}>Pick Up</TableCell>
               <TableCell sx={{ fontWeight: 600, width: '200px' }}>Drop</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: '100px' }}>Vehicle</TableCell>
               <TableCell sx={{ fontWeight: 600, width: '100px' }}>Load Type</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: '120px' }}>Driver</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: '100px' }}>Status</TableCell>
               <TableCell sx={{ fontWeight: 600, width: '120px' }}>Action</TableCell>
             </TableRow>
           </TableHead>
@@ -590,21 +581,7 @@ const Consignment = () => {
                   <TableCell sx={{ width: '80px' }}>{row.weight}</TableCell>        
                   <TableCell sx={{ width: '200px', wordWrap: 'break-word' }}>{row.pickup}</TableCell>        
                   <TableCell sx={{ width: '200px', wordWrap: 'break-word' }}>{row.drop}</TableCell>         
-                  <TableCell sx={{ width: '100px' }}>{row.vehicle}</TableCell>        
                   <TableCell sx={{ width: '100px' }}>{row.loadType}</TableCell>       
-                  <TableCell sx={{ width: '120px' }}>{row.driver}</TableCell>         
-                  <TableCell sx={{ width: '100px' }}>
-                    <Chip
-                      label={row.status}
-                      size="small"
-                      color={row.status === 'Pending' ? undefined : 'success'}
-                      sx={
-                        row.status === 'Pending'
-                          ? { bgcolor: '#FFEB3B', color: '#000', fontWeight: 700 }
-                          : undefined
-                      }
-                    />
-                  </TableCell>
                   <TableCell sx={{ width: '120px' }}>
                     <Button
                       variant="contained"
@@ -631,7 +608,7 @@ const Consignment = () => {
               })
             ) : (
               <TableRow>
-                <TableCell colSpan={10} sx={{ textAlign: 'center', py: 4 }}>
+                <TableCell colSpan={7} sx={{ textAlign: 'center', py: 4 }}>
                   <Typography variant="body1" color="text.secondary">
                     {loadsData.length === 0 ? 'No consignment data available' : 'No data matches your search criteria'}
                   </Typography>
@@ -853,8 +830,13 @@ const Consignment = () => {
                   Return Location
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {loadDetails?.load?.returnLocation || 'N/A'}
+                  {loadDetails?.load?.returnAddress || 'N/A'}
                 </Typography>
+                {loadDetails?.load?.returnCity && (
+                  <Typography variant="body2" color="text.secondary">
+                    {loadDetails.load.returnCity}, {loadDetails.load.returnState || ''} {loadDetails.load.returnZip || ''}
+                  </Typography>
+                )}
                 {loadDetails?.load?.returnDate && (
                   <Typography variant="body2" color="text.secondary">
                     Return Date: {new Date(loadDetails.load.returnDate).toLocaleDateString()}
@@ -1262,7 +1244,7 @@ const Consignment = () => {
                         <TextField
                           fullWidth
                           label="Rate"
-                          value={loadDetails?.load?.rate ? `$${loadDetails.load.rate} (${loadDetails.load.rateType})` : ''}
+                          value={loadDetails?.load?.rate ? `$${loadDetails.load.rate}` : ''}
                           variant="outlined"
                           size="small"
                           sx={{ mb: 2 }}
@@ -1515,8 +1497,8 @@ const Consignment = () => {
                         </Typography>
                         <TextField
                           fullWidth
-                          label="Return Location"
-                          value={loadDetails?.load?.returnLocation || 'N/A'}
+                          label="Return Address"
+                          value={loadDetails?.load?.returnAddress || 'N/A'}
                           variant="outlined"
                           size="small"
                           sx={{ mb: 2 }}
@@ -1526,8 +1508,8 @@ const Consignment = () => {
                           <Grid item xs={6}>
                             <TextField
                               fullWidth
-                              label="Return Apt From"
-                              value="N/A"
+                              label="Return City"
+                              value={loadDetails?.load?.returnCity || 'N/A'}
                               variant="outlined"
                               size="small"
                               InputProps={{ readOnly: true }}
@@ -1536,8 +1518,28 @@ const Consignment = () => {
                           <Grid item xs={6}>
                             <TextField
                               fullWidth
-                              label="Return Apt To"
-                              value="N/A"
+                              label="Return State"
+                              value={loadDetails?.load?.returnState || 'N/A'}
+                              variant="outlined"
+                              size="small"
+                              InputProps={{ readOnly: true }}
+                            />
+                          </Grid>
+                          <Grid item xs={6}>
+                            <TextField
+                              fullWidth
+                              label="Return Zip"
+                              value={loadDetails?.load?.returnZip || 'N/A'}
+                              variant="outlined"
+                              size="small"
+                              InputProps={{ readOnly: true }}
+                            />
+                          </Grid>
+                          <Grid item xs={6}>
+                            <TextField
+                              fullWidth
+                              label="Return Date"
+                              value={loadDetails?.load?.returnDate ? new Date(loadDetails.load.returnDate).toLocaleDateString() : 'N/A'}
                               variant="outlined"
                               size="small"
                               InputProps={{ readOnly: true }}
@@ -1716,7 +1718,7 @@ const Consignment = () => {
                             <TextField
                               fullWidth
                               label="Vessel ETA"
-                              value="N/A"
+                              value={loadDetails?.load?.importantDates?.vesselDate ? new Date(loadDetails.load.importantDates.vesselDate).toLocaleString() : 'N/A'}
                               variant="outlined"
                               size="small"
                               InputProps={{ readOnly: true }}
@@ -1726,7 +1728,7 @@ const Consignment = () => {
                             <TextField
                               fullWidth
                               label="Last Free Day"
-                              value="N/A"
+                              value={loadDetails?.load?.importantDates?.lastFreeDate ? new Date(loadDetails.load.importantDates.lastFreeDate).toLocaleString() : 'N/A'}
                               variant="outlined"
                               size="small"
                               InputProps={{ readOnly: true }}
@@ -1736,7 +1738,7 @@ const Consignment = () => {
                             <TextField
                               fullWidth
                               label="Discharge Date"
-                              value="N/A"
+                              value={loadDetails?.load?.importantDates?.dischargeDate ? new Date(loadDetails.load.importantDates.dischargeDate).toLocaleString() : 'N/A'}
                               variant="outlined"
                               size="small"
                               InputProps={{ readOnly: true }}
@@ -1746,7 +1748,7 @@ const Consignment = () => {
                             <TextField
                               fullWidth
                               label="Outgate Date"
-                              value="N/A"
+                              value={loadDetails?.load?.importantDates?.outgateDate ? new Date(loadDetails.load.importantDates.outgateDate).toLocaleString() : 'N/A'}
                               variant="outlined"
                               size="small"
                               InputProps={{ readOnly: true }}
@@ -1756,7 +1758,7 @@ const Consignment = () => {
                             <TextField
                               fullWidth
                               label="Empty Date"
-                              value="N/A"
+                              value={loadDetails?.load?.importantDates?.emptyDate ? new Date(loadDetails.load.importantDates.emptyDate).toLocaleString() : 'N/A'}
                               variant="outlined"
                               size="small"
                               InputProps={{ readOnly: true }}
@@ -1766,7 +1768,7 @@ const Consignment = () => {
                             <TextField
                               fullWidth
                               label="Per Diem Free Day"
-                              value="N/A"
+                              value={loadDetails?.load?.importantDates?.perDiemFreeDate ? new Date(loadDetails.load.importantDates.perDiemFreeDate).toLocaleString() : 'N/A'}
                               variant="outlined"
                               size="small"
                               InputProps={{ readOnly: true }}
@@ -1776,7 +1778,7 @@ const Consignment = () => {
                             <TextField
                               fullWidth
                               label="Ingate Date"
-                              value="N/A"
+                              value={loadDetails?.load?.importantDates?.ingateDate ? new Date(loadDetails.load.importantDates.ingateDate).toLocaleString() : 'N/A'}
                               variant="outlined"
                               size="small"
                               InputProps={{ readOnly: true }}
@@ -1786,7 +1788,7 @@ const Consignment = () => {
                             <TextField
                               fullWidth
                               label="Ready To Return Date"
-                              value="N/A"
+                              value={loadDetails?.load?.importantDates?.readyToReturnDate ? new Date(loadDetails.load.importantDates.readyToReturnDate).toLocaleString() : 'N/A'}
                               variant="outlined"
                               size="small"
                               InputProps={{ readOnly: true }}
@@ -2213,16 +2215,6 @@ const Consignment = () => {
                           <Grid item xs={6}>
                             <TextField
                               fullWidth
-                              label="Driver Phone"
-                              value={loadDetails.load.acceptedBid.driverPhone}
-                              variant="outlined"
-                              size="small"
-                              InputProps={{ readOnly: true }}
-                            />
-                          </Grid>
-                          <Grid item xs={6}>
-                            <TextField
-                              fullWidth
                               label="Vehicle Number"
                               value={loadDetails.load.acceptedBid.vehicleNumber}
                               variant="outlined"
@@ -2242,14 +2234,15 @@ const Consignment = () => {
                           </Grid>
                           <Grid item xs={12}>
                             <TextField
-                              fullWidth
+                              // fullWidth
                               label="Bid Message"
                               value={loadDetails.load.acceptedBid.message}
                               variant="outlined"
                               size="small"
                               multiline
-                              rows={2}
+                              rows={1}
                               InputProps={{ readOnly: true }}
+                              sx={{ width: '40rem' }}
                             />
                           </Grid>
                         </Grid>

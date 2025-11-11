@@ -107,8 +107,9 @@ const Dashboard = () => {
     try {
       setMapLoading(true);
       const token = localStorage.getItem('token');
+      const role = userType === 'trucker' ? 'trucker' : 'shipper';
       
-      const response = await fetch(`${BASE_API_URL}/api/v1/load/shipper/my-loads-detailed`, {
+      const response = await fetch(`${BASE_API_URL}/api/v1/load/${role}/my-loads-detailed`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -193,9 +194,10 @@ const Dashboard = () => {
     try {
       setTableLoading(true);
       const token = localStorage.getItem('token');
+      const role = userType === 'trucker' ? 'trucker' : 'shipper';
       
       // Build URL with optional status parameter
-      let url = `${BASE_API_URL}/api/v1/load/shipper/my-loads-detailed`;
+      let url = `${BASE_API_URL}/api/v1/load/${role}/my-loads-detailed`;
       if (status) {
         url += `?status=${status}`;
       }
@@ -299,8 +301,9 @@ const Dashboard = () => {
     try {
       setTableLoading(true);
       const token = localStorage.getItem('token');
+      const role = userType === 'trucker' ? 'trucker' : 'shipper';
       
-      const response = await fetch(`${BASE_API_URL}/api/v1/bills/shipper/my-bills`, {
+      const response = await fetch(`${BASE_API_URL}/api/v1/bills/${role}/my-bills`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -349,17 +352,18 @@ const Dashboard = () => {
     try {
       setTableLoading(true);
       const token = localStorage.getItem('token');
+      const role = userType === 'trucker' ? 'trucker' : 'shipper';
       
       // Make two API calls for Bidding and Assigned statuses
       const [biddingResponse, assignedResponse] = await Promise.all([
-        fetch(`${BASE_API_URL}/api/v1/load/shipper/my-loads-detailed?status=Bidding`, {
+        fetch(`${BASE_API_URL}/api/v1/load/${role}/my-loads-detailed?status=Bidding`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
           },
         }),
-        fetch(`${BASE_API_URL}/api/v1/load/shipper/my-loads-detailed?status=Assigned`, {
+        fetch(`${BASE_API_URL}/api/v1/load/${role}/my-loads-detailed?status=Assigned`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -550,19 +554,20 @@ const Dashboard = () => {
   const loadActualCounts = async () => {
     try {
       const token = localStorage.getItem('token');
+      const role = userType === 'trucker' ? 'trucker' : 'shipper';
       
       // Load all counts in parallel
       const [totalResponse, biddingResponse, deliveredResponse, inTransitResponse] = await Promise.all([
-        fetch(`${BASE_API_URL}/api/v1/load/shipper/my-loads-detailed`, {
+        fetch(`${BASE_API_URL}/api/v1/load/${role}/my-loads-detailed`, {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
-        fetch(`${BASE_API_URL}/api/v1/load/shipper/my-loads-detailed?status=Bidding`, {
+        fetch(`${BASE_API_URL}/api/v1/load/${role}/my-loads-detailed?status=Bidding`, {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
-        fetch(`${BASE_API_URL}/api/v1/load/shipper/my-loads-detailed?status=Delivered`, {
+        fetch(`${BASE_API_URL}/api/v1/load/${role}/my-loads-detailed?status=Delivered`, {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
-        fetch(`${BASE_API_URL}/api/v1/load/shipper/my-loads-detailed?status=In Transit`, {
+        fetch(`${BASE_API_URL}/api/v1/load/${role}/my-loads-detailed?status=In Transit`, {
           headers: { 'Authorization': `Bearer ${token}` }
         })
       ]);
