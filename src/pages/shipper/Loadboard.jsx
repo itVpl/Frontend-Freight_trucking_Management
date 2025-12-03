@@ -189,17 +189,18 @@ const usCities = [
 ];
 
 // Vehicle types - Separate for DRAYAGE and OTR as per server enum
+// IMPORTANT: These must match EXACTLY with API enum values
 const DRAYAGE_VEHICLE_TYPES = [
-  "20' Standard (Dry Van)",
-  "40' Standard (Dry Van)",
-  "45' Standard (Dry Van)",
+  "20' Standard",
+  "40' Standard",
+  "45' Standard",
   "20' Reefer",
-  "40' Reefer (High Cube or Standard)",
+  "40' Reefer",
   "Open Top Container",
   "Flat Rack Container",
-  "Tank Container (ISO Tank)",
-  "40' High Cube (HC)",
-  "45' High Cube (HC)"
+  "Tank Container",
+  "40' High Cube",
+  "45' High Cube"
 ];
 
 const OTR_VEHICLE_TYPES = [
@@ -229,17 +230,18 @@ const LoadBoard = () => {
   const [charges, setCharges] = useState([]);
 
   // Vehicle type options - Separate for DRAYAGE and OTR as per server enum
+  // IMPORTANT: These must match EXACTLY with API enum values
   const DRAYAGE_VEHICLE_TYPES = [
-    "20' Standard (Dry Van)",
-    "40' Standard (Dry Van)",
-    "45' Standard (Dry Van)",
+    "20' Standard",
+    "40' Standard",
+    "45' Standard",
     "20' Reefer",
-    "40' Reefer (High Cube or Standard)",
+    "40' Reefer",
     "Open Top Container",
     "Flat Rack Container",
-    "Tank Container (ISO Tank)",
-    "40' High Cube (HC)",
-    "45' High Cube (HC)"
+    "Tank Container",
+    "40' High Cube",
+    "45' High Cube"
   ];
 
   const OTR_VEHICLE_TYPES = [
@@ -2058,6 +2060,10 @@ const handleEditLoad = (load) => {
     setCmtLoading(true);
     setCmtData(null);
 
+    // Find the load from loadData state
+    const currentLoad = loadData.find(load => load._id === loadId);
+    console.log('Current Load from loadData:', currentLoad);
+
     try {
       const token = localStorage.getItem('token');
       const response = await axios.get(`${BASE_API_URL}/api/v1/load/shipper/load/${loadId}/cmt-assignment`, {
@@ -2067,7 +2073,32 @@ const handleEditLoad = (load) => {
       });
 
       if (response.data.success) {
-        setCmtData(response.data.data);
+        console.log('CMT API Response:', response.data.data);
+        
+        // Merge load data from loadData state with CMT response
+        const mergedData = {
+          ...response.data.data,
+          loadDetails: {
+            ...response.data.data.loadDetails,
+            // Add origins and destinations from the main load data
+            origins: currentLoad?.origins || response.data.data.loadDetails?.origins,
+            destinations: currentLoad?.destinations || response.data.data.loadDetails?.destinations,
+            // Also add DRAYAGE fields as fallback
+            fromAddress: currentLoad?.fromAddress || response.data.data.loadDetails?.fromAddress,
+            fromCity: currentLoad?.fromCity || response.data.data.loadDetails?.fromCity,
+            fromState: currentLoad?.fromState || response.data.data.loadDetails?.fromState,
+            fromZip: currentLoad?.fromZip || response.data.data.loadDetails?.fromZip,
+            toAddress: currentLoad?.toAddress || response.data.data.loadDetails?.toAddress,
+            toCity: currentLoad?.toCity || response.data.data.loadDetails?.toCity,
+            toState: currentLoad?.toState || response.data.data.loadDetails?.toState,
+            toZip: currentLoad?.toZip || response.data.data.loadDetails?.toZip,
+          }
+        };
+        
+        console.log('Merged CMT Data:', mergedData);
+        console.log('Origins:', mergedData.loadDetails?.origins);
+        console.log('Destinations:', mergedData.loadDetails?.destinations);
+        setCmtData(mergedData);
       } else {
         setCmtData(null);
         if (window.alertify) {
@@ -2520,7 +2551,10 @@ const handleEditLoad = (load) => {
           <TableHead>
             <TableRow sx={{ backgroundColor: '#f0f4f8' }}>
               <TableCell sx={{ fontWeight: 600 }}>Load ID</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Shipment No</TableCell>
+              {/* Hide Shipment No column for Pending Approval (0) and Bidding (1) tabs */}
+              {activeTab !== 0 && activeTab !== 1 && (
+                <TableCell sx={{ fontWeight: 600 }}>Shipment No</TableCell>
+              )}
               <TableCell sx={{ fontWeight: 600 }}>Weight</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Pick-Up</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Drop</TableCell>
@@ -2532,11 +2566,11 @@ const handleEditLoad = (load) => {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} align="center">Loading...</TableCell>
+                <TableCell colSpan={activeTab === 0 || activeTab === 1 ? 7 : 8} align="center">Loading...</TableCell>
               </TableRow>
             ) : filteredData.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} align="center">No data found</TableCell>
+                <TableCell colSpan={activeTab === 0 || activeTab === 1 ? 7 : 8} align="center">No data found</TableCell>
               </TableRow>
             ) : (
               filteredData
@@ -2562,7 +2596,10 @@ const handleEditLoad = (load) => {
                       }}
                     >
                       <TableCell>{load._id ? `L-${load._id.slice(-4)}` : '-'}</TableCell>
-                      <TableCell>{load.shipmentNumber}</TableCell>
+                      {/* Hide Shipment No cell for Pending Approval (0) and Bidding (1) tabs */}
+                      {activeTab !== 0 && activeTab !== 1 && (
+                        <TableCell>{load.shipmentNumber}</TableCell>
+                      )}
                       <TableCell>{load.weight !== undefined && load.weight !== null && load.weight !== '' ? `${load.weight} Kg` : '-'}</TableCell>
                       <TableCell>
                         {load.origins && load.origins.length > 0 && load.origins[0].city ?
@@ -3368,8 +3405,8 @@ const handleEditLoad = (load) => {
                             { label: 'Zip Code *', name: 'zip', value: origin.zip, placeholder: 'Enter zip code', required: true },
                             { label: 'Weight (lbs) *', name: 'weight', value: origin.weight, placeholder: 'e.g., 26000', required: true },
                             { label: 'Commodity *', name: 'commodity', value: origin.commodity, placeholder: 'Enter commodity', required: true },
-                            { label: 'Pickup Date *', name: 'pickupDate', value: origin.pickupDate, type: 'date', required: true },
-                            { label: 'Delivery Date', name: 'deliveryDate', value: origin.deliveryDate, type: 'date' },
+                            { label: 'Pickup Date *', name: 'pickupDate', value: origin.pickupDate, type: 'datetime-local', required: true },
+                            { label: 'Delivery Date', name: 'deliveryDate', value: origin.deliveryDate, type: 'datetime-local' },
                           ].map((field, i) => (
                             <Grid item xs={12} sm={6} key={i}>
                               <TextField
@@ -3385,7 +3422,7 @@ const handleEditLoad = (load) => {
                                 }}
                                 fullWidth
                                 error={!!errors[`origin_${index}_${field.name}`]}
-                                InputLabelProps={field.type === 'date' ? { shrink: true } : undefined}
+                                InputLabelProps={field.type === 'datetime-local' ? { shrink: true } : undefined}
                                 sx={{
                                   minWidth: '270px',
                                   '& .MuiInputBase-root': {
@@ -3505,8 +3542,7 @@ const handleEditLoad = (load) => {
                             { label: 'Zip Code *', name: 'zip', value: destination.zip, placeholder: 'Enter zip code', required: true },
                             { label: 'Weight (lbs) *', name: 'weight', value: destination.weight, placeholder: 'e.g., 26000', required: true },
                             { label: 'Commodity *', name: 'commodity', value: destination.commodity, placeholder: 'Enter commodity', required: true },
-                            { label: 'Pickup Date *', name: 'pickupDate', value: destination.pickupDate, type: 'date', required: true },
-                            { label: 'Delivery Date *', name: 'deliveryDate', value: destination.deliveryDate, type: 'date', required: true },
+                            { label: 'Delivery Date *', name: 'deliveryDate', value: destination.deliveryDate, type: 'datetime-local', required: true },
                           ].map((field, i) => (
                             <Grid item xs={12} sm={6} key={i}>
                               <TextField
@@ -3522,7 +3558,7 @@ const handleEditLoad = (load) => {
                                 }}
                                 fullWidth
                                 error={!!errors[`destination_${index}_${field.name}`]}
-                                InputLabelProps={field.type === 'date' ? { shrink: true } : undefined}
+                                InputLabelProps={field.type === 'datetime-local' ? { shrink: true } : undefined}
                                 sx={{
                                   minWidth: '270px',
                                   '& .MuiInputBase-root': {
@@ -4005,7 +4041,7 @@ const handleEditLoad = (load) => {
                   <Grid container spacing={2.5}>
                     <Grid item xs={12} sm={6} md={3}>
                       <TextField
-                        type="date"
+                        type="datetime-local"
                         label="Pickup Date *"
                         name="pickupDate"
                         value={form.pickupDate}
@@ -4028,7 +4064,7 @@ const handleEditLoad = (load) => {
 
                     <Grid item xs={12} sm={6} md={3}>
                       <TextField
-                        type="date"
+                        type="datetime-local"
                         label="Delivery Date *"
                         name="deliveryDate"
                         value={form.deliveryDate}
@@ -4051,7 +4087,7 @@ const handleEditLoad = (load) => {
 
                     <Grid item xs={12} sm={6} md={3}>
                       <TextField
-                        type="date"
+                        type="datetime-local"
                         label="Return Date *"
                         name="returnDate"
                         value={form.returnDate}
@@ -4074,8 +4110,8 @@ const handleEditLoad = (load) => {
 
                     <Grid item xs={12} sm={6} md={3}>
                       <TextField
-                        type="date"
-                        label="BOL Deadline *"
+                        type="datetime-local"
+                        label="Bid Deadline"
                         name="bidDeadline"
                         value={form.bidDeadline}
                         onChange={handleFormChange}
@@ -4125,8 +4161,8 @@ const handleEditLoad = (load) => {
                   <Grid container spacing={3}>
                     <Grid item xs={12} sm={6}>
                       <TextField
-                        type="date"
-                        label="Bid Deadline *"
+                        type="datetime-local"
+                        label="Bid Deadline"
                         name="bidDeadline"
                         value={form.bidDeadline}
                         onChange={handleFormChange}
@@ -4274,7 +4310,7 @@ const handleEditLoad = (load) => {
 
 
               {/* Smart Rate Suggestion Button */}
-              <Box sx={{
+              {/* <Box sx={{
                 display: 'flex',
                 justifyContent: 'center',
                 mt: 3,
@@ -4315,7 +4351,7 @@ const handleEditLoad = (load) => {
                 >
                   💡 Smart Rate Suggestion
                 </Button>
-              </Box>
+              </Box> */}
             </Box>
 
             {/* Rate Suggestions */}
@@ -5400,355 +5436,254 @@ const handleEditLoad = (load) => {
           background: 'linear-gradient(135deg, #f8fafc 0%, #ffffff 100%)',
           minHeight: 400
         }}>
-          <Box component="form" onSubmit={handleAcceptSubmit}>
-            <Grid container spacing={3} sx={{ mt: 2 }}>
-              <Grid item xs={12}>
-                <TextField
-                  label="Shipment Number"
-                  name="shipmentNumber"
-                  value={acceptForm.shipmentNumber}
-                  onChange={handleAcceptFormChange}
-                  fullWidth
-                  required
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Assignment sx={{ color: '#1976d2' }} />
-                      </InputAdornment>
-                    ),
-                  }}
+       <Box component="form" onSubmit={handleAcceptSubmit} sx={{ 
+    p: 4, 
+    backgroundColor: '#ffffff', 
+    borderRadius: 3, 
+    boxShadow: '0 8px 25px rgba(0, 0, 0, 0.05)', 
+    border: '1px solid #f0f4f8' // Very subtle border
+}}>
+  <Grid container spacing={4}>
+    
+    {/* Shipment Number */}
+    <Grid item xs={12}>
+      <TextField
+        label="Shipment Number"
+        name="shipmentNumber"
+        value={acceptForm.shipmentNumber}
+        onChange={handleAcceptFormChange}
+        fullWidth
+        required
+        variant="standard" // Changed to standard for flat look
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              <Assignment sx={{ color: '#6366f1', mr: 1 }} />
+            </InputAdornment>
+          ),
+          disableUnderline: true, // Optional: for a fully borderless look
+        }}
+        sx={{
+          '& .MuiInputBase-root': {
+            backgroundColor: '#f8fafc', // Light background for the field
+            borderRadius: 1,
+            padding: '12px 14px',
+            transition: '0.2s ease',
+            borderBottom: '2px solid #e2e8f0', // Subtle bottom line
+          },
+          '& .MuiInputBase-root:hover': {
+             borderBottomColor: '#a78bfa', // Lighter purple on hover
+          },
+          '& .MuiInputBase-root.Mui-focused': {
+            borderBottomColor: '#4f46e5', // Primary color on focus
+          },
+          '& .MuiInputLabel-root': { color: '#64748b', fontWeight: 500, top: '4px', left: '20px' },
+          '& .MuiInputLabel-root.Mui-focused': { color: '#4f46e5' },
+        }}
+        error={!!acceptErrors.shipmentNumber}
+        helperText={acceptErrors.shipmentNumber}
+      />
+    </Grid>
+
+    {/* PO Number */}
+    <Grid item xs={12}>
+      <TextField
+        label="PO Number"
+        name="poNumber"
+        value={acceptForm.poNumber}
+        onChange={handleAcceptFormChange}
+        fullWidth
+        required
+        variant="standard"
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              <Description sx={{ color: '#6366f1', mr: 1 }} />
+            </InputAdornment>
+          ),
+          disableUnderline: true,
+        }}
+        sx={{
+          '& .MuiInputBase-root': {
+            backgroundColor: '#f8fafc',
+            borderRadius: 1,
+            padding: '12px 14px',
+            transition: '0.2s ease',
+            borderBottom: '2px solid #e2e8f0',
+          },
+          '& .MuiInputBase-root:hover': {
+             borderBottomColor: '#a78bfa',
+          },
+          '& .MuiInputBase-root.Mui-focused': {
+            borderBottomColor: '#4f46e5',
+          },
+          '& .MuiInputLabel-root': { color: '#64748b', fontWeight: 500, top: '4px', left: '20px' },
+          '& .MuiInputLabel-root.Mui-focused': { color: '#4f46e5' },
+        }}
+        error={!!acceptErrors.poNumber}
+        helperText={acceptErrors.poNumber}
+      />
+    </Grid>
+
+    {/* BOL Number */}
+    <Grid item xs={12}>
+      <TextField
+        label="BOL Number"
+        name="bolNumber"
+        value={acceptForm.bolNumber}
+        onChange={handleAcceptFormChange}
+        fullWidth
+        required
+        variant="standard"
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              <Description sx={{ color: '#6366f1', mr: 1 }} />
+            </InputAdornment>
+          ),
+          disableUnderline: true,
+        }}
+        sx={{
+          '& .MuiInputBase-root': {
+            backgroundColor: '#f8fafc',
+            borderRadius: 1,
+            padding: '12px 14px',
+            transition: '0.2s ease',
+            borderBottom: '2px solid #e2e8f0',
+          },
+          '& .MuiInputBase-root:hover': {
+             borderBottomColor: '#a78bfa',
+          },
+          '& .MuiInputBase-root.Mui-focused': {
+            borderBottomColor: '#4f46e5',
+          },
+          '& .MuiInputLabel-root': { color: '#64748b', fontWeight: 500, top: '4px', left: '20px' },
+          '& .MuiInputLabel-root.Mui-focused': { color: '#4f46e5' },
+        }}
+        error={!!acceptErrors.bolNumber}
+        helperText={acceptErrors.bolNumber}
+      />
+    </Grid>
+
+    {/* Upload Box (Prominent Card Look) */}
+    <Grid item xs={12}>
+      <Box
+        sx={{
+          border: '2px solid #c7d2fe', // Light primary border
+          borderRadius: 2,
+          p: 4,
+          textAlign: 'center',
+          backgroundColor: '#f8fafc', // Light gray background
+          boxShadow: '0 4px 10px rgba(0, 0, 0, 0.05)',
+          transition: '0.3s ease',
+          cursor: 'pointer',
+          '&:hover': { 
+              borderColor: '#4f46e5', 
+              backgroundColor: '#eff6ff', // Very light blue on hover 
+          }
+        }}
+      >
+        <input
+          accept="image/*,.pdf,.doc,.docx"
+          style={{ display: 'none' }}
+          id="acceptance-attachment-upload-v3"
+          type="file"
+          name="acceptanceAttachment1"
+          onChange={handleAcceptFormChange}
+        />
+
+        <label htmlFor="acceptance-attachment-upload-v3">
+          <Box sx={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            {acceptFilePreview ? (
+              <Box sx={{ position: 'relative', width: '100%' }}>
+                <Box
+                  component="img"
+                  src={acceptFilePreview}
+                  alt="Preview"
                   sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: 3,
-                      backgroundColor: '#ffffff',
-                      fontSize: '1rem',
-                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
-                      transition: 'all 0.3s ease',
-                      '&:hover': {
-                        boxShadow: '0 4px 12px rgba(25, 118, 210, 0.12)',
-                        transform: 'translateY(-1px)'
-                      },
-                      '&.Mui-focused': {
-                        boxShadow: '0 4px 16px rgba(25, 118, 210, 0.2)',
-                        transform: 'translateY(-1px)'
-                      },
-                      '& fieldset': {
-                        borderWidth: 2,
-                        borderColor: '#e0e0e0'
-                      },
-                      '&:hover fieldset': {
-                        borderColor: '#1976d2'
-                      },
-                      '&.Mui-focused fieldset': {
-                        borderColor: '#1976d2',
-                        borderWidth: 2
-                      }
-                    },
-                    '& .MuiInputLabel-root': {
-                      fontWeight: 600,
-                      color: '#64748b'
-                    },
-                    '& .MuiInputLabel-root.Mui-focused': {
-                      color: '#1976d2',
-                      fontWeight: 700
-                    }
-                  }}
-                  error={!!acceptErrors.shipmentNumber}
-                  helperText={acceptErrors.shipmentNumber}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  label="PO Number"
-                  name="poNumber"
-                  value={acceptForm.poNumber}
-                  onChange={handleAcceptFormChange}
-                  fullWidth
-                  required
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Description sx={{ color: '#1976d2' }} />
-                      </InputAdornment>
-                    ),
-                  }}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: 3,
-                      backgroundColor: '#ffffff',
-                      fontSize: '1rem',
-                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
-                      transition: 'all 0.3s ease',
-                      '&:hover': {
-                        boxShadow: '0 4px 12px rgba(25, 118, 210, 0.12)',
-                        transform: 'translateY(-1px)'
-                      },
-                      '&.Mui-focused': {
-                        boxShadow: '0 4px 16px rgba(25, 118, 210, 0.2)',
-                        transform: 'translateY(-1px)'
-                      },
-                      '& fieldset': {
-                        borderWidth: 2,
-                        borderColor: '#e0e0e0'
-                      },
-                      '&:hover fieldset': {
-                        borderColor: '#1976d2'
-                      },
-                      '&.Mui-focused fieldset': {
-                        borderColor: '#1976d2',
-                        borderWidth: 2
-                      }
-                    },
-                    '& .MuiInputLabel-root': {
-                      fontWeight: 600,
-                      color: '#64748b'
-                    },
-                    '& .MuiInputLabel-root.Mui-focused': {
-                      color: '#1976d2',
-                      fontWeight: 700
-                    }
-                  }}
-                  error={!!acceptErrors.poNumber}
-                  helperText={acceptErrors.poNumber}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  label="BOL Number"
-                  name="bolNumber"
-                  value={acceptForm.bolNumber}
-                  onChange={handleAcceptFormChange}
-                  fullWidth
-                  required
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Description sx={{ color: '#1976d2' }} />
-                      </InputAdornment>
-                    ),
-                  }}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: 3,
-                      backgroundColor: '#ffffff',
-                      fontSize: '1rem',
-                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
-                      transition: 'all 0.3s ease',
-                      '&:hover': {
-                        boxShadow: '0 4px 12px rgba(25, 118, 210, 0.12)',
-                        transform: 'translateY(-1px)'
-                      },
-                      '&.Mui-focused': {
-                        boxShadow: '0 4px 16px rgba(25, 118, 210, 0.2)',
-                        transform: 'translateY(-1px)'
-                      },
-                      '& fieldset': {
-                        borderWidth: 2,
-                        borderColor: '#e0e0e0'
-                      },
-                      '&:hover fieldset': {
-                        borderColor: '#1976d2'
-                      },
-                      '&.Mui-focused fieldset': {
-                        borderColor: '#1976d2',
-                        borderWidth: 2
-                      }
-                    },
-                    '& .MuiInputLabel-root': {
-                      fontWeight: 600,
-                      color: '#64748b'
-                    },
-                    '& .MuiInputLabel-root.Mui-focused': {
-                      color: '#1976d2',
-                      fontWeight: 700
-                    }
-                  }}
-                  error={!!acceptErrors.bolNumber}
-                  helperText={acceptErrors.bolNumber}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Box sx={{
-                  border: '3px dashed #cbd5e1',
-                  borderRadius: 3,
-                  p: 3.5,
-                  textAlign: 'center',
-                  background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  position: 'relative',
-                  overflow: 'hidden',
-                  '&::before': {
-                    content: '""',
-                    position: 'absolute',
-                    top: 0,
-                    left: '-100%',
                     width: '100%',
-                    height: '100%',
-                    background: 'linear-gradient(90deg, transparent, rgba(25, 118, 210, 0.05), transparent)',
-                    transition: 'left 0.5s ease'
-                  },
-                  '&:hover': {
-                    borderColor: '#4caf50',
-                    backgroundColor: '#f0f9ff',
-                    transform: 'translateY(-2px)',
-                    boxShadow: '0 8px 24px rgba(76, 175, 80, 0.15)',
-                    '&::before': {
-                      left: '100%'
-                    },
-                    '& .upload-icon': {
-                      transform: 'scale(1.1)',
-                      color: '#4caf50'
-                    }
-                  }
-                }}>
-                  <input
-                    accept="image/*,.pdf,.doc,.docx"
-                    style={{ display: 'none' }}
-                    id="acceptance-attachment-upload"
-                    type="file"
-                    name="acceptanceAttachment1"
-                    onChange={handleAcceptFormChange}
-                  />
-                  <label htmlFor="acceptance-attachment-upload">
-                    <Box sx={{ cursor: 'pointer', position: 'relative', zIndex: 1 }}>
-                      {acceptFilePreview ? (
-                        <Box sx={{ position: 'relative' }}>
-                          <Box
-                            component="img"
-                            src={acceptFilePreview}
-                            alt="Preview"
-                            sx={{
-                              width: '100%',
-                              maxHeight: 180,
-                              objectFit: 'contain',
-                              borderRadius: 2,
-                              border: '2px solid #e2e8f0',
-                              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
-                            }}
-                          />
-                          <IconButton
-                            size="small"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setAcceptForm(prev => ({ ...prev, acceptanceAttachment1: null }));
-                              setAcceptFilePreview(null);
-                              const fileInput = document.getElementById('acceptance-attachment-upload');
-                              if (fileInput) fileInput.value = '';
-                            }}
-                            sx={{
-                              position: 'absolute',
-                              top: 8,
-                              right: 8,
-                              backgroundColor: 'rgba(255,255,255,0.95)',
-                              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                              border: '2px solid #fff',
-                              '&:hover': {
-                                backgroundColor: '#ffffff',
-                                transform: 'scale(1.1)'
-                              }
-                            }}
-                          >
-                            <Close fontSize="small" />
-                          </IconButton>
-                        </Box>
-                      ) : acceptForm.acceptanceAttachment1 ? (
-                        <Box>
-                          <AttachFile sx={{ fontSize: 48, color: '#4caf50', mb: 1.5 }} />
-                          <Typography variant="body1" sx={{ fontWeight: 700, color: '#1e293b', mb: 1 }}>
-                            {acceptForm.acceptanceAttachment1.name}
-                          </Typography>
-                          <IconButton
-                            size="small"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setAcceptForm(prev => ({ ...prev, acceptanceAttachment1: null }));
-                              const fileInput = document.getElementById('acceptance-attachment-upload');
-                              if (fileInput) fileInput.value = '';
-                            }}
-                            sx={{
-                              mt: 0.5,
-                              color: '#f44336',
-                              '&:hover': {
-                                backgroundColor: '#ffebee'
-                              }
-                            }}
-                          >
-                            <Close fontSize="small" />
-                          </IconButton>
-                        </Box>
-                      ) : (
-                        <>
-                          <CloudUpload className="upload-icon" sx={{ fontSize: 56, color: '#94a3b8', mb: 2, transition: 'all 0.3s ease' }} />
-                          <Typography variant="body1" sx={{ color: '#64748b', fontWeight: 700, mb: 0.5, fontSize: '1.1rem' }}>
-                            Upload DO Attachment
-                          </Typography>
-                          <Typography variant="body2" sx={{ color: '#94a3b8', display: 'block', mt: 0.5 }}>
-                            (Optional) Click to browse files
-                          </Typography>
-                          <Typography variant="caption" sx={{ color: '#cbd5e1', display: 'block', mt: 1 }}>
-                            Supports: Images, PDF, DOC, DOCX
-                          </Typography>
-                        </>
-                      )}
-                    </Box>
-                  </label>
-                </Box>
-              </Grid>
-            </Grid>
-            <DialogActions sx={{ mt: 4, px: 0, gap: 2, justifyContent: 'flex-end' }}>
-              <Button
-                onClick={handleCloseAcceptModal}
-                variant="outlined"
-                sx={{
-                  borderRadius: 3,
-                  fontWeight: 700,
-                  px: 4,
-                  py: 1.5,
-                  fontSize: '1rem',
-                  color: '#64748b',
-                  borderColor: '#cbd5e1',
-                  borderWidth: 2,
-                  textTransform: 'none',
-                  background: '#ffffff',
-                  transition: 'all 0.3s ease',
-                  '&:hover': {
-                    borderColor: '#94a3b8',
-                    backgroundColor: '#f8fafc',
-                    transform: 'translateY(-2px)',
-                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
-                  }
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                variant="contained"
-                startIcon={<CheckCircle />}
-                sx={{
-                  borderRadius: 3,
-                  fontWeight: 800,
-                  px: 4,
-                  py: 1.5,
-                  fontSize: '1rem',
-                  textTransform: 'none',
-                  background: 'linear-gradient(135deg, #4caf50 0%, #2e7d32 100%)',
-                  boxShadow: '0 4px 16px rgba(76, 175, 80, 0.4)',
-                  transition: 'all 0.3s ease',
-                  '&:hover': {
-                    background: 'linear-gradient(135deg, #388e3c 0%, #1b5e20 100%)',
-                    boxShadow: '0 6px 20px rgba(76, 175, 80, 0.5)',
-                    transform: 'translateY(-2px)'
-                  },
-                  '&:active': {
-                    transform: 'translateY(0px)'
-                  }
-                }}
-              >
-                Accept Bid
-              </Button>
-            </DialogActions>
+                    maxHeight: 160,
+                    objectFit: 'contain',
+                    borderRadius: 1
+                  }}
+                />
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setAcceptForm(prev => ({ ...prev, acceptanceAttachment1: null }));
+                    setAcceptFilePreview(null);
+                    document.getElementById('acceptance-attachment-upload-v3').value = '';
+                  }}
+                  sx={{
+                    position: 'absolute',
+                    top: 6,
+                    right: 6,
+                    backgroundColor: '#fff',
+                    boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+                  }}
+                >
+                  <Close fontSize="small" />
+                </IconButton>
+              </Box>
+            ) : (
+              <Box>
+                <CloudUpload sx={{ fontSize: 60, color: '#4f46e5', mb: 1.5 }} />
+                <Typography variant="h6" sx={{ fontWeight: 700, color: '#1e293b' }}>
+                  Upload Delivery Order (DO)
+                </Typography>
+                <Typography sx={{ color: '#64748b', fontSize: 14, mt: 0.5 }}>
+                  Recommended formats: Image, PDF, or DOCX
+                </Typography>
+              </Box>
+            )}
           </Box>
+        </label>
+      </Box>
+    </Grid>
+  </Grid>
+
+  {/* Buttons */}
+  <DialogActions sx={{ mt: 5, px: 0, pt: 3, justifyContent: 'center' }}>
+    <Button
+      onClick={handleCloseAcceptModal}
+      variant="outlined"
+      sx={{
+        borderRadius: 2,
+        px: 5,
+        py: 1.5,
+        fontWeight: 600,
+        textTransform: 'none',
+        borderColor: '#94a3b8',
+        color: '#475569',
+        '&:hover': { backgroundColor: '#f1f5f9', borderColor: '#475569' }
+      }}
+    >
+      Cancel
+    </Button>
+
+    <Button
+      type="submit"
+      variant="contained"
+      startIcon={<CheckCircle />}
+      sx={{
+        borderRadius: 2,
+        px: 5,
+        py: 1.5,
+        fontWeight: 700,
+        textTransform: 'none',
+        background: 'linear-gradient(90deg, #4f46e5 0%, #7c3aed 100%)', // Gradient for a richer look
+        boxShadow: '0 4px 20px rgba(79, 70, 229, 0.5)',
+        '&:hover': { 
+            background: 'linear-gradient(90deg, #4338ca 0%, #6d28d9 100%)', 
+            boxShadow: '0 6px 25px rgba(67, 56, 202, 0.6)' 
+        }
+      }}
+    >
+      Accept Bid
+    </Button>
+  </DialogActions>
+</Box>
         </DialogContent>
       </Dialog>
 
@@ -7815,7 +7750,9 @@ const handleEditLoad = (load) => {
                   <TableBody>
                     <TableRow>
                       <TableCell sx={{ fontWeight: 600, width: '25%', background: '#f8f9fa' }}>Load ID</TableCell>
-                      <TableCell sx={{ fontWeight: 500, width: '25%' }}>{cmtData.loadId}</TableCell>
+                      <TableCell sx={{ fontWeight: 500, width: '25%' }}>
+                        {cmtData.loadId ? `L-${cmtData.loadId.slice(-4)}` : '-'}
+                      </TableCell>
                       <TableCell sx={{ fontWeight: 600, width: '25%', background: '#f8f9fa' }}>Status</TableCell>
                       <TableCell sx={{ width: '25%' }}>
                         <Chip label={cmtData.loadDetails?.status || 'N/A'} color={getStatusColor(cmtData.loadDetails?.status || '')} size="small" />
@@ -7824,17 +7761,61 @@ const handleEditLoad = (load) => {
                     <TableRow>
                       <TableCell sx={{ fontWeight: 600, background: '#f8f9fa' }}>Origin</TableCell>
                       <TableCell sx={{ fontWeight: 500 }}>
-                        {cmtData.loadDetails?.origins && cmtData.loadDetails.origins.length > 0 ?
-                          `${cmtData.loadDetails.origins[0].city}, ${cmtData.loadDetails.origins[0].state}` :
-                          'N/A'
-                        }
+                        {cmtData.loadDetails?.origins && cmtData.loadDetails.origins.length > 0 ? (
+                          <>
+                            {cmtData.loadDetails.origins[0].addressLine1 && (
+                              <>{cmtData.loadDetails.origins[0].addressLine1}<br /></>
+                            )}
+                            {cmtData.loadDetails.origins[0].addressLine2 && (
+                              <>{cmtData.loadDetails.origins[0].addressLine2}<br /></>
+                            )}
+                            {cmtData.loadDetails.origins[0].city && cmtData.loadDetails.origins[0].state ? 
+                              `${cmtData.loadDetails.origins[0].city}, ${cmtData.loadDetails.origins[0].state}` : 
+                              cmtData.loadDetails.origins[0].city || cmtData.loadDetails.origins[0].state || 'N/A'
+                            }
+                            {cmtData.loadDetails.origins[0].zip && ` ${cmtData.loadDetails.origins[0].zip}`}
+                          </>
+                        ) : cmtData.loadDetails?.fromAddress || cmtData.loadDetails?.fromCity ? (
+                          <>
+                            {cmtData.loadDetails.fromAddress && (
+                              <>{cmtData.loadDetails.fromAddress}<br /></>
+                            )}
+                            {cmtData.loadDetails.fromCity && cmtData.loadDetails.fromState ? 
+                              `${cmtData.loadDetails.fromCity}, ${cmtData.loadDetails.fromState}` : 
+                              cmtData.loadDetails.fromCity || cmtData.loadDetails.fromState || ''
+                            }
+                            {cmtData.loadDetails.fromZip && ` ${cmtData.loadDetails.fromZip}`}
+                          </>
+                        ) : 'N/A'}
                       </TableCell>
                       <TableCell sx={{ fontWeight: 600, background: '#f8f9fa' }}>Destination</TableCell>
                       <TableCell sx={{ fontWeight: 500 }}>
-                        {cmtData.loadDetails?.destinations && cmtData.loadDetails.destinations.length > 0 ?
-                          `${cmtData.loadDetails.destinations[0].city}, ${cmtData.loadDetails.destinations[0].state}` :
-                          'N/A'
-                        }
+                        {cmtData.loadDetails?.destinations && cmtData.loadDetails.destinations.length > 0 ? (
+                          <>
+                            {cmtData.loadDetails.destinations[0].addressLine1 && (
+                              <>{cmtData.loadDetails.destinations[0].addressLine1}<br /></>
+                            )}
+                            {cmtData.loadDetails.destinations[0].addressLine2 && (
+                              <>{cmtData.loadDetails.destinations[0].addressLine2}<br /></>
+                            )}
+                            {cmtData.loadDetails.destinations[0].city && cmtData.loadDetails.destinations[0].state ? 
+                              `${cmtData.loadDetails.destinations[0].city}, ${cmtData.loadDetails.destinations[0].state}` : 
+                              cmtData.loadDetails.destinations[0].city || cmtData.loadDetails.destinations[0].state || 'N/A'
+                            }
+                            {cmtData.loadDetails.destinations[0].zip && ` ${cmtData.loadDetails.destinations[0].zip}`}
+                          </>
+                        ) : cmtData.loadDetails?.toAddress || cmtData.loadDetails?.toCity ? (
+                          <>
+                            {cmtData.loadDetails.toAddress && (
+                              <>{cmtData.loadDetails.toAddress}<br /></>
+                            )}
+                            {cmtData.loadDetails.toCity && cmtData.loadDetails.toState ? 
+                              `${cmtData.loadDetails.toCity}, ${cmtData.loadDetails.toState}` : 
+                              cmtData.loadDetails.toCity || cmtData.loadDetails.toState || ''
+                            }
+                            {cmtData.loadDetails.toZip && ` ${cmtData.loadDetails.toZip}`}
+                          </>
+                        ) : 'N/A'}
                       </TableCell>
                     </TableRow>
                     <TableRow>

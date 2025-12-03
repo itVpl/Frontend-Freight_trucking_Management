@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import ReactDOMServer from "react-dom/server";
 import axios from "axios";
 import {
   Box,
@@ -9,6 +10,8 @@ import {
   IconButton,
   Avatar,
   Stack,
+  Modal,
+  Divider,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
@@ -16,11 +19,16 @@ import LocationOnIcon from "@mui/icons-material/LocationOn";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import CloseIcon from "@mui/icons-material/Close";
+import BatteryFullIcon from "@mui/icons-material/BatteryFull";
+import SpeedIcon from "@mui/icons-material/Speed";
+import DirectionsCarIcon from "@mui/icons-material/DirectionsCar";
+import PersonIcon from "@mui/icons-material/Person";
 import { Button } from "@mui/material";
 import { MapContainer, TileLayer, Marker, useMap, Polyline, useMapEvents, Tooltip, Popup } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import truckIconPng from "../../assets/Icons super admin/truck.png";
+import { Navigation } from 'lucide-react';
 import { useAuth } from "../../context/AuthContext";
 
 // Fix for Leaflet default icons
@@ -35,8 +43,8 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
-// Add CSS for spinner animation
-const spinnerStyles = `
+// Add CSS for spinner animation and truck marker
+const customStyles = `
   @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
@@ -47,38 +55,78 @@ const spinnerStyles = `
 if (typeof document !== 'undefined') {
   const styleSheet = document.createElement("style");
   styleSheet.type = "text/css";
-  styleSheet.innerText = spinnerStyles;
+  styleSheet.innerText = customStyles;
   document.head.appendChild(styleSheet);
 }
 
-const truckIcon = new L.Icon({
-  iconUrl: truckIconPng,
-  iconSize: [70, 30],
-  iconAnchor: [20, 40],
+// Function to create dynamic Navigation icon with rotation
+const createNavigationIcon = (heading = 0) => {
+  const iconHtml = ReactDOMServer.renderToString(
+    <Navigation  
+      size={32} 
+      color="red" 
+      className="text-red-900" fill="red"
+      style={{ transform: `rotate(${heading}deg)` }} 
+    />
+  );
+  
+  return new L.DivIcon({
+    html: `<div style="display: flex; align-items: center; justify-content: center;">${iconHtml}</div>`,
+    className: 'custom-navigation-icon',
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+  });
+};
+
+// Simple origin marker (green circle)
+const originIcon = new L.Icon({
+  iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIxNiIgY3k9IjE2IiByPSIxNCIgZmlsbD0iIzRDQUY1MCIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIzIi8+PGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iNiIgZmlsbD0id2hpdGUiLz48L3N2Zz4=',
+  iconSize: [32, 32],
+  iconAnchor: [16, 16],
 });
 
-function RecenterMap({ lat, lng, mapView, routeData }) {
+// Simple destination marker (red circle)
+const destinationIcon = new L.Icon({
+  iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIxNiIgY3k9IjE2IiByPSIxNCIgZmlsbD0iI0ZGNTcyMiIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIzIi8+PGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iNiIgZmlsbD0id2hpdGUiLz48L3N2Zz4=',
+  iconSize: [32, 32],
+  iconAnchor: [16, 16],
+});
+
+// Function to calculate bearing/direction between two points
+const calculateBearing = (lat1, lon1, lat2, lon2) => {
+  const toRadians = (deg) => deg * (Math.PI / 180);
+  const toDegrees = (rad) => rad * (180 / Math.PI);
+  
+  const dLon = toRadians(lon2 - lon1);
+  const y = Math.sin(dLon) * Math.cos(toRadians(lat2));
+  const x = Math.cos(toRadians(lat1)) * Math.sin(toRadians(lat2)) -
+            Math.sin(toRadians(lat1)) * Math.cos(toRadians(lat2)) * Math.cos(dLon);
+  
+  const bearing = toDegrees(Math.atan2(y, x));
+  return (bearing + 360) % 360; // Normalize to 0-360
+};
+
+
+
+function RecenterMap({ selectedShipment, mapView, routePaths }) {
   const map = useMap();
+  
   useEffect(() => {
-    console.log('RecenterMap effect triggered:', { lat, lng, mapView, routeData });
+    if (!selectedShipment) return;
     
-    if (lat && lng) {
-      if (mapView === "current") {
-        // Zoom in to current location
-        console.log('Setting view to current location:', [lat, lng]);
-        map.setView([lat, lng], 12);
-      } else if (routeData && routeData.path && routeData.path.length > 0) {
-        // Fit the entire route in view
-        console.log('Fitting bounds for route:', routeData.path);
-        const bounds = L.latLngBounds(routeData.path);
-        map.fitBounds(bounds, { padding: [20, 20] });
-      } else {
-        // Default zoom
-        console.log('Setting default view:', [lat, lng]);
-        map.setView([lat, lng], 8);
-      }
+    const routeData = routePaths[selectedShipment.id];
+    
+    if (mapView === "route" && routeData && routeData.path && routeData.path.length > 0) {
+      // Fit the entire route in view
+      console.log('🗺️ Fitting bounds for route with', routeData.path.length, 'points');
+      const bounds = L.latLngBounds(routeData.path);
+      map.fitBounds(bounds, { padding: [50, 50] });
+    } else if (selectedShipment.lat && selectedShipment.lng) {
+      // Zoom to current location
+      map.setView([selectedShipment.lat, selectedShipment.lng], 10);
     }
-  }, [lat, lng, mapView, routeData, map]);
+  }, [selectedShipment, mapView, routePaths, map]);
+  
   return null;
 }
 
@@ -93,6 +141,8 @@ export default function LiveTracker() {
   const [loading, setLoading] = useState(false);
   const [hasToken, setHasToken] = useState(false);
   const [helpLoading, setHelpLoading] = useState({});
+  const [driverModalOpen, setDriverModalOpen] = useState(false);
+  const [selectedDriverInfo, setSelectedDriverInfo] = useState(null);
 
   // Function to get authentication token
   const getAuthToken = () => {
@@ -163,54 +213,64 @@ export default function LiveTracker() {
 
   const toggleExpand = async (item) => {
     const isExpanding = expandedId !== item.id;
-    setExpandedId((prev) => (prev === item.id ? null : item.id));
-    setSelectedShipment(item);
     
-    // Always ensure route data exists when expanding, especially for searched shipments
     if (isExpanding) {
-      // Check if route data exists, if not fetch it
-      if (!routePaths[item.id]) {
-        console.log('Route data not found for item:', item.id, 'Fetching route...');
-        console.log('Item coordinates:', {
-          origin: [item.originLat, item.originLng],
-          dest: [item.destLat, item.destLng]
-        });
-        
-        if (item.originLat && item.originLng && item.destLat && item.destLng) {
+      // Expanding - set the item as selected
+      setExpandedId(item.id);
+      setSelectedShipment(item);
+      
+      console.log('🔄 Expanding shipment:', item.id, item.number);
+      console.log('📍 Shipment coordinates:', {
+        originLat: item.originLat,
+        originLng: item.originLng,
+        destLat: item.destLat,
+        destLng: item.destLng,
+        currentLat: item.lat,
+        currentLng: item.lng
+      });
+      console.log('📍 Full item data:', item);
+      
+      // Check if we have valid coordinates (not 0, null, undefined, or NaN)
+      const hasValidOrigin = item.originLat && item.originLng && 
+                            !isNaN(item.originLat) && !isNaN(item.originLng) &&
+                            item.originLat !== 0 && item.originLng !== 0;
+      const hasValidDest = item.destLat && item.destLng && 
+                          !isNaN(item.destLat) && !isNaN(item.destLng) &&
+                          item.destLat !== 0 && item.destLng !== 0;
+      
+      console.log('🔍 Validation:', { hasValidOrigin, hasValidDest });
+      
+      if (!hasValidOrigin || !hasValidDest) {
+        console.log('⚠️ Invalid coordinates for shipment:', item.number, '- Cannot fetch route');
+        console.log('💡 Origin valid:', hasValidOrigin, 'Destination valid:', hasValidDest);
+      } else {
+        // Check if route data exists, if not fetch it
+        if (!routePaths[item.id]) {
+          console.log('🔄 Route data not found for item:', item.id, 'Fetching route...');
+          
           try {
             const routeData = await fetchRoute(item.originLat, item.originLng, item.destLat, item.destLng);
             if (routeData && routeData.path && routeData.path.length > 0) {
-              setRoutePaths(prev => {
-                const updated = {
-                  ...prev,
-                  [item.id]: routeData
-                };
-                console.log('✅ Route data fetched and set for item:', item.id, 'with', routeData.path.length, 'points');
-                return updated;
-              });
-            } else {
-              console.log('❌ Failed to fetch route data for item:', item.id, '- no path data');
+              setRoutePaths(prev => ({
+                ...prev,
+                [item.id]: routeData
+              }));
+              console.log('✅ Route data fetched and set for item:', item.id, 'with', routeData.path.length, 'points');
             }
           } catch (error) {
             console.error('❌ Error fetching route for item:', item.id, error);
           }
         } else {
-          console.log('❌ Invalid coordinates for item:', item.id, {
-            originLat: item.originLat,
-            originLng: item.originLng,
-            destLat: item.destLat,
-            destLng: item.destLng
-          });
+          console.log('✅ Route data already exists for item:', item.id);
         }
-      } else {
-        console.log('✅ Route data already exists for item:', item.id);
       }
       
-      // Change map view to show current location when expanded
-      setMapView("current");
-    } else {
-      // Change map view to show full route when collapsed
+      // Change map view to show full route when expanded
       setMapView("route");
+    } else {
+      // Collapsing - clear selection
+      setExpandedId(null);
+      setSelectedShipment(null);
     }
   };
 
@@ -400,6 +460,14 @@ export default function LiveTracker() {
                 done: loadData.status === "delivered" || loadData.status === "Delivered",
               },
             ],
+            // Add currentLocation data for popup
+            currentLocation: {
+              address: loadData.currentLocation?.address || 'N/A',
+              speed: loadData.currentLocation?.speed || null,
+              heading: loadData.currentLocation?.heading || null,
+              accuracy: loadData.currentLocation?.accuracy || null,
+              deviceInfo: loadData.currentLocation?.deviceInfo || null,
+            },
           };
           
           console.log('Created shipment object:', shipment);
@@ -407,53 +475,20 @@ export default function LiveTracker() {
           
           // Fetch optimized route for this shipment immediately
           if (originLat && originLng && destLat && destLng && originLat !== 0 && originLng !== 0 && destLat !== 0 && destLng !== 0) {
-            console.log('📍 Fetching route for searched shipment:', shipment.id, 'with coordinates:', {
-              origin: [originLat, originLng],
-              dest: [destLat, destLng],
-              shipmentId: shipment.id,
-              shipmentNumber: shipment.number
-            });
+            console.log('📍 Fetching route for searched shipment:', shipment.number);
             try {
               const routeData = await fetchRoute(originLat, originLng, destLat, destLng);
-              console.log('✅ Route data received for searched shipment:', {
-                shipmentId: shipment.id,
-                hasPath: !!(routeData && routeData.path),
-                pathLength: routeData?.path?.length || 0,
-                routeData: routeData
-              });
               
               if (routeData && routeData.path && routeData.path.length > 0) {
-                setRoutePaths(prev => {
-                  const updated = {
-                    ...prev,
-                    [shipment.id]: routeData
-                  };
-                  console.log('✅✅ Route data set in state for searched shipment:', {
-                    shipmentId: shipment.id,
-                    shipmentNumber: shipment.number,
-                    pathLength: routeData.path.length,
-                    allRoutePaths: Object.keys(updated),
-                    updatedRoutePaths: Object.keys(updated)
-                  });
-                  return updated;
-                });
-                
-                // Force a small delay to ensure state is updated before rendering
-                setTimeout(() => {
-                  console.log('🔄 Route state should be updated now. Checking routePaths:', Object.keys(routePaths));
-                }, 100);
-              } else {
-                console.log('❌ No route path data received for searched shipment - routeData:', routeData);
+                setRoutePaths(prev => ({
+                  ...prev,
+                  [shipment.id]: routeData
+                }));
+                console.log('✅ Route data set for searched shipment with', routeData.path.length, 'points');
               }
             } catch (error) {
               console.error('❌ Error fetching route for searched shipment:', error);
             }
-          } else {
-            console.log('❌ Invalid coordinates for searched shipment, cannot fetch route:', {
-              originLat, originLng, destLat, destLng,
-              shipmentId: shipment.id,
-              shipmentNumber: shipment.number
-            });
           }
         } else {
           console.log('No valid load data found in API response');
@@ -505,33 +540,37 @@ export default function LiveTracker() {
             let originData, destinationData, currentLocationData, trackingData;
             const currentUserType = userType || 'shipper';
             
-            if (currentUserType === 'trucker') {
-              // Trucker API structure
-              originData = load.origins?.[0] || {};
-              destinationData = load.destinations?.[0] || {};
-              currentLocationData = load.tracking?.currentLocation || load.currentLocation || {};
-              trackingData = load.tracking || {};
-            } else {
-              // Shipper API structure (existing)
-              originData = load.origin || {};
-              destinationData = load.destination || {};
-              currentLocationData = load.currentLocation || {};
-              trackingData = load.tracking || {};
-            }
+            // Try both formats - origins array or origin object
+            originData = load.origins?.[0] || load.origin || {};
+            destinationData = load.destinations?.[0] || load.destination || {};
+            currentLocationData = load.currentLocation || load.tracking?.currentLocation || {};
+            trackingData = load.tracking || {};
+            
+            // Debug: Log the raw load data structure
+            console.log('🔍 Raw load data for', load.loadNumber || load._id, ':', {
+              hasOrigin: !!load.origin,
+              hasDestination: !!load.destination,
+              hasOrigins: !!load.origins,
+              hasDestinations: !!load.destinations,
+              originKeys: load.origin ? Object.keys(load.origin) : [],
+              destinationKeys: load.destination ? Object.keys(load.destination) : [],
+              originsKeys: load.origins?.[0] ? Object.keys(load.origins[0]) : [],
+              destinationsKeys: load.destinations?.[0] ? Object.keys(load.destinations[0]) : []
+            });
             
             // Ensure coordinates are numbers with better parsing
             const originLat = parseFloat(originData.lat) || parseFloat(originData.latitude) || 0;
-            const originLng = parseFloat(originData.lon) || parseFloat(originData.longitude) || 0;
+            const originLng = parseFloat(originData.lon) || parseFloat(originData.longitude) || parseFloat(originData.lng) || 0;
             const destLat = parseFloat(destinationData.lat) || parseFloat(destinationData.latitude) || 0;
-            const destLng = parseFloat(destinationData.lon) || parseFloat(destinationData.longitude) || 0;
+            const destLng = parseFloat(destinationData.lon) || parseFloat(destinationData.longitude) || parseFloat(destinationData.lng) || 0;
             const currentLat = parseFloat(currentLocationData.latitude) || parseFloat(currentLocationData.lat) || originLat;
-            const currentLng = parseFloat(currentLocationData.longitude) || parseFloat(currentLocationData.lon) || originLng;
+            const currentLng = parseFloat(currentLocationData.longitude) || parseFloat(currentLocationData.lon) || parseFloat(currentLocationData.lng) || originLng;
             
-            console.log('Load coordinates:', { 
+            console.log('📍 Load coordinates:', { 
               loadNumber: load.loadNumber || load._id,
-              origin: originData,
-              destination: destinationData,
-              currentLocation: currentLocationData,
+              originData: originData,
+              destinationData: destinationData,
+              currentLocationData: currentLocationData,
               parsed: { originLat, originLng, destLat, destLng, currentLat, currentLng }
             });
             
@@ -567,10 +606,18 @@ export default function LiveTracker() {
                   done: load.status === "Delivered",
                 },
               ],
-              vehicleNumber: load.acceptedBid?.vehicleNumber,
+              vehicleNumber: load.tracking?.vehicleNumber || load.acceptedBid?.vehicleNumber,
               driverName: load.acceptedBid?.driverName,
               driverPhone: load.acceptedBid?.driverPhone,
               hasLocationData: load.hasLocationData,
+              // Add currentLocation data for popup
+              currentLocation: {
+                address: load.currentLocation?.address || 'N/A',
+                speed: load.currentLocation?.speed || null,
+                heading: load.currentLocation?.heading || null,
+                accuracy: load.currentLocation?.accuracy || null,
+                deviceInfo: load.currentLocation?.deviceInfo || null,
+              },
             };
             
             console.log(`Processed load ${load.loadNumber}:`, {
@@ -830,80 +877,31 @@ export default function LiveTracker() {
     fetchConsignments();
   }, [searchTerm, userType]);
 
-  // Auto-create polylines when consignments are loaded
+  // Auto-fetch routes when consignments are loaded
   useEffect(() => {
     if (consignments.length > 0) {
-      // Check for missing routes
       const missingRoutes = consignments.filter(consignment => 
         !routePaths[consignment.id] && 
         consignment.originLat && 
         consignment.originLng && 
         consignment.destLat && 
-        consignment.destLng
+        consignment.destLng &&
+        consignment.originLat !== 0 &&
+        consignment.originLng !== 0 &&
+        consignment.destLat !== 0 &&
+        consignment.destLng !== 0
       );
       
       if (missingRoutes.length > 0) {
-        console.log(`🚀 Auto-creating polylines for ${missingRoutes.length} loads with missing routes...`);
-        // Small delay to ensure state is fully updated
+        console.log(`🚀 Auto-fetching routes for ${missingRoutes.length} loads...`);
         setTimeout(() => {
           forceFetchAllRoutes();
         }, 500);
       }
     }
-  }, [consignments, routePaths]);
+  }, [consignments.length]);
 
-  // Monitor route data and fetch missing routes
-  useEffect(() => {
-    const fetchMissingRoutes = async () => {
-      if (consignments.length > 0) {
-        const missingRoutes = consignments.filter(consignment => 
-          !routePaths[consignment.id] && 
-          consignment.originLat && 
-          consignment.originLng && 
-          consignment.destLat && 
-          consignment.destLng
-        );
-        
-        if (missingRoutes.length > 0) {
-          console.log(`🔍 Found ${missingRoutes.length} loads with missing route data, fetching...`);
-          
-          const routePromises = missingRoutes.map(async (consignment) => {
-            try {
-              const routeData = await fetchRoute(
-                consignment.originLat, 
-                consignment.originLng, 
-                consignment.destLat, 
-                consignment.destLng
-              );
-              
-              if (routeData && routeData.path && routeData.path.length > 0) {
-                return { id: consignment.id, routeData };
-              }
-            } catch (error) {
-              console.error(`Error fetching route for ${consignment.id}:`, error);
-            }
-            return null;
-          });
-          
-          const results = await Promise.all(routePromises);
-          const validResults = results.filter(result => result !== null);
-          
-          if (validResults.length > 0) {
-            setRoutePaths(prev => {
-              const updated = { ...prev };
-              validResults.forEach(result => {
-                updated[result.id] = result.routeData;
-              });
-              console.log(`✅ Added ${validResults.length} missing routes`);
-              return updated;
-            });
-          }
-        }
-      }
-    };
-    
-    fetchMissingRoutes();
-  }, [consignments, routePaths]);
+
 
   // Force fetch all routes function
   const forceFetchAllRoutes = async () => {
@@ -1082,51 +1080,92 @@ export default function LiveTracker() {
             attribution="&copy; OpenStreetMap contributors"
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          {consignments.map((truck) => {
-            // Debug: Log each truck being rendered
-            console.log(`🗺️ Rendering marker for truck ${truck.number} at:`, [truck.lat, truck.lng]);
-            console.log(`📍 Truck details:`, {
-              id: truck.id,
-              number: truck.number,
-              lat: truck.lat,
-              lng: truck.lng,
-              originLat: truck.originLat,
-              originLng: truck.originLng,
-              destLat: truck.destLat,
-              destLng: truck.destLng
-            });
+          {/* Truck Marker - Show only for selected/expanded shipment */}
+          {selectedShipment && expandedId && (() => {
+            const truck = selectedShipment;
             
             // Use fallback coordinates if current location is invalid
             const markerLat = truck.lat && truck.lat !== 0 ? truck.lat : truck.originLat;
             const markerLng = truck.lng && truck.lng !== 0 ? truck.lng : truck.originLng;
             
-            console.log(`🎯 Using coordinates for marker:`, [markerLat, markerLng]);
-            
             // Only render if we have valid coordinates
             if (!markerLat || !markerLng || markerLat === 0 || markerLng === 0) {
-              console.warn(`⚠️ Skipping truck ${truck.number} - no valid coordinates`);
+              console.warn(`⚠️ No valid coordinates for truck ${truck.number}`);
               return null;
             }
             
+            // Calculate heading based on route direction
+            let heading = 0;
+            const routeData = routePaths[truck.id];
+            
+            if (routeData && routeData.path && routeData.path.length > 1) {
+              // Find the closest point on the route to current position
+              let closestIndex = 0;
+              let minDistance = Infinity;
+              
+              routeData.path.forEach((point, index) => {
+                const distance = Math.sqrt(
+                  Math.pow(point[0] - markerLat, 2) + Math.pow(point[1] - markerLng, 2)
+                );
+                if (distance < minDistance) {
+                  minDistance = distance;
+                  closestIndex = index;
+                }
+              });
+              
+              // Calculate heading from current point to next point on route
+              if (closestIndex < routeData.path.length - 1) {
+                const currentPoint = routeData.path[closestIndex];
+                const nextPoint = routeData.path[closestIndex + 1];
+                heading = calculateBearing(
+                  currentPoint[0], currentPoint[1],
+                  nextPoint[0], nextPoint[1]
+                );
+              }
+            } else if (truck.destLat && truck.destLng && truck.destLat !== 0 && truck.destLng !== 0) {
+              // Fallback: calculate heading from current position to destination
+              heading = calculateBearing(markerLat, markerLng, truck.destLat, truck.destLng);
+            }
+            
             return (
-              <Marker key={truck.id} position={[markerLat, markerLng]} icon={truckIcon}>
+              <Marker key={truck.id} position={[markerLat, markerLng]} icon={createNavigationIcon(heading)}>
               <Popup>
-                <div style={{ padding: '8px', minWidth: '200px' }}>
+                <div style={{ padding: '2px', minWidth: '250px' }}>
                   <div style={{ fontWeight: 'bold', fontSize: '16px', color: '#1976d2', marginBottom: '8px' }}>
                     {truck.number}
                   </div>
-                  <div style={{ marginBottom: '4px' }}>
-                    <strong>Driver:</strong> {truck.driverName || 'N/A'}
-                  </div>
-                  <div style={{ marginBottom: '4px' }}>
+                  
+                 
+                  
+                  {/* Vehicle Information */}
+                  <div style={{ marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <DirectionsCarIcon sx={{ fontSize: 16, color: '#666' }} />
                     <strong>Vehicle:</strong> {truck.vehicleNumber || 'N/A'}
                   </div>
                   
-                  {truck.weight && (
+                  {/* Current Location */}
+                  <div style={{ marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <LocationOnIcon sx={{ fontSize: 16, color: '#666' }} />
+                    <strong>Location:</strong> {truck.currentLocation?.address || 'N/A'}
+                  </div>
+                  
+                  {/* Battery Level */}
+                  <div style={{ marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <BatteryFullIcon sx={{ fontSize: 16, color: '#4caf50' }} />
+                    <strong>Battery:</strong> {truck.currentLocation?.deviceInfo?.batteryLevel ? `${truck.currentLocation.deviceInfo.batteryLevel}%` : 'N/A'}
+                  </div>
+                  
+                  {/* Speed */}
+                  <div style={{ marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <SpeedIcon sx={{ fontSize: 16, color: '#ff9800' }} />
+                    <strong>Speed:</strong> {truck.currentLocation?.speed ? `${truck.currentLocation.speed} km/h` : 'N/A'}
+                  </div>
+                  
+                  {/* {truck.weight && (
                     <div style={{ marginBottom: '4px' }}>
                       <strong>Weight:</strong> {truck.weight}
-                    </div>
-                  )}
+                </div>
+                  )} */}
                   {truck.commodity && (
                     <div>
                       <strong>Commodity:</strong> {truck.commodity}
@@ -1216,110 +1255,115 @@ export default function LiveTracker() {
               </Popup>
             </Marker>
             );
-          })}
+          })()}
           
-          {/* Origin and Destination Markers */}
-          {consignments.map((truck) => {
-            // Only render origin marker if coordinates are valid
-            if (truck.originLat && truck.originLng && truck.originLat !== 0 && truck.originLng !== 0) {
-              return (
+          {/* Origin and Destination Markers - Show only for selected shipment */}
+          {selectedShipment && expandedId && (
+            <>
+              {/* Origin Marker */}
+              {selectedShipment.originLat && selectedShipment.originLng && 
+               selectedShipment.originLat !== 0 && selectedShipment.originLng !== 0 && (
                 <Marker 
-                  key={`origin-${truck.id}`} 
-                  position={[truck.originLat, truck.originLng]}
-                  icon={new L.Icon({
-                    iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyQzIgMTcuNTIgNi40OCAyMiAxMiAyMkMxNy41MiAyMiAyMiAxNy41MiAyMiAxMkMyMiA2LjQ4IDE3LjUyIDIgMTIgMloiIGZpbGw9IiM0Q0FGNTAiLz4KPHBhdGggZD0iTTEyIDZDNi40OCA2IDIgMTAuNDggMiAxNkMyIDIxLjUyIDYuNDggMjYgMTIgMjZDMjEuNTIgMjYgMjYgMjEuNTIgMjYgMTZDMjYgMTAuNDggMjEuNTIgNiAxMiA2WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTEyIDEwQzEwLjM0IDEwIDkgMTEuMzQgOSAxM0M5IDE0LjY2IDEwLjM0IDE2IDEyIDE2QzEzLjY2IDE2IDE1IDE0LjY2IDE1IDEzQzE1IDExLjM0IDEzLjY2IDEwIDEyIDEwWiIgZmlsbD0iIzRDQUY1MCIvPgo8L3N2Zz4K',
-                    iconSize: [24, 24],
-                    iconAnchor: [12, 12],
-                  })}
-                />
-              );
-            }
-            return null;
-          })}
-          
-          {consignments.map((truck) => {
-            // Only render destination marker if coordinates are valid
-            if (truck.destLat && truck.destLng && truck.destLat !== 0 && truck.destLng !== 0) {
-              return (
+                  key={`origin-${selectedShipment.id}`} 
+                  position={[selectedShipment.originLat, selectedShipment.originLng]}
+                  icon={originIcon}
+                >
+                  <Tooltip permanent direction="top" offset={[0, -20]}>
+                    <strong>Origin</strong>
+                  </Tooltip>
+                </Marker>
+              )}
+              
+              {/* Destination Marker */}
+              {selectedShipment.destLat && selectedShipment.destLng && 
+               selectedShipment.destLat !== 0 && selectedShipment.destLng !== 0 && (
                 <Marker 
-                  key={`dest-${truck.id}`} 
-                  position={[truck.destLat, truck.destLng]}
-                  icon={new L.Icon({
-                    iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyQzIgMTcuNTIgNi40OCAyMiAxMiAyMkMxNy41MiAyMiAyMiAxNy41MiAyMiAxMkMyMiA2LjQ4IDE3LjUyIDIgMTIgMloiIGZpbGw9IiNGRjU3MjIiLz4KPHBhdGggZD0iTTEyIDZDNi40OCA2IDIgMTAuNDggMiAxNkMyIDIxLjUyIDYuNDggMjYgMTIgMjZDMjEuNTIgMjYgMjYgMjEuNTIgMjYgMTZDMjYgMTAuNDggMjEuNTIgNiAxMiA2WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTEyIDEwQzEwLjM0IDEwIDkgMTEuMzQgOSAxM0M5IDE0LjY2IDEwLjM0IDE2IDEyIDE2QzEzLjY2IDE2IDE1IDE0LjY2IDE1IDEzQzE1IDExLjM0IDEzLjY2IDEwIDEyIDEwWiIgZmlsbD0iI0ZGNTcyMiIvPgo8L3N2Zz4K',
-                    iconSize: [24, 24],
-                    iconAnchor: [12, 12],
-                  })}
-                />
-              );
-            }
-            return null;
-          })}
+                  key={`dest-${selectedShipment.id}`} 
+                  position={[selectedShipment.destLat, selectedShipment.destLng]}
+                  icon={destinationIcon}
+                >
+                  <Tooltip permanent direction="top" offset={[0, -20]}>
+                    <strong>Destination</strong>
+                  </Tooltip>
+                </Marker>
+              )}
+            </>
+          )}
           
-          {/* Solid Route Lines - Force render for all loads */}
-          {consignments.map((truck) => {
-            const routeData = routePaths[truck.id];
-            console.log(`🗺️ Rendering polyline for truck ${truck.id} (${truck.number}):`, {
-              hasRouteData: !!routeData,
-              hasPath: !!(routeData && routeData.path),
-              pathLength: routeData?.path?.length || 0,
-              coordinates: {
-                origin: [truck.originLat, truck.originLng],
-                dest: [truck.destLat, truck.destLng]
-              },
+          {/* Route Lines - Show only for selected/expanded shipment */}
+          {(() => {
+            console.log('🔍 Polyline Check:', {
+              hasSelectedShipment: !!selectedShipment,
+              expandedId: expandedId,
+              selectedShipmentId: selectedShipment?.id,
+              selectedShipmentCoords: selectedShipment ? {
+                originLat: selectedShipment.originLat,
+                originLng: selectedShipment.originLng,
+                destLat: selectedShipment.destLat,
+                destLng: selectedShipment.destLng
+              } : null,
               routePathsKeys: Object.keys(routePaths),
-              truckId: truck.id,
-              allConsignmentIds: consignments.map(c => c.id)
+              hasRouteData: selectedShipment ? !!routePaths[selectedShipment.id] : false
             });
             
-            // Always try to render a polyline - either proper route or fallback
-            if (truck.originLat && truck.originLng && truck.destLat && truck.destLng && 
-                truck.originLat !== 0 && truck.originLng !== 0 && truck.destLat !== 0 && truck.destLng !== 0) {
-              if (routeData && routeData.path && routeData.path.length > 0) {
-                console.log(`✅ Creating optimized polyline with ${routeData.path.length} points for truck ${truck.id} (${truck.number})`);
-                return (
-                  <Polyline
-                    key={`route-${truck.id}`}
-                    positions={routeData.path}
-                    color="#1976d2"
-                    weight={4}
-                    opacity={0.8}
-                  />
-                );
-              } else {
-                console.log(`⚠️ Creating fallback polyline for truck ${truck.id} (${truck.number}) - no route data. RoutePaths keys:`, Object.keys(routePaths));
-                return (
-                  <Polyline
-                    key={`route-fallback-${truck.id}`}
-                    positions={[[truck.originLat, truck.originLng], [truck.destLat, truck.destLng]]}
-                    color="#ff6b6b"
-                    weight={3}
-                    opacity={0.6}
-                    dashArray="10, 5"
-                  />
-                );
-              }
-            } else {
-              console.log(`❌ No valid coordinates available for truck ${truck.id} (${truck.number}), skipping polyline:`, {
-                originLat: truck.originLat,
-                originLng: truck.originLng,
-                destLat: truck.destLat,
-                destLng: truck.destLng
-              });
+            if (!selectedShipment || !expandedId) {
+              console.log('❌ No selected shipment or not expanded');
               return null;
             }
-          })}
+            
+            const routeData = routePaths[selectedShipment.id];
+            
+            // Check if we have valid coordinates (not 0,0)
+            const hasValidOrigin = selectedShipment.originLat && selectedShipment.originLng && 
+                                   selectedShipment.originLat !== 0 && selectedShipment.originLng !== 0;
+            const hasValidDest = selectedShipment.destLat && selectedShipment.destLng && 
+                                 selectedShipment.destLat !== 0 && selectedShipment.destLng !== 0;
+            
+            if (routeData && routeData.path && routeData.path.length > 0) {
+              console.log(`✅ Rendering route with ${routeData.path.length} points for shipment ${selectedShipment.number}`);
+              return (
+                <Polyline
+                  key={`route-${selectedShipment.id}`}
+                  positions={routeData.path}
+                  color="#1976d2"
+                  weight={5}
+                  opacity={0.7}
+                >
+                  <Tooltip permanent={false} direction="center">
+                    Route: {selectedShipment.location}
+                  </Tooltip>
+                </Polyline>
+              );
+            } else if (hasValidOrigin && hasValidDest) {
+              console.log(`⚠️ Showing straight line for shipment ${selectedShipment.number} - route data not available yet`);
+              return (
+                <Polyline
+                  key={`route-fallback-${selectedShipment.id}`}
+                  positions={[
+                    [selectedShipment.originLat, selectedShipment.originLng], 
+                    [selectedShipment.destLat, selectedShipment.destLng]
+                  ]}
+                  color="#ff9800"
+                  weight={4}
+                  opacity={0.6}
+                  dashArray="10, 10"
+                >
+                  <Tooltip permanent={false} direction="center">
+                    Direct Route (Loading...)
+                  </Tooltip>
+                </Polyline>
+              );
+            }
+            
+            console.log('❌ No valid coordinates for route - origin or destination is 0,0');
+            return null;
+          })()}
           
-          {/* Debug: Show route paths count */}
-          {console.log(`🔍 Total route paths available: ${Object.keys(routePaths).length}`)}
-          {console.log(`🔍 Total consignments: ${consignments.length}`)}
-          {console.log(`🔍 Route paths keys:`, Object.keys(routePaths))}
-          {console.log(`🗺️ Rendering ${consignments.length} truck markers on map`)}
-          {console.log(`📍 All consignments data:`, consignments)}
           {selectedShipment && (
             <RecenterMap 
-              lat={selectedShipment.lat} 
-              lng={selectedShipment.lng} 
+              selectedShipment={selectedShipment}
               mapView={mapView}
+              routePaths={routePaths}
               routeData={routePaths[selectedShipment.id]}
             />
           )}
