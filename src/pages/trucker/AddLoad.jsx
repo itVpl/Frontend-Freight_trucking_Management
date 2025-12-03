@@ -28,6 +28,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Autocomplete,
 } from '@mui/material';
 import {
   Add,
@@ -4212,20 +4213,30 @@ const AddLoad = () => {
         PaperProps={{
           sx: {
             borderRadius: 3,
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
-            overflow: 'hidden',
+            boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)',
+            overflow: 'visible',
           }
         }}
       >
         {/* Header with Gradient */}
         <Box
           sx={{
-            background: 'linear-gradient(to right, #4A90E2, #9B59B6)',
+            background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)',
             p: 3,
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            color: '#fff'
+            color: '#fff',
+            position: 'relative',
+            '&::after': {
+              content: '""',
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: '4px',
+              background: 'linear-gradient(90deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 100%)',
+            }
           }}
         >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -4233,20 +4244,22 @@ const AddLoad = () => {
               sx={{
                 width: 48,
                 height: 48,
-                borderRadius: '50%',
-                backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                borderRadius: '12px',
+                backgroundColor: 'rgba(255, 255, 255, 0.25)',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                backdropFilter: 'blur(10px)',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
               }}
             >
               <Person sx={{ fontSize: 28, color: '#fff' }} />
             </Box>
             <Box>
-              <Typography variant="h5" sx={{ fontWeight: 700, color: '#fff', mb: 0.5 }}>
+              <Typography variant="h6" sx={{ fontWeight: 700, color: '#fff', fontSize: '1.25rem', mb: 0.3 }}>
                 Assign Driver
               </Typography>
-              <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.8)' }}>
+              <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.95)', fontSize: '0.875rem' }}>
                 Assign a driver to this load
               </Typography>
             </Box>
@@ -4255,8 +4268,9 @@ const AddLoad = () => {
             onClick={handleCloseAssignDriver}
             sx={{
               color: '#fff',
+              backgroundColor: 'rgba(255, 255, 255, 0.15)',
               '&:hover': {
-                backgroundColor: 'rgba(255, 255, 255, 0.1)'
+                backgroundColor: 'rgba(255, 255, 255, 0.25)'
               }
             }}
           >
@@ -4264,136 +4278,237 @@ const AddLoad = () => {
           </IconButton>
         </Box>
 
-        <DialogContent sx={{ p: 3, backgroundColor: '#f5f5f5' }}>
-          <Grid container spacing={3}>
-            <Grid item xs={12}>
-              <FormControl fullWidth>
-                <InputLabel
-                  id="driver-name-label"
-                  shrink
-                  sx={{
-                    color: '#4A5568',
-                    fontSize: '0.875rem',
-                  }}
-                >
-                  Driver Name *
-                </InputLabel>
-                <Select
-                  labelId="driver-name-label"
-                  name="driverName"
-                  value={driverData.driverName}
-                  onChange={handleDriverInputChange}
-                  displayEmpty
-                  disabled={driversLoading}
-                  renderValue={(selected) => {
-                    if (!selected) {
-                      return <span style={{ color: '#999' }}>Select Driver</span>;
+        <DialogContent sx={{ p: 4, backgroundColor: '#fff' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <Box>
+              <Typography 
+                variant="body2" 
+                sx={{ 
+                  mb: 1.5, 
+                  fontWeight: 600, 
+                  color: '#374151', 
+                  fontSize: '0.9rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.5
+                }}
+              >
+                Driver Name <span style={{ color: '#ef4444' }}>*</span>
+              </Typography>
+              <Autocomplete
+                options={drivers}
+                getOptionLabel={(option) => option.fullName || ''}
+                value={drivers.find(d => d.fullName === driverData.driverName) || null}
+                onChange={(event, newValue) => {
+                  handleDriverInputChange({
+                    target: {
+                      name: 'driverName',
+                      value: newValue ? newValue.fullName : ''
                     }
-                    const selectedDriver = drivers.find(d => d.fullName === selected);
-                    return selectedDriver ? selectedDriver.fullName : selected;
-                  }}
-                  sx={{
-                    width: '247px',
-                    height: '56px',
-                    borderRadius: 2,
-                    backgroundColor: '#fff',
-                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-                    '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#E2E8F0',
-                    },
-                    '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#4A90E2',
-                    },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#4A90E2',
-                    },
-                    '& .MuiSelect-select': {
+                  });
+                }}
+                loading={driversLoading}
+                disabled={driversLoading}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    placeholder="Search and select driver"
+                    InputProps={{
+                      ...params.InputProps,
+                      startAdornment: (
+                        <>
+                          <Search sx={{ color: '#9ca3af', ml: 1, mr: -0.5, fontSize: 22 }} />
+                          {params.InputProps.startAdornment}
+                        </>
+                      ),
+                      endAdornment: (
+                        <>
+                          {driversLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                          {params.InputProps.endAdornment}
+                        </>
+                      ),
+                    }}
+                    sx={{
+                      '& .MuiInputBase-root': {
+                        borderRadius: 2.5,
+                        backgroundColor: '#E3F2FD',
+                        fontSize: '0.95rem',
+                        transition: 'all 0.2s',
+                        '&:hover': {
+                          backgroundColor: '#fff',
+                          boxShadow: '0 2px 8px rgba(25, 118, 210, 0.15)',
+                        },
+                        '&.Mui-focused': {
+                          backgroundColor: '#fff',
+                          boxShadow: '0 0 0 3px rgba(25, 118, 210, 0.1)',
+                        }
+                      },
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#BBDEFB',
+                        borderWidth: '1.5px',
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#1976d2',
+                      },
+                      '& .Mui-focused .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#1976d2',
+                        borderWidth: '2px',
+                      },
+                    }}
+                  />
+                )}
+                renderOption={(props, option) => (
+                  <Box 
+                    component="li" 
+                    {...props} 
+                    sx={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: 1.5, 
                       py: 1.5,
-                      color: '#2D3748',
-                    },
-                    '& .MuiInputBase-root': {
-                      borderRadius: 2,
-                      backgroundColor: '#fff',
-                      boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-                    },
-                  }}
-                  MenuProps={{
-                    PaperProps: {
-                      sx: {
-                        maxHeight: 300,
-                        borderRadius: 2,
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                      px: 2,
+                      '&:hover': {
+                        backgroundColor: '#f3f4f6'
                       }
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: '50%',
+                        background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#fff',
+                        fontWeight: 700,
+                        fontSize: '0.9rem',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {option.fullName?.charAt(0).toUpperCase() || 'D'}
+                    </Box>
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: '#1f2937', fontSize: '0.9rem' }}>
+                        {option.fullName}
+                      </Typography>
+                      {option.phone && (
+                        <Typography variant="caption" sx={{ color: '#6b7280', fontSize: '0.8rem' }}>
+                          {option.phone}
+                        </Typography>
+                      )}
+                    </Box>
+                  </Box>
+                )}
+                noOptionsText={driversLoading ? "Loading drivers..." : "No drivers found"}
+                ListboxProps={{
+                  sx: {
+                    maxHeight: 240,
+                    '& .MuiAutocomplete-option': {
+                      padding: 0,
                     }
-                  }}
-                >
-                  {driversLoading ? (
-                    <MenuItem disabled>
-                      <CircularProgress size={20} sx={{ mr: 2 }} />
-                      Loading drivers...
-                    </MenuItem>
-                  ) : drivers.length === 0 ? (
-                    <MenuItem disabled>No drivers available</MenuItem>
-                  ) : (
-                    drivers.map((driver) => (
-                      <MenuItem key={driver._id} value={driver.fullName}>
-                        {driver.fullName} {driver.phone ? `(${driver.phone})` : ''}
-                      </MenuItem>
-                    ))
-                  )}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12}>
+                  }
+                }}
+                sx={{
+                  '& .MuiAutocomplete-popupIndicator': {
+                    color: '#1976d2',
+                  },
+                  '& .MuiAutocomplete-clearIndicator': {
+                    color: '#9ca3af',
+                  },
+                }}
+              />
+            </Box>
+
+            <Box>
+              <Typography 
+                variant="body2" 
+                sx={{ 
+                  mb: 1.5, 
+                  fontWeight: 600, 
+                  color: '#374151', 
+                  fontSize: '0.9rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.5
+                }}
+              >
+                Vehicle No <span style={{ color: '#ef4444' }}>*</span>
+              </Typography>
               <TextField
-                label="Vehicle No *"
                 name="vehicleNo"
                 value={driverData.vehicleNo}
                 onChange={handleDriverInputChange}
                 fullWidth
                 placeholder="Enter vehicle number"
-                InputLabelProps={{ shrink: true }}
+                InputProps={{
+                  startAdornment: (
+                    <Box sx={{ display: 'flex', alignItems: 'center', mr: 0.5, fontSize: '1.3rem' }}>
+                      🚛
+                    </Box>
+                  ),
+                }}
                 sx={{
                   '& .MuiInputBase-root': {
-                    borderRadius: 2,
-                    backgroundColor: '#fff',
-                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                    borderRadius: 2.5,
+                    backgroundColor: '#E3F2FD',
+                    fontSize: '0.95rem',
+                    transition: 'all 0.2s',
+                    '&:hover': {
+                      backgroundColor: '#fff',
+                      boxShadow: '0 2px 8px rgba(25, 118, 210, 0.15)',
+                    },
+                    '&.Mui-focused': {
+                      backgroundColor: '#fff',
+                      boxShadow: '0 0 0 3px rgba(25, 118, 210, 0.1)',
+                    }
                   },
                   '& .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#E2E8F0',
+                    borderColor: '#BBDEFB',
+                    borderWidth: '1.5px',
                   },
                   '&:hover .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#4A90E2',
+                    borderColor: '#1976d2',
                   },
-                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#4A90E2',
-                  },
-                  '& .MuiInputLabel-root': {
-                    color: '#4A5568',
-                    fontSize: '0.875rem',
+                  '& .Mui-focused .MuiOutlinedInput-notchedOutline': {
+                    borderColor: '#1976d2',
+                    borderWidth: '2px',
                   },
                 }}
               />
-            </Grid>
-          </Grid>
+            </Box>
+          </Box>
         </DialogContent>
 
-        <DialogActions sx={{ px: 3, pb: 3, justifyContent: 'flex-end', backgroundColor: '#f5f5f5', gap: 2 }}>
+        <DialogActions 
+          sx={{ 
+            px: 4, 
+            pb: 3, 
+            pt: 2.5, 
+            justifyContent: 'flex-end', 
+            backgroundColor: '#fff', 
+            gap: 2,
+            borderTop: '1px solid #f3f4f6'
+          }}
+        >
           <Button
             onClick={handleCloseAssignDriver}
             variant="outlined"
-            startIcon={<Cancel />}
             sx={{
-              borderRadius: 2,
+              borderRadius: 2.5,
               textTransform: 'none',
               fontWeight: 600,
-              px: 3,
-              py: 1,
-              borderColor: '#E2E8F0',
-              color: '#4A5568',
+              px: 4,
+              py: 1.2,
+              borderColor: '#e5e7eb',
+              color: '#6b7280',
+              fontSize: '0.95rem',
+              transition: 'all 0.2s',
               '&:hover': {
-                borderColor: '#4A90E2',
-                backgroundColor: '#f0f4f8',
+                borderColor: '#9ca3af',
+                backgroundColor: '#f9fafb',
+                transform: 'translateY(-1px)',
               },
             }}
           >
@@ -4402,25 +4517,38 @@ const AddLoad = () => {
           <Button
             onClick={handleAssignDriver}
             variant="contained"
-            startIcon={<Save />}
-            disabled={loading}
+            disabled={loading || !driverData.driverName || !driverData.vehicleNo}
             sx={{
-              background: 'linear-gradient(to right, #4A90E2, #9B59B6)',
+              background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)',
               color: '#fff',
-              borderRadius: 2,
+              borderRadius: 2.5,
               textTransform: 'none',
-              fontWeight: 600,
-              px: 3,
-              py: 1,
+              fontWeight: 700,
+              px: 4,
+              py: 1.2,
+              fontSize: '0.95rem',
+              boxShadow: '0 4px 14px rgba(25, 118, 210, 0.4)',
+              transition: 'all 0.2s',
               '&:hover': {
-                background: 'linear-gradient(to right, #357ABD, #8E44AD)',
+                background: 'linear-gradient(135deg, #1565c0 0%, #0d47a1 100%)',
+                boxShadow: '0 6px 20px rgba(25, 118, 210, 0.5)',
+                transform: 'translateY(-2px)',
               },
               '&.Mui-disabled': {
-                background: '#ccc',
+                background: '#e5e7eb',
+                color: '#9ca3af',
+                boxShadow: 'none',
               },
             }}
           >
-            {loading ? 'Assigning...' : 'Assign Driver'}
+            {loading ? (
+              <>
+                <CircularProgress size={18} sx={{ color: '#fff', mr: 1 }} />
+                Assigning...
+              </>
+            ) : (
+              'Assign Driver'
+            )}
           </Button>
         </DialogActions>
       </Dialog>

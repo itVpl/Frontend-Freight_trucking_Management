@@ -47,7 +47,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
 import { BASE_API_URL } from '../../apiConfig';
-
+//just for github 
 const AddCustomer = () => {
   const { user, userType } = useAuth();
   const [page, setPage] = useState(0);
@@ -905,213 +905,225 @@ const AddCustomer = () => {
       </Modal>
 
       {/* View Customer Modal */}
-      <Modal
+      <Dialog
         open={viewModalOpen}
         onClose={() => setViewModalOpen(false)}
-        aria-labelledby="view-customer-modal"
-      >
-        <Box
-          sx={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: '90%',
-            maxWidth: 800,
-            bgcolor: 'white',
-            borderRadius: '12px',
-            boxShadow: '0 10px 40px rgba(0, 0, 0, 0.1)',
-            maxHeight: '85vh',
+        maxWidth="lg"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            maxHeight: '75vh',
+            background: '#ffffff',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
             display: 'flex',
             flexDirection: 'column',
-            border: '1px solid #e0e0e0'
-          }}
-        >
-          {/* Header */}
-          <Box sx={{ 
-            p: 3, 
-            backgroundColor: '#1976d2',
+          }
+        }}
+      >
+          <DialogTitle sx={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            pb: 2,
+            pt: 2,
+            px: 3,
+            background: '#1976d2',
             color: 'white',
-            borderRadius: '12px 12px 0 0',
-            flexShrink: 0
+            borderRadius: '8px 8px 0 0',
+            minHeight: 64
           }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="h5" fontWeight={600} sx={{ color: 'white' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Business sx={{ fontSize: 28, color: 'white' }} />
+              <Typography variant="h5" fontWeight={600} color="white">
                 Customer Details
               </Typography>
-              <IconButton 
-                onClick={() => setViewModalOpen(false)}
-                sx={{
-                  color: 'white',
-                  '&:hover': {
-                    backgroundColor: 'rgba(255,255,255,0.1)'
-                  }
-                }}
-              >
-                <Close />
-              </IconButton>
             </Box>
-          </Box>
-          {/* Content Area - Scrollable */}
-          {selectedCustomer && (
-            <Box sx={{ 
-              flex: 1,
-              overflowY: 'auto',
-              p: 3
-            }}>
-              {/* Company Name Header */}
-              <Box sx={{ mb: 3, pb: 2, borderBottom: '2px solid #e0e0e0' }}>
-                <Typography variant="h6" fontWeight={700} color="primary" sx={{ mb: 1 }}>
-                  {selectedCustomer.companyInfo?.companyName}
-                </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Chip
-                    label={selectedCustomer.status}
-                    color={selectedCustomer.status === 'active' ? 'success' : 'default'}
-                    size="small"
-                  />
-                  <Typography variant="body2" color="text.secondary">
-                    Created: {new Date(selectedCustomer.createdAt).toLocaleDateString()}
-                  </Typography>
-                </Box>
-              </Box>
-
-              {/* Details Grid */}
-              <Grid container spacing={3}>
-                {/* Company Info */}
-                <Grid item xs={12} sm={6}>
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="subtitle1" fontWeight={600} color="primary" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Business fontSize="small" />
-                      Company Information
-                    </Typography>
-                    <Box sx={{ pl: 2 }}>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                        MC/DOT Number:
-                      </Typography>
-                      <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                        {selectedCustomer.companyInfo?.mcDotNo || 'N/A'}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Grid>
-
-                {/* Contact Info */}
-                <Grid item xs={12} sm={6}>
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="subtitle1" fontWeight={600} color="primary" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Phone fontSize="small" />
-                      Contact Information
-                    </Typography>
-                    <Box sx={{ pl: 2 }}>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                        Email:
-                      </Typography>
-                      <Typography variant="body1" sx={{ fontWeight: 500, mb: 1 }}>
-                        {selectedCustomer.contactInfo?.email || 'N/A'}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                        Mobile:
-                      </Typography>
-                      <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                        {selectedCustomer.contactInfo?.mobile || 'N/A'}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Grid>
-
-                {/* Location */}
-                <Grid item xs={12}>
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="subtitle1" fontWeight={600} color="primary" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <LocationOn fontSize="small" />
-                      Location Details
-                    </Typography>
-                    <Box sx={{ pl: 2 }}>
-                      <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                        {selectedCustomer.locationDetails?.companyAddress || 'N/A'}
-                      </Typography>
-                      <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                        {selectedCustomer.locationDetails?.city}, {selectedCustomer.locationDetails?.state} {selectedCustomer.locationDetails?.zipCode}
-                      </Typography>
-                      <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                        {selectedCustomer.locationDetails?.country}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Grid>
-
-                {/* Notes */}
-                {selectedCustomer.notes && (
-                  <Grid item xs={12}>
-                    <Box sx={{ mb: 2 }}>
-                      <Typography variant="subtitle1" fontWeight={600} color="primary" sx={{ mb: 1 }}>
-                        Additional Notes
-                      </Typography>
-                      <Box sx={{ pl: 2 }}>
-                        <Typography variant="body1" sx={{ 
-                          fontWeight: 500,
-                          fontStyle: 'italic',
-                          backgroundColor: '#f5f5f5',
-                          p: 2,
-                          borderRadius: '8px',
-                          border: '1px solid #e0e0e0'
-                        }}>
-                          {selectedCustomer.notes}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Grid>
-                )}
-
-                {/* Added By */}
-                <Grid item xs={12}>
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="subtitle1" fontWeight={600} color="primary" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <PersonAdd fontSize="small" />
-                      Added By
-                    </Typography>
-                    <Box sx={{ pl: 2 }}>
-                      <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                        {selectedCustomer.addedByTrucker?.truckerName} ({selectedCustomer.addedByTrucker?.truckerEmail})
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Grid>
-              </Grid>
-            </Box>
-          )}
-          {/* Footer */}
-          <Box sx={{ 
-            p: 3, 
-            backgroundColor: '#f5f5f5',
-            display: 'flex', 
-            justifyContent: 'center',
-            borderRadius: '0 0 12px 12px',
-            borderTop: '1px solid #e0e0e0',
-            flexShrink: 0
-          }}>
             <Button
-              variant="contained"
               onClick={() => setViewModalOpen(false)}
               sx={{
-                backgroundColor: '#1976d2',
                 color: 'white',
-                px: 3,
-                py: 1,
-                textTransform: 'none',
-                fontWeight: 500,
-                borderRadius: '8px',
+                minWidth: 'auto',
                 '&:hover': {
-                  backgroundColor: '#1565c0'
+                  background: 'rgba(255, 255, 255, 0.1)',
                 }
               }}
             >
-              Close
+              ✕
             </Button>
-          </Box>
-        </Box>
-      </Modal>
+          </DialogTitle>
+
+          <DialogContent sx={{ pt: 2, overflowY: 'auto', flex: 1 }}>
+          {selectedCustomer && (
+            <Box>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, p: 3 }}>
+                {/* Basic Information Card */}
+                <Paper elevation={0} sx={{ border: '1px solid #e0e0e0', borderRadius: 2, overflow: 'hidden' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, background: '#e3f2fd' }}>
+                    <Box sx={{ width: 32, height: 32, borderRadius: 1, background: '#1976d2', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                      i
+                    </Box>
+                    <Typography variant="h6" fontWeight={700} color="#0d47a1">Basic Information</Typography>
+                  </Box>
+                  <Box sx={{ p: 2 }}>
+                    <Table size="small" sx={{ '& td, & th': { border: 0, py: 1.2 } }}>
+                      <TableBody>
+                        <TableRow>
+                          <TableCell sx={{ width: 220, color: 'text.secondary' }}>Company Name</TableCell>
+                          <TableCell sx={{ width: 80, color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{selectedCustomer.companyInfo?.companyName || 'N/A'}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell sx={{ color: 'text.secondary' }}>MC/DOT Number</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{selectedCustomer.companyInfo?.mcDotNo || 'N/A'}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell sx={{ color: 'text.secondary' }}>Status</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell>
+                            <Chip 
+                              label={selectedCustomer.status} 
+                              size="small"
+                              sx={{ 
+                                backgroundColor: selectedCustomer.status === 'active' ? '#4caf50' : '#9e9e9e',
+                                color: '#fff',
+                                fontWeight: 600,
+                                fontSize: 11
+                              }}
+                            />
+                          </TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell sx={{ color: 'text.secondary' }}>Created Date</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{new Date(selectedCustomer.createdAt).toLocaleDateString()}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </Box>
+                </Paper>
+
+                {/* Contact Information Card */}
+                <Paper elevation={0} sx={{ border: '1px solid #ffe0b2', borderRadius: 2, overflow: 'hidden' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, background: '#fff8e1' }}>
+                    <Box sx={{ width: 32, height: 32, borderRadius: 1, background: '#ffb300', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                      📞
+                    </Box>
+                    <Typography variant="h6" fontWeight={700} color="#e65100">Contact Information</Typography>
+                  </Box>
+                  <Box sx={{ p: 2 }}>
+                    <Table size="small" sx={{ '& td, & th': { border: 0, py: 1.2 } }}>
+                      <TableBody>
+                        <TableRow>
+                          <TableCell sx={{ width: 220, color: 'text.secondary' }}>Email</TableCell>
+                          <TableCell sx={{ width: 80, color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{selectedCustomer.contactInfo?.email || 'N/A'}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell sx={{ color: 'text.secondary' }}>Mobile</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{selectedCustomer.contactInfo?.mobile || 'N/A'}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </Box>
+                </Paper>
+
+                {/* Location Details Card */}
+                <Paper elevation={0} sx={{ border: '1px solid #c8e6c9', borderRadius: 2, overflow: 'hidden' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, background: '#e8f5e9' }}>
+                    <Box sx={{ width: 32, height: 32, borderRadius: 1, background: '#2e7d32', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                      📍
+                    </Box>
+                    <Typography variant="h6" fontWeight={700} color="#1b5e20">Location Details</Typography>
+                  </Box>
+                  <Box sx={{ p: 2 }}>
+                    <Table size="small" sx={{ '& td, & th': { border: 0, py: 1.2 } }}>
+                      <TableBody>
+                        <TableRow>
+                          <TableCell sx={{ width: 220, color: 'text.secondary' }}>Address</TableCell>
+                          <TableCell sx={{ width: 80, color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{selectedCustomer.locationDetails?.companyAddress || 'N/A'}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell sx={{ color: 'text.secondary' }}>City</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{selectedCustomer.locationDetails?.city || 'N/A'}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell sx={{ color: 'text.secondary' }}>State</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{selectedCustomer.locationDetails?.state || 'N/A'}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell sx={{ color: 'text.secondary' }}>Zip Code</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{selectedCustomer.locationDetails?.zipCode || 'N/A'}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell sx={{ color: 'text.secondary' }}>Country</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{selectedCustomer.locationDetails?.country || 'N/A'}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </Box>
+                </Paper>
+
+                {/* Additional Notes Card */}
+                {selectedCustomer.notes && (
+                  <Paper elevation={0} sx={{ border: '1px solid #b2dfdb', borderRadius: 2, overflow: 'hidden' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, background: '#e0f2f1' }}>
+                      <Box sx={{ width: 32, height: 32, borderRadius: 1, background: '#00897b', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                        📝
+                      </Box>
+                      <Typography variant="h6" fontWeight={700} color="#00695c">Additional Notes</Typography>
+                    </Box>
+                    <Box sx={{ p: 2 }}>
+                      <Table size="small" sx={{ '& td, & th': { border: 0, py: 1.2 } }}>
+                        <TableBody>
+                          <TableRow>
+                            <TableCell sx={{ width: 220, color: 'text.secondary' }}>Notes</TableCell>
+                            <TableCell sx={{ width: 80, color: '#9e9e9e' }}>-----</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontStyle: 'italic' }}>{selectedCustomer.notes}</TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                    </Box>
+                  </Paper>
+                )}
+
+                {/* Added By Card */}
+                <Paper elevation={0} sx={{ border: '1px solid #ce93d8', borderRadius: 2, overflow: 'hidden' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, background: '#f3e5f5' }}>
+                    <Box sx={{ width: 32, height: 32, borderRadius: 1, background: '#6a1b9a', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                      👤
+                    </Box>
+                    <Typography variant="h6" fontWeight={700} color="#4a148c">Added By</Typography>
+                  </Box>
+                  <Box sx={{ p: 2 }}>
+                    <Table size="small" sx={{ '& td, & th': { border: 0, py: 1.2 } }}>
+                      <TableBody>
+                        <TableRow>
+                          <TableCell sx={{ width: 220, color: 'text.secondary' }}>Name</TableCell>
+                          <TableCell sx={{ width: 80, color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{selectedCustomer.addedByTrucker?.truckerName || 'N/A'}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell sx={{ color: 'text.secondary' }}>Email</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{selectedCustomer.addedByTrucker?.truckerEmail || 'N/A'}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </Box>
+                </Paper>
+              </Box>
+            </Box>
+          )}
+          </DialogContent>
+      </Dialog>
     </Box>
   );
 };
