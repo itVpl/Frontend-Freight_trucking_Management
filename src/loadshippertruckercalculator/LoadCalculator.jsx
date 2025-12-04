@@ -3,6 +3,7 @@ import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { Canvas } from "@react-three/fiber";
 import * as THREE from "three";
 import { OrbitControls, Edges, RoundedBox, ContactShadows } from "@react-three/drei";
+import alertify from 'alertifyjs';
 import {
   Box,
   Typography,
@@ -658,8 +659,10 @@ function estimateFitsFRorPlatform(cont, item) {
   return { perLayer: Math.max(f1, f2), layers: 1, fits, overWidth: overW, l: usedL, w: usedW };
 }
 
-function suggestContainers({ L, W, H, weight, cargoType }) {
+function suggestContainers({ L, W, H, weight, cargoType, quantity = 1, usePallets = false, palletSpec = null }) {
   const results = [];
+  const totalQuantity = quantity;
+  
   Object.entries(CONTAINER_SIZES).forEach(([key, cont]) => {
     const cat = getCategory(key);
     let suitable = true;
@@ -668,6 +671,8 @@ function suggestContainers({ L, W, H, weight, cargoType }) {
     let fits = 0;
     let util = 0;
     let score = 0;
+    let containersNeeded = 1;
+    let remainingQty = totalQuantity;
 
     const itemVol = L * W * H;
     const contVol = cont.length * cont.width * cont.height;
@@ -723,15 +728,65 @@ function suggestContainers({ L, W, H, weight, cargoType }) {
       if (!fitPhys) {
         suitable = false;
       } else {
-        const o = estimateFitsDryOrHC(cont, { L, W, H });
-        fits = o.fits;
-        util = Math.min(1, (fits * itemVol) / contVol);
-        reasons.push(
-          cat === "HC" ? "High-Cube: extra internal height."
-            : cat === "Reefer" ? "Reefer: temperature-controlled (insulated)."
-              : "Standard dry container."
-        );
-        score += (cat === "HC" || cat === "Reefer") ? 7 : 6;
+        if (usePallets && palletSpec && PALLET_ALLOWED_CARGO.has(cargoType)) {
+          // Pallet-based calculation
+          const pL = palletSpec.length;
+          const pW = palletSpec.width;
+          const pBase = palletSpec.baseHeight;
+          const pMaxH = palletSpec.maxHeight;
+          
+          const maxLayersByHeight = Math.max(0, Math.floor((pMaxH - pBase) / H));
+          if (maxLayersByHeight > 0) {
+            const perRow1 = Math.floor(pL / L), perCol1 = Math.floor(pW / W);
+            const perRow2 = Math.floor(pL / W), perCol2 = Math.floor(pW / L);
+            const count1 = perRow1 * perCol1, count2 = perRow2 * perCol2;
+            const orient = count2 > count1
+              ? { perRow: perRow2, perCol: perCol2 }
+              : { perRow: perRow1, perCol: perCol1 };
+            
+            const perLayer = orient.perRow * orient.perCol;
+            const itemsByHeight = perLayer * maxLayersByHeight;
+            const itemsByPalletWeight = Math.max(0, Math.floor(palletSpec.maxWeight / weight));
+            const itemsPerPallet = Math.min(itemsByHeight, itemsByPalletWeight);
+            
+            if (itemsPerPallet > 0) {
+              const palletsPerContainer = Math.floor(cont.length / pL) * Math.floor(cont.width / pW);
+              const itemsPerContainer = palletsPerContainer * itemsPerPallet;
+              fits = itemsPerContainer;
+              
+              // Calculate containers needed
+              containersNeeded = Math.ceil(totalQuantity / itemsPerContainer);
+              remainingQty = totalQuantity - (containersNeeded - 1) * itemsPerContainer;
+              
+              util = Math.min(1, (fits * itemVol) / contVol * 0.85); // pallet efficiency factor
+              reasons.push("Palletized loading for efficient handling.");
+              score += 8;
+            } else {
+              suitable = false;
+            }
+          } else {
+            suitable = false;
+          }
+        } else {
+          const o = estimateFitsDryOrHC(cont, { L, W, H });
+          fits = o.fits;
+          
+          // Calculate containers needed if quantity exceeds fits
+          if (fits > 0 && totalQuantity > fits) {
+            containersNeeded = Math.ceil(totalQuantity / fits);
+            remainingQty = totalQuantity - (containersNeeded - 1) * fits;
+          } else {
+            remainingQty = Math.min(totalQuantity, fits);
+          }
+          
+          util = Math.min(1, (fits * itemVol) / contVol);
+          reasons.push(
+            cat === "HC" ? "High-Cube: extra internal height."
+              : cat === "Reefer" ? "Reefer: temperature-controlled (insulated)."
+                : "Standard dry container."
+          );
+          score += (cat === "HC" || cat === "Reefer") ? 7 : 6;
+        }
       }
     }
 
@@ -745,10 +800,23 @@ function suggestContainers({ L, W, H, weight, cargoType }) {
       fits = maxByWeight;
       warnings.push(`Weight cap allows ~${maxByWeight} pcs.`);
     }
+    
+    // Recalculate containers needed based on weight limit
+    if (fits > 0 && totalQuantity > fits) {
+      containersNeeded = Math.ceil(totalQuantity / fits);
+      remainingQty = totalQuantity - (containersNeeded - 1) * fits;
+    }
 
     if (suitable && fits >= 0) {
       const warnPenalty = warnings.length * 0.5;
       const finalScore = score + util * 5 - warnPenalty;
+      
+      // Add multi-container info if needed
+      if (containersNeeded > 1) {
+        reasons.push(`Requires ${containersNeeded} containers (${fits} pcs per container, ${remainingQty} in last)`);
+        warnings.push(`Multi-container shipment needed`);
+      }
+      
       results.push({
         containerType: key,
         category: cat,
@@ -757,10 +825,18 @@ function suggestContainers({ L, W, H, weight, cargoType }) {
         reasons,
         warnings,
         score: Number(finalScore.toFixed(2)),
+        containersNeeded,
+        remainingQty: containersNeeded > 1 ? remainingQty : fits,
       });
     }
   });
-  return results.sort((a, b) => b.score - a.score).slice(0, 8);
+  return results.sort((a, b) => {
+    // Prioritize single container solutions, then by score
+    if (a.containersNeeded !== b.containersNeeded) {
+      return a.containersNeeded - b.containersNeeded;
+    }
+    return b.score - a.score;
+  }).slice(0, 8);
 }
 
 // NEW: Truck suggestion logic
@@ -1126,6 +1202,14 @@ export default function LoadCalculator() {
 // existing state ke paas add karo:
 const [autoSmartPack, setAutoSmartPack] = useState(true);
 
+  // Pre-module suggestions (auto-update based on form inputs)
+  const [preModuleSuggestions, setPreModuleSuggestions] = useState([]);
+  
+  // Multi-container support
+  const [containersNeeded, setContainersNeeded] = useState(1);
+  const [itemsPerContainer, setItemsPerContainer] = useState(null);
+  const [viewingContainerNum, setViewingContainerNum] = useState(1); // For 3D view
+
   // Info dialog (for gallery)
   const [infoOpen, setInfoOpen] = useState(false);
   const [infoItem, setInfoItem] = useState(null);
@@ -1177,6 +1261,9 @@ const [weightUnit, setWeightUnit] = useState("kg"); // "kg" | "lb"
     setTimeline([]);
     setPlayhead(0);
     setIsPlaying(false);
+    // Reset multi-container info
+    setContainersNeeded(1);
+    setItemsPerContainer(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, selectedSize, selectedTruck]);
   useEffect(() => {
@@ -1268,31 +1355,31 @@ const handleWeightUnitChange = (nextUnit) => {
     if (cargoType === "Liquid") {
       const isTank = mode === "Container" && selectedSize.includes("Tank");
       if (!isTank) {
-        alert("❌ Liquid requires a Tank container (use 20ftTank).");
+        alertify.error("Liquid requires a Tank container (use 20ftTank).");
         return;
       }
       const sg = Number(form.sg) || 0;
       if (sg <= 0) {
-        alert("❌ Enter valid Specific Gravity (e.g., water = 1.0).");
+        alertify.error("Enter valid Specific Gravity (e.g., water = 1.0).");
         return;
       }
       const tankCapL = TANK_CAPACITY_L[selectedSize] || 24000;
       let m3 = (Number(form.liquidVolume) || 0) / 1000; // L -> m³
       if (m3 <= 0) {
-        alert("❌ Enter a positive liquid volume (Liters).");
+        alertify.error("Enter a positive liquid volume (Liters).");
         return;
       }
       const maxFill = Math.min(100, Math.max(50, Number(form.maxFillPercent) || 95));
       const allowedM3 = (tankCapL * maxFill) / 100 / 1000;
       if (m3 > allowedM3) {
-        alert(`⚠️ Over max fill ${maxFill}% of ${tankCapL} L. Using ${allowedM3 * 1000} L.`);
+        alertify.warning(`Over max fill ${maxFill}% of ${tankCapL} L. Using ${allowedM3 * 1000} L.`);
         m3 = allowedM3;
       }
 
       const usedWeightNow = items.reduce((s, it) => s + (it.weight || 0) * (it.quantity || 1), 0);
       const weight = m3 * 1000 * sg; // kg
       if (usedWeightNow + weight > container.maxWeight) {
-        alert("❌ Overweight for Tank. Reduce volume or SG.");
+        alertify.error("Overweight for Tank. Reduce volume or SG.");
         return;
       }
 
@@ -1341,17 +1428,17 @@ const weight = toKg(Number(form.weight) || 0, weightUnit); // always kg
     const mHeight = parseToMeters(form.height, unit);
 
     if (!Number.isFinite(mLength) || !Number.isFinite(mWidth) || !Number.isFinite(mHeight)) {
-      alert('❌ Invalid size. Try 1200, 120cm, 48in, 4ft or 4\'0"');
+      alertify.error('Invalid size. Try 1200, 120cm, 48in, 4ft or 4\'0"');
       return;
     }
     if (mLength <= 0 || mWidth <= 0 || mHeight <= 0 || quantity <= 0 || weight <= 0) {
-      alert("❌ Positive values required for L/W/H, quantity, weight.");
+      alertify.error("Positive values required for L/W/H, quantity, weight.");
       return;
     }
 
     // allowed cargo check (container/truck wise)
     if (!allowedTypes.includes(cargoType)) {
-      alert(`❌ ${cargoType} is not allowed in this ${mode.toLowerCase()}.`);
+      alertify.error(`${cargoType} is not allowed in this ${mode.toLowerCase()}.`);
       return;
     }
 
@@ -1362,14 +1449,14 @@ const weight = toKg(Number(form.weight) || 0, weightUnit); // always kg
       !["FR", "Platform"].includes(targetCat) &&
       (mLength > container.length || mWidth > container.width || !heightOk)
     ) {
-      alert("❌ Item too big for this target (size exceeds).");
+      alertify.error("Item too big for this target (size exceeds).");
       return;
     }
     if (targetCat === "OT" && mHeight > container.height) {
-      alert("⚠️ Open Top over-height: tarp/lashing/permits may be needed.");
+      alertify.warning("Open Top over-height: tarp/lashing/permits may be needed.");
     }
     if (["FR", "Platform"].includes(targetCat) && mWidth > container.width + 0.5) {
-      alert("⚠️ Over-width > 0.5 m — special lashing/permits likely.");
+      alertify.warning("Over-width > 0.5 m — special lashing/permits likely.");
     }
 
     // weight guard
@@ -1377,8 +1464,8 @@ const weight = toKg(Number(form.weight) || 0, weightUnit); // always kg
     const remainingWeight = container.maxWeight - usedWeightNow;
     let allowedByWeight = Math.max(0, Math.floor(remainingWeight / weight));
     let askQty = Math.min(quantity, allowedByWeight);
-    if (askQty <= 0) { alert("❌ Overweight. Cannot add more items."); return; }
-    if (askQty < quantity) alert(`⚠️ Overweight limit. Only ${askQty} of ${quantity} added.`);
+    if (askQty <= 0) { alertify.error("Overweight. Cannot add more items."); return; }
+    if (askQty < quantity) alertify.warning(`Overweight limit. Only ${askQty} of ${quantity} added.`);
 
     // common placer for any block (pallet or piece)
     function placeBlock(tempPos, L, H, W) {
@@ -1422,10 +1509,10 @@ const weight = toKg(Number(form.weight) || 0, weightUnit); // always kg
         const deltaVol = targetCat === "OT"
           ? (mLength * mWidth * Math.min(mHeight, container.height))
           : (mLength * mWidth * mHeight);
-        if (usedVolumeNow + totalNewVol + deltaVol > totalVolume) { alert(`⚠️ Full by volume. Added ${added} piece(s).`); break; }
+        if (usedVolumeNow + totalNewVol + deltaVol > totalVolume) { alertify.warning(`Full by volume. Added ${added} piece(s).`); break; }
 
         const res = placeBlock(temp, mLength, mHeight, mWidth);
-        if (!res.ok) { alert("⚠️ No stacking space left."); break; }
+        if (!res.ok) { alertify.warning("No stacking space left."); break; }
 
         newRender.push({
           cargoType,
@@ -1439,7 +1526,7 @@ const weight = toKg(Number(form.weight) || 0, weightUnit); // always kg
     } else {
       // ================= PALLETIZATION =================
       if (!PALLET_ALLOWED_CARGO.has(cargoType)) {
-        alert("❌ Pallets: only Box / Sacks / Bigbags / Barrels supported.");
+        alertify.error("Pallets: only Box / Sacks / Bigbags / Barrels supported.");
         return;
       }
 
@@ -1450,7 +1537,7 @@ const weight = toKg(Number(form.weight) || 0, weightUnit); // always kg
 
       // layers limit (height)
       const maxLayersByHeight = Math.max(0, Math.floor((pMaxH - pBase) / mHeight));
-      if (maxLayersByHeight <= 0) { alert("❌ Max pallet height too small for this item."); return; }
+      if (maxLayersByHeight <= 0) { alertify.error("Max pallet height too small for this item."); return; }
 
       // 2D footprint packing on pallet (try both orientations)
       const perRow1 = Math.floor(pL / mLength), perCol1 = Math.floor(pW / mWidth);
@@ -1462,7 +1549,7 @@ const weight = toKg(Number(form.weight) || 0, weightUnit); // always kg
         : { l: mLength, w: mWidth, perRow: perRow1, perCol: perCol1 };
 
       if (orient.perRow * orient.perCol <= 0) {
-        alert("❌ Pallet footprint too small for this item.");
+        alertify.error("Pallet footprint too small for this item.");
         return;
       }
 
@@ -1470,7 +1557,7 @@ const weight = toKg(Number(form.weight) || 0, weightUnit); // always kg
       const itemsByHeight = perLayer * maxLayersByHeight;
       const itemsByPalletWeight = Math.max(0, Math.floor(palletSpec.maxWeight / weight));
       let itemsPerPallet = Math.min(itemsByHeight, itemsByPalletWeight);
-      if (itemsPerPallet <= 0) { alert("❌ Item weight exceeds pallet max weight."); return; }
+      if (itemsPerPallet <= 0) { alertify.error("Item weight exceeds pallet max weight."); return; }
 
       let remaining = askQty;
 
@@ -1484,14 +1571,14 @@ const weight = toKg(Number(form.weight) || 0, weightUnit); // always kg
           ? (pL * pW * Math.min(stackHeight, container.height))
           : (pL * pW * stackHeight);
         if (usedVolumeNow + totalNewVol + deltaVol > totalVolume) {
-          if (added === 0) alert("⚠️ Full by volume. Could not place pallet.");
-          else alert(`⚠️ Full by volume. Added ${added} piece(s) total.`);
+          if (added === 0) alertify.warning("Full by volume. Could not place pallet.");
+          else alertify.warning(`Full by volume. Added ${added} piece(s) total.`);
           break;
         }
 
         // place the pallet "block"
         const placed = placeBlock(temp, pL, stackHeight, pW);
-        if (!placed.ok) { alert("⚠️ No stacking space left."); break; }
+        if (!placed.ok) { alertify.warning("No stacking space left."); break; }
 
         // ✅ PALLET KO PEHLE LOCAL ARRAY ME BANAO (order lock)
         const palletFrames = [];
@@ -1598,7 +1685,11 @@ const weight = toKg(Number(form.weight) || 0, weightUnit); // always kg
         if (!isPlaying) setPlayhead(nt.length);
         return nt;
       });
+      
+      // Return true to indicate success
+      return true;
     }
+    return false;
   };
 const repackLargestFirst = useCallback(() => {
   // Palletized loads ko skip: unke liye alag logic chahiye
@@ -1711,7 +1802,7 @@ const repackLargestFirst = useCallback(() => {
   const handleSuggest = () => {
     if (isLiquid) {
       const weight = computedLiquidWeight();
-      const res = suggestContainers({ L: 1, W: 1, H: 1, weight, cargoType: "Liquid" });
+      const res = suggestContainers({ L: 1, W: 1, H: 1, weight, cargoType: "Liquid", quantity: 1 });
       setSuggestions(res);
       setOpenSuggest(true);
       return;
@@ -1722,15 +1813,21 @@ const repackLargestFirst = useCallback(() => {
     const L = parseToMeters(form.length, unit);
     const W = parseToMeters(form.width, unit);
     const H = parseToMeters(form.height, unit);
+    const qty = Number(form.quantity) || 0;
 
-    if (!Number.isFinite(L) || !Number.isFinite(W) || !Number.isFinite(H) || (Number(form.quantity) || 0) <= 0 || weight <= 0) {
-      alert("Please enter valid L/W/H, qty and weight first.");
+    if (!Number.isFinite(L) || !Number.isFinite(W) || !Number.isFinite(H) || qty <= 0 || weight <= 0) {
+      alertify.error("Please enter valid L/W/H, qty and weight first.");
       return;
     }
 
     const res = (mode === "Truck")
       ? suggestTrucks({ L, W, H, weight, cargoType })
-      : suggestContainers({ L, W, H, weight, cargoType });
+      : suggestContainers({ 
+          L, W, H, weight, cargoType, 
+          quantity: qty,
+          usePallets: usePallets && PALLET_ALLOWED_CARGO.has(cargoType),
+          palletSpec: usePallets && PALLET_ALLOWED_CARGO.has(cargoType) ? palletSpec : null
+        });
 
     setSuggestions(res);
     setOpenSuggest(true);
@@ -1836,20 +1933,48 @@ const repackLargestFirst = useCallback(() => {
   }, [breakdown]);
 
 
+  // ▶ Filter timeline for multi-container view
+  const filteredTimeline = useMemo(() => {
+    if (containersNeeded <= 1 || !itemsPerContainer) {
+      return timeline;
+    }
+    
+    // Calculate which items belong to the viewing container
+    const itemsStart = (viewingContainerNum - 1) * itemsPerContainer.fits;
+    const itemsEnd = viewingContainerNum === containersNeeded
+      ? itemsStart + itemsPerContainer.remainingQty
+      : itemsStart + itemsPerContainer.fits;
+    
+    // Filter timeline items based on their position in the sequence
+    let itemCount = 0;
+    const filtered = [];
+    
+    timeline.forEach((ri) => {
+      // Each timeline item represents one physical item
+      if (itemCount >= itemsStart && itemCount < itemsEnd) {
+        filtered.push(ri);
+      }
+      itemCount++;
+    });
+    
+    return filtered;
+  }, [timeline, containersNeeded, itemsPerContainer, viewingContainerNum]);
+
   // ▶ Only show items up to the playhead during playback
   const visibleItems = useMemo(
-    () => timeline.slice(0, playhead),
-    [timeline, playhead]
+    () => filteredTimeline.slice(0, playhead),
+    [filteredTimeline, playhead]
   );
+  
   // ▶ Auto-advance playhead while playing
   useEffect(() => {
     if (!isPlaying) return;
-    if (playhead >= timeline.length) { setIsPlaying(false); return; }
+    if (playhead >= filteredTimeline.length) { setIsPlaying(false); return; }
     const t = setTimeout(() => {
-      setPlayhead((p) => Math.min(p + 1, timeline.length));
+      setPlayhead((p) => Math.min(p + 1, filteredTimeline.length));
     }, stepMs);
     return () => clearTimeout(t);
-  }, [isPlaying, playhead, timeline.length, stepMs]);
+  }, [isPlaying, playhead, filteredTimeline.length, stepMs]);
 
 useEffect(() => {
   if (!autoSmartPack) return;
@@ -1857,6 +1982,42 @@ useEffect(() => {
   if (usePallets) return;
   if (items.length > 0) repackLargestFirst();
 }, [items, autoSmartPack, usePallets, repackLargestFirst]);
+
+// Auto-update pre-module suggestions based on form inputs
+useEffect(() => {
+  if (isLiquid) {
+    const m3 = volumeM3FromForm();
+    const sg = Number(form.sg) || 0;
+    const weight = m3 * 1000 * sg; // kg
+    if (weight > 0 && Number(form.liquidVolume) > 0) {
+      const res = suggestContainers({ L: 1, W: 1, H: 1, weight, cargoType: "Liquid", quantity: 1 });
+      setPreModuleSuggestions(res.slice(0, 3)); // Top 3 suggestions
+    } else {
+      setPreModuleSuggestions([]);
+    }
+    return;
+  }
+
+  const weight = toKg(Number(form.weight) || 0, weightUnit);
+  const L = parseToMeters(form.length, unit);
+  const W = parseToMeters(form.width, unit);
+  const H = parseToMeters(form.height, unit);
+  const qty = Number(form.quantity) || 0;
+
+  if (Number.isFinite(L) && Number.isFinite(W) && Number.isFinite(H) && 
+      L > 0 && W > 0 && H > 0 && weight > 0 && qty > 0) {
+    const res = suggestContainers({ 
+      L, W, H, weight, cargoType, 
+      quantity: qty,
+      usePallets: usePallets && PALLET_ALLOWED_CARGO.has(cargoType),
+      palletSpec: usePallets && PALLET_ALLOWED_CARGO.has(cargoType) ? palletSpec : null
+    });
+    setPreModuleSuggestions(res.slice(0, 3)); // Top 3 suggestions
+  } else {
+    setPreModuleSuggestions([]);
+  }
+}, [form.length, form.width, form.height, form.weight, form.quantity, form.liquidVolume, form.sg, 
+    unit, weightUnit, cargoType, isLiquid, usePallets, palletSpec]);
 
   // Quick presets (non-liquid only)
   const presets = [
@@ -2023,6 +2184,542 @@ useEffect(() => {
                   </Stack>
                 </Grid>
 
+                {/* Pre-Module: Container Suggestions - Quick Input Form */}
+                {mode === "Container" && (
+                  <Grid item xs={12}>
+                    <Paper 
+                      elevation={2} 
+                      sx={{ 
+                        mb: 2, 
+                        background: "linear-gradient(135deg, #e3f2fd 0%, #f1f8ff 100%)",
+                        border: "2px solid #1976d2",
+                        borderRadius: 3,
+                        overflow: "hidden"
+                      }}
+                    >
+                      <Accordion 
+                        defaultExpanded={false}
+                        sx={{
+                          background: "transparent",
+                          boxShadow: "none",
+                          "&:before": { display: "none" },
+                          "&.Mui-expanded": { margin: 0 }
+                        }}
+                      >
+                        <AccordionSummary 
+                          expandIcon={<ExpandMoreIcon sx={{ color: "#1976d2" }} />}
+                          sx={{
+                            px: 2.5,
+                            py: 1.5,
+                            "&:hover": { background: "rgba(25, 118, 210, 0.05)" },
+                            "& .MuiAccordionSummary-content": {
+                              margin: 0,
+                              alignItems: "center"
+                            }
+                          }}
+                        >
+                          <Stack 
+                            direction="row" 
+                            spacing={1.5} 
+                            alignItems="center" 
+                            sx={{ width: "100%", flexWrap: "wrap", gap: 1 }}
+                          >
+                            <Stack direction="row" spacing={1} alignItems="center" sx={{ flex: 1, minWidth: 0 }}>
+                              <LocalShippingIcon sx={{ color: "#1976d2", fontSize: 24 }} />
+                              <Typography 
+                                variant="h6" 
+                                fontWeight={700} 
+                                sx={{ color: "#1976d2", fontSize: "1.1rem" }}
+                              >
+                                Find Suitable Container
+                              </Typography>
+                            </Stack>
+                            <Chip 
+                              size="small" 
+                              label="Enter dimensions & weight to get suggestions" 
+                              color="primary" 
+                              variant="outlined"
+                              sx={{ 
+                                fontSize: "0.7rem",
+                                height: 24,
+                                borderColor: "#1976d2",
+                                color: "#1976d2"
+                              }}
+                            />
+                          </Stack>
+                        </AccordionSummary>
+                        <AccordionDetails sx={{ px: 2.5, pb: 2.5, pt: 0 }}>
+                          {/* Quick Input Form */}
+                          <Paper elevation={1} sx={{ p: 2, mb: 2, background: "#ffffff" }}>
+                        <Grid container spacing={2} alignItems="center">
+                          <Grid item xs={12} sm={6} md={2}>
+                            <FormControl size="small" fullWidth>
+                              <InputLabel>Cargo Type</InputLabel>
+                              <Select
+                                value={cargoType}
+                                label="Cargo Type"
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setCargoType(val);
+                                  if (autoColor) setForm((prev) => ({ ...prev, color: CARGO_COLORS[val] || prev.color }));
+                                }}
+                              >
+                                {CARGO_TYPES.map((t) => (
+                                  <MenuItem key={t} value={t}>{t}</MenuItem>
+                                ))}
+                              </Select>
+                            </FormControl>
+                          </Grid>
+                          <Grid item xs={12} sm={6} md={2}>
+                            <TextField
+                              label="Length"
+                              name="length"
+                              value={form.length}
+                              onChange={handleFormChange}
+                              size="small"
+                              fullWidth
+                              placeholder={exampleByUnit(unit)}
+                              InputProps={{ 
+                                endAdornment: <InputAdornment position="end">{unitShort(unit)}</InputAdornment> 
+                              }}
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={6} md={2}>
+                            <TextField
+                              label="Width"
+                              name="width"
+                              value={form.width}
+                              onChange={handleFormChange}
+                              size="small"
+                              fullWidth
+                              placeholder={exampleByUnit(unit)}
+                              InputProps={{ 
+                                endAdornment: <InputAdornment position="end">{unitShort(unit)}</InputAdornment> 
+                              }}
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={6} md={2}>
+                            <TextField
+                              label="Height"
+                              name="height"
+                              value={form.height}
+                              onChange={handleFormChange}
+                              size="small"
+                              fullWidth
+                              placeholder={exampleByUnit(unit)}
+                              InputProps={{ 
+                                endAdornment: <InputAdornment position="end">{unitShort(unit)}</InputAdornment> 
+                              }}
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={6} md={2}>
+                            <TextField
+                              label="Weight"
+                              name="weight"
+                              value={form.weight}
+                              onChange={handleFormChange}
+                              type="number"
+                              size="small"
+                              fullWidth
+                              inputProps={{ min: 0.1, step: 0.1 }}
+                              InputProps={{ 
+                                endAdornment: <InputAdornment position="end">{weightUnit}</InputAdornment> 
+                              }}
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={6} md={2}>
+                            <TextField
+                              label="Quantity"
+                              name="quantity"
+                              value={form.quantity}
+                              onChange={handleFormChange}
+                              type="number"
+                              size="small"
+                              fullWidth
+                              inputProps={{ min: 1, step: 1 }}
+                            />
+                          </Grid>
+                        </Grid>
+                        <Stack direction="row" spacing={1} sx={{ mt: 2, flexWrap: "wrap", alignItems: "center" }}>
+                          <Typography variant="subtitle2" sx={{ mr: 1 }}>Units:</Typography>
+                          <ToggleButtonGroup
+                            size="small"
+                            value={unit}
+                            exclusive
+                            onChange={(_, v) => v && handleUnitSwitch(v)}
+                          >
+                            <ToggleButton value="mm">mm</ToggleButton>
+                            <ToggleButton value="cm">cm</ToggleButton>
+                            <ToggleButton value="m">m</ToggleButton>
+                            <ToggleButton value="inch">inch</ToggleButton>
+                            <ToggleButton value="ft">feet</ToggleButton>
+                          </ToggleButtonGroup>
+                          <ToggleButtonGroup
+                            size="small"
+                            value={weightUnit}
+                            exclusive
+                            onChange={(_, v) => v && handleWeightUnitChange(v)}
+                            sx={{ ml: 1 }}
+                          >
+                            <ToggleButton value="kg">kg</ToggleButton>
+                            <ToggleButton value="lb">lbs</ToggleButton>
+                          </ToggleButtonGroup>
+                          <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
+                          <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: "wrap", gap: 1 }}>
+                            <Stack direction="row" spacing={1} alignItems="center">
+                              <Switch
+                                checked={usePallets}
+                                onChange={(e) => setUsePallets(e.target.checked)}
+                                size="small"
+                                disabled={!PALLET_ALLOWED_CARGO.has(cargoType)}
+                              />
+                              <Typography variant="subtitle2" sx={{ fontSize: "0.85rem" }}>
+                                Use Pallets
+                              </Typography>
+                              {!PALLET_ALLOWED_CARGO.has(cargoType) && (
+                                <Tooltip title="Pallets only available for Box, Sacks, Bigbags, Barrels">
+                                  <HelpOutlineIcon fontSize="small" sx={{ color: "text.secondary" }} />
+                                </Tooltip>
+                              )}
+                            </Stack>
+                            {usePallets && PALLET_ALLOWED_CARGO.has(cargoType) && (
+                              <FormControl size="small" sx={{ minWidth: 180 }}>
+                                <InputLabel>Pallet Type</InputLabel>
+                                <Select
+                                  label="Pallet Type"
+                                  value={palletType}
+                                  onChange={(e) => {
+                                    const t = e.target.value;
+                                    setPalletType(t);
+                                    setPalletSpec({ ...PALLET_PRESETS[t] });
+                                  }}
+                                >
+                                  {Object.keys(PALLET_PRESETS).map((k) => (
+                                    <MenuItem key={k} value={k}>{k}</MenuItem>
+                                  ))}
+                                </Select>
+                              </FormControl>
+                            )}
+                          </Stack>
+                        </Stack>
+                      </Paper>
+
+                      {/* Suggestions Display */}
+                      {preModuleSuggestions.length > 0 ? (
+                        <>
+                          <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 2 }}>
+                            Top 3 Recommended Containers:
+                          </Typography>
+                          <Grid container spacing={2}>
+                            {preModuleSuggestions.map((suggestion, idx) => {
+                              // Generate container cards for multi-container suggestions
+                              const containerCards = [];
+                              if (suggestion.containersNeeded > 1) {
+                                for (let i = 0; i < suggestion.containersNeeded; i++) {
+                                  const isLast = i === suggestion.containersNeeded - 1;
+                                  containerCards.push({
+                                    ...suggestion,
+                                    containerNumber: i + 1,
+                                    isLast,
+                                    itemsInThisContainer: isLast ? suggestion.remainingQty : suggestion.fits,
+                                    key: `${suggestion.containerType}-${i}`
+                                  });
+                                }
+                              } else {
+                                containerCards.push({
+                                  ...suggestion,
+                                  containerNumber: 1,
+                                  isLast: true,
+                                  itemsInThisContainer: suggestion.fits,
+                                  key: suggestion.containerType
+                                });
+                              }
+                              
+                              return containerCards.map((containerCard) => (
+                              <Grid item xs={12} sm={6} md={suggestion.containersNeeded > 1 ? 4 : 4} key={containerCard.key}>
+                                <Paper
+                                  elevation={containerCard.containerType === selectedSize ? 6 : 2}
+                                  sx={{
+                                    p: 2,
+                                    borderRadius: 2,
+                                    border: containerCard.containerType === selectedSize 
+                                      ? "2px solid #1976d2" 
+                                      : containerCard.containersNeeded > 1
+                                        ? "1px solid #ffc107"
+                                        : "1px solid #e0e0e0",
+                                    background: containerCard.containerType === selectedSize
+                                      ? "linear-gradient(135deg, #e3f2fd 0%, #ffffff 100%)"
+                                      : containerCard.containersNeeded > 1
+                                        ? "linear-gradient(135deg, #fff9e6 0%, #ffffff 100%)"
+                                        : "#ffffff",
+                                    transition: "all 0.3s ease",
+                                    "&:hover": {
+                                      transform: "translateY(-2px)",
+                                      boxShadow: 4,
+                                    },
+                                    cursor: "pointer"
+                                  }}
+                                  onClick={async () => {
+                                    handleContainerChange(containerCard.containerType);
+                                    
+                                    // Store multi-container info
+                                    if (containerCard.containersNeeded > 1) {
+                                      setContainersNeeded(containerCard.containersNeeded);
+                                      setItemsPerContainer({
+                                        fits: containerCard.fits,
+                                        remainingQty: containerCard.remainingQty
+                                      });
+                                    } else {
+                                      setContainersNeeded(1);
+                                      setItemsPerContainer(null);
+                                    }
+                                    
+                                    // Auto-fill form and navigate to Stuffing Result
+                                    const weight = toKg(Number(form.weight) || 0, weightUnit);
+                                    const L = parseToMeters(form.length, unit);
+                                    const W = parseToMeters(form.width, unit);
+                                    const H = parseToMeters(form.height, unit);
+                                    
+                                    if (Number.isFinite(L) && Number.isFinite(W) && Number.isFinite(H) && 
+                                        L > 0 && W > 0 && H > 0 && weight > 0 && Number(form.quantity) > 0) {
+                                      // Auto-add item if not already added
+                                      if (items.length === 0) {
+                                        // Temporarily disable autoSmartPack to prevent interference
+                                        const wasAutoSmartPack = autoSmartPack;
+                                        if (wasAutoSmartPack) {
+                                          setAutoSmartPack(false);
+                                        }
+                                        
+                                        // Add item
+                                        const itemAdded = addItem();
+                                        
+                                        // Wait for state updates to complete (timeline, items, etc.)
+                                        // Use a longer timeout to ensure all state updates are complete
+                                        await new Promise(resolve => setTimeout(resolve, 600));
+                                        
+                                        // Double-check that items were added
+                                        if (itemAdded !== false) {
+                                          // Re-enable autoSmartPack if it was enabled
+                                          if (wasAutoSmartPack) {
+                                            setTimeout(() => setAutoSmartPack(true), 100);
+                                          }
+                                          
+                                          // Navigate to Stuffing Result tab after item is added
+                                          setTab(2);
+                                          alertify.success(`Container ${containerCard.containerType} selected! Viewing stuffing result.`);
+                                        } else {
+                                          alertify.error("Failed to add item. Please check your inputs.");
+                                          if (wasAutoSmartPack) {
+                                            setAutoSmartPack(true);
+                                          }
+                                        }
+                                      } else {
+                                        // Navigate to Stuffing Result tab
+                                        setTab(2);
+                                        alertify.success(`Container ${containerCard.containerType} selected! Viewing stuffing result.`);
+                                      }
+                                    }
+                                  }}
+                                >
+                                  <Stack spacing={1}>
+                                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                                      <Stack>
+                                        <Typography variant="subtitle1" fontWeight={700}>
+                                          {containerCard.containerType}
+                                        </Typography>
+                                        {containerCard.containersNeeded > 1 && (
+                                          <Typography variant="caption" sx={{ color: "#856404", fontWeight: 600 }}>
+                                            Container #{containerCard.containerNumber} of {containerCard.containersNeeded}
+                                          </Typography>
+                                        )}
+                                      </Stack>
+                                      {containerCard.containerType === selectedSize && (
+                                        <Chip size="small" color="primary" label="Selected" />
+                                      )}
+                                    </Stack>
+                                    
+                                    <Stack direction="row" spacing={1} flexWrap="wrap">
+                                      <Chip
+                                        size="small"
+                                        label={containerCard.category}
+                                        color={
+                                          /Reefer/i.test(containerCard.category) ? "info" :
+                                          /HC|Dry/i.test(containerCard.category) ? "primary" :
+                                          /Flat|Step|FR|Platform/i.test(containerCard.category) ? "secondary" :
+                                          "warning"
+                                        }
+                                        variant="outlined"
+                                      />
+                                      <Chip
+                                        size="small"
+                                        label={`${containerCard.itemsInThisContainer} pcs`}
+                                        color="success"
+                                        variant="outlined"
+                                      />
+                                      {containerCard.containersNeeded > 1 && (
+                                        <Chip
+                                          size="small"
+                                          label={containerCard.isLast ? "Last Container" : "Full Container"}
+                                          color={containerCard.isLast ? "warning" : "info"}
+                                          variant="outlined"
+                                        />
+                                      )}
+                                    </Stack>
+
+                                    <LinearProgress
+                                      variant="determinate"
+                                      value={Math.min(100, containerCard.utilization)}
+                                      sx={{ height: 6, borderRadius: 3 }}
+                                    />
+                                    <Typography variant="caption" color="text.secondary">
+                                      Utilization: {containerCard.utilization}%
+                                    </Typography>
+
+                                    <Typography variant="body2" sx={{ fontSize: "0.75rem", color: "#666" }}>
+                                      <strong>Score:</strong> {containerCard.score.toFixed(1)}
+                                    </Typography>
+
+                                    {containerCard.containersNeeded > 1 && (
+                                      <Box sx={{ 
+                                        p: 1, 
+                                        bgcolor: containerCard.isLast ? "#fff3cd" : "#e3f2fd", 
+                                        borderRadius: 1, 
+                                        border: containerCard.isLast ? "1px solid #ffc107" : "1px solid #1976d2",
+                                        mb: 0.5
+                                      }}>
+                                        <Typography variant="caption" sx={{ fontSize: "0.7rem", fontWeight: 700, color: containerCard.isLast ? "#856404" : "#0d47a1" }}>
+                                          {containerCard.isLast ? "⚠️ Last Container" : "📦 Container " + containerCard.containerNumber}
+                                        </Typography>
+                                        <Typography variant="caption" sx={{ fontSize: "0.65rem", color: containerCard.isLast ? "#856404" : "#1565c0", display: "block", mt: 0.25 }}>
+                                          {containerCard.itemsInThisContainer} pieces in this container
+                                        </Typography>
+                                      </Box>
+                                    )}
+
+                                    {containerCard.reasons.length > 0 && (
+                                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.7rem" }}>
+                                        {containerCard.reasons[0]}
+                                      </Typography>
+                                    )}
+
+                                    {containerCard.warnings.length > 0 && (
+                                      <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                                        {containerCard.warnings.map((w, i) => (
+                                          <Chip 
+                                            key={i} 
+                                            size="small" 
+                                            color="warning" 
+                                            variant="outlined" 
+                                            label={w}
+                                            sx={{ fontSize: "0.65rem", height: 20 }}
+                                          />
+                                        ))}
+                                      </Stack>
+                                    )}
+
+                                    <Button
+                                      size="small"
+                                      variant={containerCard.containerType === selectedSize ? "contained" : "outlined"}
+                                      fullWidth
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        handleContainerChange(containerCard.containerType);
+                                        
+                                        // Store multi-container info
+                                        if (containerCard.containersNeeded > 1) {
+                                          setContainersNeeded(containerCard.containersNeeded);
+                                          setItemsPerContainer({
+                                            fits: containerCard.fits,
+                                            remainingQty: containerCard.remainingQty
+                                          });
+                                        } else {
+                                          setContainersNeeded(1);
+                                          setItemsPerContainer(null);
+                                        }
+                                        
+                                        // Auto-fill form and navigate to Stuffing Result
+                                        const weight = toKg(Number(form.weight) || 0, weightUnit);
+                                        const L = parseToMeters(form.length, unit);
+                                        const W = parseToMeters(form.width, unit);
+                                        const H = parseToMeters(form.height, unit);
+                                        
+                                        if (Number.isFinite(L) && Number.isFinite(W) && Number.isFinite(H) && 
+                                            L > 0 && W > 0 && H > 0 && weight > 0 && Number(form.quantity) > 0) {
+                                          // Auto-add item if not already added
+                                          if (items.length === 0) {
+                                            // Temporarily disable autoSmartPack to prevent interference
+                                            const wasAutoSmartPack = autoSmartPack;
+                                            if (wasAutoSmartPack) {
+                                              setAutoSmartPack(false);
+                                            }
+                                            
+                                            // Add item
+                                            const itemAdded = addItem();
+                                            
+                                            // Wait for state updates to complete (timeline, items, etc.)
+                                            // Use a longer timeout to ensure all state updates are complete
+                                            await new Promise(resolve => setTimeout(resolve, 600));
+                                            
+                                            // Double-check that items were added
+                                            if (itemAdded !== false) {
+                                              // Re-enable autoSmartPack if it was enabled
+                                              if (wasAutoSmartPack) {
+                                                setTimeout(() => setAutoSmartPack(true), 100);
+                                              }
+                                              
+                                              // Navigate to Stuffing Result tab after item is added
+                                              setTab(2);
+                                              alertify.success(`Container ${containerCard.containerType} selected! Viewing stuffing result.`);
+                                            } else {
+                                              alertify.error("Failed to add item. Please check your inputs.");
+                                              if (wasAutoSmartPack) {
+                                                setAutoSmartPack(true);
+                                              }
+                                            }
+                                          } else {
+                                            // Navigate to Stuffing Result tab
+                                            setTab(2);
+                                            alertify.success(`Container ${containerCard.containerType} selected! Viewing stuffing result.`);
+                                          }
+                                        } else {
+                                          alertify.warning("Please fill all dimensions, weight, and quantity first.");
+                                        }
+                                      }}
+                                      sx={{ mt: 0.5 }}
+                                    >
+                                      {containerCard.containerType === selectedSize ? "Currently Selected" : "Use This"}
+                                    </Button>
+                                  </Stack>
+                                </Paper>
+                              </Grid>
+                              ));
+                            })}
+                          </Grid>
+
+                          <Box sx={{ mt: 2, textAlign: "center" }}>
+                            <Button
+                              variant="text"
+                              size="small"
+                              onClick={handleSuggest}
+                              sx={{ color: "#1976d2" }}
+                            >
+                              View All Suggestions →
+                            </Button>
+                          </Box>
+                        </>
+                      ) : (
+                        <Box sx={{ textAlign: "center", py: 3 }}>
+                          <Typography variant="body2" color="text.secondary">
+                            Enter dimensions, weight, and quantity above to see container suggestions
+                          </Typography>
+                        </Box>
+                      )}
+                        </AccordionDetails>
+                      </Accordion>
+                    </Paper>
+                  </Grid>
+                )}
+
                 {/* Gallery */}
                 <Grid item xs={12}>
                   {mode === "Container" ? (
@@ -2096,16 +2793,16 @@ useEffect(() => {
                     <Typography variant="body2" sx={{ mb: 1 }}>
                       {isLiquid ? (
                         <>
-                          • Liquids ke liye L×W×H nahi — bas <b>Volume (Liters)</b> aur <b>SG</b> (e.g., water 1.0).<br />
-                          • Safety ke liye <b>Max Fill %</b> (default 95%).<br />
-                          • Weight auto = <b>Liters × SG</b> (kg).
+                          • For liquids, no L×W×H needed — only <b>Volume (Liters)</b> and <b>SG</b> (e.g., water 1.0).<br />
+                          • For safety, use <b>Max Fill %</b> (default 95%).<br />
+                          • Weight is automatically calculated as <b>Liters × SG</b> (kg).
                         </>
                       ) : (
                         <>
-                          • Unit choose karo (mm/cm/m/in/ft). Placeholder format dikhata rahega.<br />
-                          • Feet–inches: <b>5'10"</b> (5 ft 10 in).<br />
-                          • Helper <b>= Xm</b> meters me live show karega.<br />
-                          • Barrel/Roll render me diameter = width.
+                          • Choose your unit (mm/cm/m/in/ft). Placeholder format will be shown.<br />
+                          • Feet–inches format: <b>5'10"</b> (5 ft 10 in).<br />
+                          • Helper shows <b>= Xm</b> in meters in real-time.<br />
+                          • For Barrel/Roll rendering, diameter equals width.
                         </>
                       )}
                     </Typography>
@@ -2691,106 +3388,265 @@ useEffect(() => {
           {/* TAB 3: 3D Stuffing Result */}
           <TabPanel value={tab} index={2}>
             <Box sx={{ p: 3 }}>
-              {/* Card 1: Selected target quick card */}
-              <Paper elevation={1} sx={{ mb: 2, p: 2 }}>
-                <Grid container spacing={2} alignItems="center">
-                  <Grid item xs={12} md={3}>
-                    <Stack direction="row" spacing={2} alignItems="center">
-                      <Box sx={{ width: 140, height: 100, bgcolor: "#f5f7fb", borderRadius: 1.5, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <img
-                          src={mode === "Container" ? imgFor(selectedSize) : imgTruckFor(selectedTruck)}
-                          alt={containerInfo.name}
-                          onError={(e) => { e.currentTarget.style.display = "none"; }}
-                          style={{ width: "100%", height: "100%", objectFit: "contain" }}
-                        />
-                      </Box>
-                      <Box>
-                        <Typography variant="subtitle1" fontWeight={700}>{containerInfo.name}</Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          weight: {fmt2(usedWeight)} kg / {maxWeight} kg
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          volume: {fmt2(usedVolume)} m³ / {fmt2(totalVolumeForBars)} m³
-                        </Typography>
-                      </Box>
-                    </Stack>
-                  </Grid>
-                  <Grid item xs={12} md={9}>
-                    <Stack direction="row" spacing={1} flexWrap="wrap">
-                      <Chip label={`Internal: ${containerInfo.dims}`} />
-                      <Chip label={`Notes: ${containerInfo.notes}`} />
-                    </Stack>
-                  </Grid>
-                </Grid>
-              </Paper>
-
-              {/* Card 2: Totals + Donut + Breakdown + 3D VIEW */}
-              <Paper elevation={1} sx={{ p: 2 }}>
-                <Grid container spacing={2}>
-                  {/* Left: stats + button */}
-                  <Grid item xs={12} md={4}>
-                    <Typography variant="h6" sx={{ mb: 1 }}>{containerInfo.name} #{1}</Typography>
-                    <Stack spacing={1} sx={{ mb: 2 }}>
-                      <Typography variant="body2"><b>Total</b> &nbsp;&nbsp;{items.reduce((s, it) => s + (it.quantity || 1), 0)} packages</Typography>
-                      <Typography variant="body2">
-                        <b>Cargo volume</b> &nbsp;&nbsp;{fmt2(usedVolume)} m³ ({fmt2(Math.min(100, (totalVolumeForBars > 0 ? (usedVolume / totalVolumeForBars) * 100 : 0)))}% of volume)
+              {/* Multi-container header */}
+              {containersNeeded > 1 && (
+                <Paper elevation={2} sx={{ mb: 2, p: 2, background: "linear-gradient(135deg, #fff3cd 0%, #ffffff 100%)", border: "2px solid #ffc107" }}>
+                  <Stack direction="row" spacing={2} alignItems="center">
+                    <LocalShippingIcon sx={{ color: "#856404", fontSize: 32 }} />
+                    <Box>
+                      <Typography variant="h6" fontWeight={700} sx={{ color: "#856404" }}>
+                        Multi-Container Shipment
                       </Typography>
-                      <Typography variant="body2">
-                        <b>Cargo weight</b> &nbsp;&nbsp;{fmt2(usedWeight)} kg ({fmt2(Math.min(100, (maxWeight > 0 ? (usedWeight / maxWeight) * 100 : 0)))}% of max weight)
+                      <Typography variant="body2" color="text.secondary">
+                        Total {containersNeeded} containers required • {itemsPerContainer?.fits || 0} pcs per container • {itemsPerContainer?.remainingQty || 0} in last container
                       </Typography>
-                    </Stack>
-
-                    <Button variant="contained" onClick={() => setOpen3D(true)}>
-                      3D VIEW
-                    </Button>
-                  </Grid>
-
-                  {/* Middle: Donut */}
-                  <Grid item xs={12} md={4}>
-                    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
-                      <Box sx={donutStyle}>
-                        <Box sx={{
-                          position: "absolute", inset: 18, borderRadius: "50%", bgcolor: "#fff",
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          flexDirection: "column"
-                        }}>
-                          <Typography variant="caption" color="text.secondary">Volume</Typography>
-                          <Typography variant="subtitle2">{fmt2(usedVolume)} m³</Typography>
-                        </Box>
-                      </Box>
                     </Box>
-                  </Grid>
+                  </Stack>
+                </Paper>
+              )}
 
-                  {/* Right: Breakdown table */}
-                  <Grid item xs={12} md={4}>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell><strong>Name</strong></TableCell>
-                          <TableCell align="right"><strong>Packages</strong></TableCell>
-                          <TableCell align="right"><strong>Volume</strong></TableCell>
-                          <TableCell align="right"><strong>Weight</strong></TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {breakdown.map((r, i) => (
-                          <TableRow key={i}>
-                            <TableCell>
-                              <Stack direction="row" spacing={1} alignItems="center">
-                                <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: r.color }} />
-                                {r.cargo}
-                              </Stack>
-                            </TableCell>
-                            <TableCell align="right">{r.packages}</TableCell>
-                            <TableCell align="right">{fmt2(r.volume)} m³</TableCell>
-                            <TableCell align="right">{fmt2(r.weight)} kg</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </Grid>
-                </Grid>
-              </Paper>
+              {/* Render containers */}
+              {Array.from({ length: containersNeeded }, (_, idx) => {
+                const containerNum = idx + 1;
+                const isLast = containerNum === containersNeeded;
+                const totalItems = items.reduce((s, it) => s + (it.quantity || 1), 0);
+                
+                // Calculate items in this container correctly
+                let thisContainerItems = totalItems;
+                if (containersNeeded > 1 && itemsPerContainer) {
+                  if (isLast) {
+                    thisContainerItems = itemsPerContainer.remainingQty;
+                  } else {
+                    thisContainerItems = itemsPerContainer.fits;
+                  }
+                }
+                
+                // Calculate which items belong to this container
+                const itemsStart = containersNeeded > 1 && itemsPerContainer 
+                  ? (containerNum - 1) * itemsPerContainer.fits 
+                  : 0;
+                const itemsEnd = containersNeeded > 1 && itemsPerContainer
+                  ? itemsStart + thisContainerItems
+                  : totalItems;
+                
+                // Calculate volume and weight for this container based on actual items
+                const targetCat = getCategory(mode === "Container" ? selectedSize : selectedTruck);
+                let thisContainerVolume = 0;
+                let thisContainerWeight = 0;
+                
+                // Calculate actual volume and weight for items in this container
+                let itemCount = 0;
+                items.forEach((it) => {
+                  const qty = it.quantity || 1;
+                  // Check if this item overlaps with this container's range
+                  if (itemCount + qty > itemsStart && itemCount < itemsEnd) {
+                    const startInItem = Math.max(0, itemsStart - itemCount);
+                    const endInItem = Math.min(qty, itemsEnd - itemCount);
+                    const itemsToInclude = endInItem - startInItem;
+                    
+                    if (itemsToInclude > 0) {
+                      if (it.cargoType === "Liquid") {
+                        thisContainerVolume += (it.liquidM3 || 0) * (itemsToInclude / qty);
+                      } else {
+                        const hCap = targetCat === "OT" ? Math.min(it.height, container.height) : it.height;
+                        thisContainerVolume += (it.length * it.width * hCap) * (itemsToInclude / qty);
+                      }
+                      thisContainerWeight += (it.weight || 0) * (itemsToInclude / qty);
+                    }
+                  }
+                  itemCount += qty;
+                });
+
+                return (
+                  <Box key={containerNum} sx={{ mb: 3 }}>
+                    {/* Container Header */}
+                    <Paper elevation={1} sx={{ mb: 2, p: 2, border: isLast && containersNeeded > 1 ? "2px solid #ffc107" : "1px solid #e0e0e0" }}>
+                      <Grid container spacing={2} alignItems="center">
+                        <Grid item xs={12} md={3}>
+                          <Stack direction="row" spacing={2} alignItems="center">
+                            <Box sx={{ width: 140, height: 100, bgcolor: "#f5f7fb", borderRadius: 1.5, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                              <img
+                                src={mode === "Container" ? imgFor(selectedSize) : imgTruckFor(selectedTruck)}
+                                alt={containerInfo.name}
+                                onError={(e) => { e.currentTarget.style.display = "none"; }}
+                                style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                              />
+                            </Box>
+                            <Box>
+                              <Typography variant="subtitle1" fontWeight={700}>
+                                {containerInfo.name} #{containerNum}
+                                {isLast && containersNeeded > 1 && (
+                                  <Chip size="small" label="Last" color="warning" sx={{ ml: 1 }} />
+                                )}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                weight: {fmt2(thisContainerWeight)} kg / {maxWeight} kg
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                volume: {fmt2(thisContainerVolume)} m³ / {fmt2(totalVolumeForBars)} m³
+                              </Typography>
+                            </Box>
+                          </Stack>
+                        </Grid>
+                        <Grid item xs={12} md={9}>
+                          <Stack direction="row" spacing={1} flexWrap="wrap">
+                            <Chip label={`Container ${containerNum} of ${containersNeeded}`} color={isLast && containersNeeded > 1 ? "warning" : "primary"} />
+                            <Chip label={`Internal: ${containerInfo.dims}`} />
+                            <Chip label={`Notes: ${containerInfo.notes}`} />
+                            {itemsPerContainer && (
+                              <Chip 
+                                label={`${thisContainerItems} pieces in this container`} 
+                                color="success" 
+                                variant="outlined" 
+                              />
+                            )}
+                          </Stack>
+                        </Grid>
+                      </Grid>
+                    </Paper>
+
+                    {/* Container Stats */}
+                    <Paper elevation={1} sx={{ p: 2 }}>
+                      <Grid container spacing={2}>
+                        {/* Left: stats + button */}
+                        <Grid item xs={12} md={4}>
+                          <Typography variant="h6" sx={{ mb: 1 }}>{containerInfo.name} #{containerNum}</Typography>
+                          <Stack spacing={1} sx={{ mb: 2 }}>
+                            <Typography variant="body2">
+                              <b>Items in this container:</b> &nbsp;&nbsp;{thisContainerItems} packages
+                            </Typography>
+                            <Typography variant="body2">
+                              <b>Cargo volume</b> &nbsp;&nbsp;{fmt2(thisContainerVolume)} m³ ({fmt2(Math.min(100, (totalVolumeForBars > 0 ? (thisContainerVolume / totalVolumeForBars) * 100 : 0)))}% of volume)
+                            </Typography>
+                            <Typography variant="body2">
+                              <b>Cargo weight</b> &nbsp;&nbsp;{fmt2(thisContainerWeight)} kg ({fmt2(Math.min(100, (maxWeight > 0 ? (thisContainerWeight / maxWeight) * 100 : 0)))}% of max weight)
+                            </Typography>
+                          </Stack>
+
+                          <Button variant="contained" onClick={() => {
+                            setViewingContainerNum(containerNum);
+                            setPlayhead(0); // Reset playhead when switching containers
+                            setOpen3D(true);
+                          }}>
+                            3D VIEW
+                          </Button>
+                        </Grid>
+
+                        {/* Middle: Donut */}
+                        <Grid item xs={12} md={4}>
+                          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
+                            <Box sx={donutStyle}>
+                              <Box sx={{
+                                position: "absolute", inset: 18, borderRadius: "50%", bgcolor: "#fff",
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                flexDirection: "column"
+                              }}>
+                                <Typography variant="caption" color="text.secondary">Volume</Typography>
+                                <Typography variant="subtitle2">{fmt2(thisContainerVolume)} m³</Typography>
+                              </Box>
+                            </Box>
+                          </Box>
+                        </Grid>
+
+                        {/* Right: Breakdown table */}
+                        <Grid item xs={12} md={4}>
+                          <Table size="small">
+                            <TableHead>
+                              <TableRow>
+                                <TableCell><strong>Name</strong></TableCell>
+                                <TableCell align="right"><strong>Packages</strong></TableCell>
+                                <TableCell align="right"><strong>Volume</strong></TableCell>
+                                <TableCell align="right"><strong>Weight</strong></TableCell>
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {(() => {
+                                // Calculate breakdown for this specific container
+                                const containerBreakdown = {};
+                                const targetCat = getCategory(mode === "Container" ? selectedSize : selectedTruck);
+                                
+                                // Calculate which items belong to this container
+                                const itemsStart = containersNeeded > 1 && itemsPerContainer 
+                                  ? (containerNum - 1) * itemsPerContainer.fits 
+                                  : 0;
+                                const itemsEnd = containersNeeded > 1 && itemsPerContainer
+                                  ? itemsStart + thisContainerItems
+                                  : totalItems;
+                                
+                                let itemCount = 0;
+                                items.forEach((it) => {
+                                  const qty = it.quantity || 1;
+                                  // Check if this item overlaps with this container's range
+                                  if (itemCount + qty > itemsStart && itemCount < itemsEnd) {
+                                    const startInItem = Math.max(0, itemsStart - itemCount);
+                                    const endInItem = Math.min(qty, itemsEnd - itemCount);
+                                    const itemsToInclude = endInItem - startInItem;
+                                    
+                                    if (itemsToInclude > 0) {
+                                      const key = it.cargoType || "Other";
+                                      let vol = 0;
+                                      if (it.cargoType === "Liquid") {
+                                        vol = (it.liquidM3 || 0) * (itemsToInclude / qty);
+                                      } else {
+                                        const hCap = targetCat === "OT" ? Math.min(it.height, container.height) : it.height;
+                                        vol = (it.length * it.width * hCap) * (itemsToInclude / qty);
+                                      }
+                                      const wt = (it.weight || 0) * (itemsToInclude / qty);
+                                      
+                                      if (!containerBreakdown[key]) {
+                                        containerBreakdown[key] = { 
+                                          cargo: key, 
+                                          packages: 0, 
+                                          volume: 0, 
+                                          weight: 0,
+                                          color: CARGO_COLORS[key] || CARGO_COLORS.Other
+                                        };
+                                      }
+                                      containerBreakdown[key].packages += itemsToInclude;
+                                      containerBreakdown[key].volume += vol;
+                                      containerBreakdown[key].weight += wt;
+                                    }
+                                  }
+                                  itemCount += qty;
+                                });
+                                
+                                const rows = Object.values(containerBreakdown);
+                                rows.sort((a, b) => b.volume - a.volume);
+                                
+                                if (rows.length === 0) {
+                                  return (
+                                    <TableRow>
+                                      <TableCell colSpan={4} align="center">
+                                        <Typography variant="body2" color="text.secondary">
+                                          No items in this container
+                                        </Typography>
+                                      </TableCell>
+                                    </TableRow>
+                                  );
+                                }
+                                
+                                return rows.map((r, i) => (
+                                  <TableRow key={i}>
+                                    <TableCell>
+                                      <Stack direction="row" spacing={1} alignItems="center">
+                                        <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: r.color }} />
+                                        {r.cargo}
+                                      </Stack>
+                                    </TableCell>
+                                    <TableCell align="right">{r.packages}</TableCell>
+                                    <TableCell align="right">{fmt2(r.volume)} m³</TableCell>
+                                    <TableCell align="right">{fmt2(r.weight)} kg</TableCell>
+                                  </TableRow>
+                                ));
+                              })()}
+                            </TableBody>
+                          </Table>
+                        </Grid>
+                      </Grid>
+                    </Paper>
+                  </Box>
+                );
+              })}
             </Box>
           </TabPanel>
 
@@ -2879,15 +3735,15 @@ useEffect(() => {
 
               <IconButton
                 onClick={() => setIsPlaying((v) => !v)}
-                disabled={timeline.length === 0 || (playhead >= timeline.length && !isPlaying)}
+                disabled={filteredTimeline.length === 0 || (playhead >= filteredTimeline.length && !isPlaying)}
                 title={isPlaying ? "Pause" : "Play"}
               >
                 {isPlaying ? <PauseIcon /> : <PlayArrowIcon />}
               </IconButton>
 
               <IconButton
-                onClick={() => { setIsPlaying(false); setPlayhead((p) => Math.min(timeline.length, p + 1)); }}
-                disabled={playhead >= timeline.length}
+                onClick={() => { setIsPlaying(false); setPlayhead((p) => Math.min(filteredTimeline.length, p + 1)); }}
+                disabled={playhead >= filteredTimeline.length}
                 title="Next"
               >
                 <SkipNextIcon />
@@ -2895,7 +3751,7 @@ useEffect(() => {
 
               <IconButton
                 onClick={() => { setPlayhead(0); setIsPlaying(true); }}
-                disabled={timeline.length === 0}
+                disabled={filteredTimeline.length === 0}
                 title="Replay"
               >
                 <ReplayIcon />
@@ -2911,7 +3767,15 @@ useEffect(() => {
                 </Select>
               </FormControl>
 
-              <Chip label={`${playhead}/${timeline.length} items`} />
+              <Chip label={`${playhead}/${filteredTimeline.length} items`} />
+              {containersNeeded > 1 && (
+                <Chip 
+                  label={`Container ${viewingContainerNum} of ${containersNeeded}`} 
+                  color="primary" 
+                  variant="outlined"
+                  sx={{ ml: 1 }}
+                />
+              )}
             </Stack>
 <Stack direction="row" spacing={1} alignItems="center" sx={{ ml: 1 }}>
   <Switch
@@ -2923,7 +3787,7 @@ useEffect(() => {
   <Button
     variant="outlined"
     onClick={repackLargestFirst}
-    disabled={timeline.length === 0 || usePallets}
+    disabled={filteredTimeline.length === 0 || usePallets}
   >
     Smart Repack
   </Button>

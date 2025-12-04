@@ -2620,9 +2620,9 @@ const Consignment = () => {
                         )}
                     </Paper>
 
-                    {/* 4. Container Images - Always show fourth */}
+                    {/* 4. Container Images -Always show fourth */}
                     <Paper
-                        elevation={1}
+                        elevation={1} 
                         sx={{
                           p: 3,
                           borderRadius: 2,
