@@ -199,7 +199,7 @@ const Dashboard = () => {
       // Build URL with optional status parameter
       let url = `${BASE_API_URL}/api/v1/load/${role}/my-loads-detailed`;
       if (status) {
-        url += `?status=${status}`;
+        url += `?status=${encodeURIComponent(status)}`;
       }
       
       const response = await fetch(url, {
@@ -347,47 +347,32 @@ const Dashboard = () => {
     }
   };
 
-  // Fetch pending delivery data (Bidding + Assigned loads)
+  // Fetch pending delivery data (In Transit loads only)
   const fetchPendingDeliveryData = async () => {
     try {
       setTableLoading(true);
       const token = localStorage.getItem('token');
       const role = userType === 'trucker' ? 'trucker' : 'shipper';
       
-      // Make two API calls for Bidding and Assigned statuses
-      const [biddingResponse, assignedResponse] = await Promise.all([
-        fetch(`${BASE_API_URL}/api/v1/load/${role}/my-loads-detailed?status=Bidding`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-        }),
-        fetch(`${BASE_API_URL}/api/v1/load/${role}/my-loads-detailed?status=Assigned`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-        })
-      ]);
+      // Fetch only In Transit status loads
+      const inTransitResponse = await fetch(`${BASE_API_URL}/api/v1/load/${role}/my-loads-detailed?status=In%20Transit`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
 
-      if (!biddingResponse.ok || !assignedResponse.ok) {
+      if (!inTransitResponse.ok) {
         throw new Error('Failed to fetch pending delivery data');
       }
 
-      const [biddingData, assignedData] = await Promise.all([
-        biddingResponse.json(),
-        assignedResponse.json()
-      ]);
+      const inTransitData = await inTransitResponse.json();
 
-      // Combine loads from both responses
+      // Get loads from In Transit response
       const allLoads = [];
-      if (biddingData.success && biddingData.data.loads) {
-        allLoads.push(...biddingData.data.loads);
-      }
-      if (assignedData.success && assignedData.data.loads) {
-        allLoads.push(...assignedData.data.loads);
+      if (inTransitData.success && inTransitData.data.loads) {
+        allLoads.push(...inTransitData.data.loads);
       }
 
       // Format the combined data for table display
@@ -522,7 +507,7 @@ const Dashboard = () => {
 
   const handlePendingDeliveryClick = () => {
     setSelectedCard('Pending Delivery');
-    setTableData([]); // Set empty data array
+    fetchPendingDeliveryData(); // Call API to get Bidding + Assigned + In Transit loads
     scrollToTable();
   };
 
@@ -571,7 +556,7 @@ const Dashboard = () => {
           headers: { 'Authorization': `Bearer ${token}` }
         })
       ]);
-
+//ghhgjdrjgb
       const [totalData, biddingData, deliveredData, inTransitData] = await Promise.all([
         totalResponse.json(),
         biddingResponse.json(),
