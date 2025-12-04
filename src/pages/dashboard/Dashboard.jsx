@@ -301,9 +301,8 @@ const Dashboard = () => {
     try {
       setTableLoading(true);
       const token = localStorage.getItem('token');
-      const role = userType === 'trucker' ? 'trucker' : 'shipper';
       
-      const response = await fetch(`${BASE_API_URL}/api/v1/bills/${role}/my-bills`, {
+      const response = await fetch(`${BASE_API_URL}/api/v1/bill/my-bills`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -317,18 +316,22 @@ const Dashboard = () => {
 
       const data = await response.json();
       
-      if (data.success && data.data && data.data.bills) {
+      console.log('Bills API Response:', data);
+      console.log('Has bills?', data.bills);
+      console.log('Bills count:', data.count);
+      
+      if (data.success && data.bills && data.bills.length > 0) {
         // Format the API data for table display
-        const formattedData = data.data.bills.map(bill => ({
+        const formattedData = data.bills.map(bill => ({
           id: bill.billNumber || bill._id || 'N/A',
-          type: bill.type || 'Invoice',
-          from: bill.from || 'JBL Logistics',
-          to: bill.to || bill.clientName || 'N/A',
+          type: 'Invoice',
+          from: bill.pickup?.city || bill.pickup?.address || 'N/A',
+          to: bill.delivery?.city || bill.delivery?.address || 'N/A',
           eta: bill.dueDate ? new Date(bill.dueDate).toLocaleDateString() : 'N/A',
           status: bill.status || 'Pending',
-          rate: bill.amount || bill.totalAmount || 0,
-          pickupDate: bill.createdDate ? new Date(bill.createdDate).toLocaleDateString() : 'N/A',
-          driverName: bill.status,
+          rate: bill.billing?.total || 0,
+          pickupDate: bill.invoiceDate ? new Date(bill.invoiceDate).toLocaleDateString() : 'N/A',
+          driverName: bill.paymentTerms?.description || 'N/A',
           vehicleNumber: 'N/A',
           commodity: 'N/A',
           vehicleType: 'N/A'
@@ -541,8 +544,8 @@ const Dashboard = () => {
       const token = localStorage.getItem('token');
       const role = userType === 'trucker' ? 'trucker' : 'shipper';
       
-      // Load all counts in parallel
-      const [totalResponse, biddingResponse, deliveredResponse, inTransitResponse] = await Promise.all([
+      // Load all counts in parallel including bills
+      const [totalResponse, biddingResponse, deliveredResponse, inTransitResponse, billsResponse] = await Promise.all([
         fetch(`${BASE_API_URL}/api/v1/load/${role}/my-loads-detailed`, {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
@@ -554,24 +557,31 @@ const Dashboard = () => {
         }),
         fetch(`${BASE_API_URL}/api/v1/load/${role}/my-loads-detailed?status=In Transit`, {
           headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        fetch(`${BASE_API_URL}/api/v1/bill/my-bills`, {
+          headers: { 'Authorization': `Bearer ${token}` }
         })
       ]);
-//ghhgjdrjgb
-      const [totalData, biddingData, deliveredData, inTransitData] = await Promise.all([
+
+      const [totalData, biddingData, deliveredData, inTransitData, billsData] = await Promise.all([
         totalResponse.json(),
         biddingResponse.json(),
         deliveredResponse.json(),
-        inTransitResponse.json()
+        inTransitResponse.json(),
+        billsResponse.json()
       ]);
 
       // Update actual counts
+      const inTransitCount = inTransitData.success ? inTransitData.data.loads.length : 0;
+      const billsCount = billsData.success && billsData.bills ? billsData.bills.length : 0;
+      
       setActualCounts({
         totalLoads: totalData.success ? totalData.data.loads.length : 0,
         bidding: biddingData.success ? biddingData.data.loads.length : 0,
         delivered: deliveredData.success ? deliveredData.data.loads.length : 0,
-        inTransit: inTransitData.success ? inTransitData.data.loads.length : 0,
-        pendingDeliveries: 0, // Will be calculated separately
-        bills: 0 // Will be calculated separately
+        inTransit: inTransitCount,
+        pendingDeliveries: inTransitCount, // Same as In Transit
+        bills: billsCount
       });
 
     } catch (err) {
@@ -707,8 +717,18 @@ const Dashboard = () => {
 
   // Get dashboard values from API data or use defaults
   const getDashboardValue = (key) => {
-    // Use actual counts if available (more accurate)
-    if (actualCounts[key] > 0) {
+    // Special handling for pendingDeliveries - always use inTransit count
+    if (key === 'pendingDeliveries') {
+      return actualCounts.inTransit || 0;
+    }
+    
+    // Special handling for inTransitLoads - use actualCounts.inTransit
+    if (key === 'inTransitLoads') {
+      return actualCounts.inTransit || 0;
+    }
+    
+    // Use actual counts if available (check for undefined, not just > 0)
+    if (actualCounts[key] !== undefined && actualCounts[key] !== null) {
       return actualCounts[key];
     }
     
