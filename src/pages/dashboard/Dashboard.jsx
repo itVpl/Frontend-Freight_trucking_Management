@@ -48,6 +48,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 import { BASE_API_URL } from '../../apiConfig';
+import PageLoader from '../../components/PageLoader';
 import group23 from "../../assets/Icons super admin/Group23.png"
 import group22 from "../../assets/Icons super admin/Group22.png"
 import group26 from "../../assets/Icons super admin/Group26.png"
@@ -700,8 +701,8 @@ const Dashboard = () => {
   // Show loading state
   if (loading) {
     return (
-      <Box sx={{ p: 3, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
-        <CircularProgress />
+      <Box sx={{ p: 3 }}>
+        <PageLoader message="Loading dashboard..." />
       </Box>
     );
   }

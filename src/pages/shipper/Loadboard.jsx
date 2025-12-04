@@ -61,6 +61,7 @@ import {
 import { Download, Search } from '@mui/icons-material';
 import PersonIcon from '@mui/icons-material/Person';
 import SearchNavigationFeedback from '../../components/SearchNavigationFeedback';
+import PageLoader from '../../components/PageLoader';
 
 // US Cities List
 const usCities = [
@@ -321,6 +322,7 @@ const LoadBoard = () => {
   const [errors, setErrors] = useState({});
   const [loadData, setLoadData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [createLoadLoading, setCreateLoadLoading] = useState(false);
 
   const [bidsModalOpen, setBidsModalOpen] = useState(false);
   const [bidsLoading, setBidsLoading] = useState(false);
@@ -603,6 +605,7 @@ const LoadBoard = () => {
     setSuggestionDetailsModalOpen(false);
     setSelectedSuggestion(null);
     setSmartRateModalOpen(false);
+    setCreateLoadLoading(false); // Reset loading state when modal closes
   };
 
   // Charges Calculator Modal Handlers
@@ -917,6 +920,7 @@ const LoadBoard = () => {
     
     if (Object.keys(newErrors).length === 0) {
       console.log('✅ Validation passed, proceeding with API call...');
+      setCreateLoadLoading(true); // Start loading
       // Create payload based on load type
       let payload;
 
@@ -1071,6 +1075,7 @@ const LoadBoard = () => {
         });
         console.log('API response:', response);
         console.log('Created load status:', response.data?.load?.status || response.data?.status);
+        setCreateLoadLoading(false); // Stop loading on success
         alertify.success('Load created successfully!');
         handleCloseModal();
         // Reset form
@@ -1127,6 +1132,7 @@ const LoadBoard = () => {
         console.error('❌ Error response:', err.response);
         console.error('❌ Error message:', err.message);
         console.error('❌ Error data:', err.response?.data);
+        setCreateLoadLoading(false); // Stop loading on error
         if (err.response) {
           alertify.error(err.response?.data?.message || err.response?.data?.error || 'Failed to create load');
         } else if (err.request) {
@@ -2574,7 +2580,9 @@ const handleEditLoad = (load) => {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={activeTab === 0 || activeTab === 1 ? 7 : 8} align="center">Loading...</TableCell>
+                <TableCell colSpan={activeTab === 0 || activeTab === 1 ? 7 : 8} align="center">
+                  <PageLoader message="Loading loads..." />
+                </TableCell>
               </TableRow>
             ) : filteredData.length === 0 ? (
               <TableRow>
@@ -2838,6 +2846,18 @@ const handleEditLoad = (load) => {
         </DialogTitle>
 
         <DialogContent className="p-0 bg-gray-100 flex-1 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-gray-200 [&::-webkit-scrollbar-thumb]:bg-gray-400 [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb:hover]:bg-gray-500">
+          {createLoadLoading ? (
+            <Box sx={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              alignItems: 'center', 
+              minHeight: '400px',
+              position: 'relative',
+              zIndex: 1000
+            }}>
+              <PageLoader message="Creating Load..." />
+            </Box>
+          ) : (
           <Box component="form" onSubmit={handleSubmit} className="p-3">
 
             {/* Form Sections */}
@@ -4404,6 +4424,7 @@ const handleEditLoad = (load) => {
 
 
           </Box>
+          )}
         </DialogContent>
 
         <DialogActions
@@ -4418,6 +4439,7 @@ const handleEditLoad = (load) => {
           <Button
             onClick={handleCloseModal}
             variant="outlined"
+            disabled={createLoadLoading}
             sx={{
               borderRadius: 2,
               textTransform: 'none',
@@ -4432,6 +4454,10 @@ const handleEditLoad = (load) => {
                 borderColor: '#357ABD',
                 color: '#357ABD',
               },
+              '&:disabled': {
+                borderColor: '#cccccc',
+                color: '#999999',
+              },
             }}
           >
             Cancel
@@ -4440,6 +4466,7 @@ const handleEditLoad = (load) => {
           <Button
             onClick={handleSubmit}
             variant="contained"
+            disabled={createLoadLoading}
             sx={{
               borderRadius: 2,
               textTransform: 'none',
@@ -4451,9 +4478,13 @@ const handleEditLoad = (load) => {
               '&:hover': {
                 backgroundColor: '#244A8F', // slightly darker on hover
               },
+              '&:disabled': {
+                background: '#cccccc',
+                color: '#666666',
+              },
             }}
           >
-            Create Load
+            {createLoadLoading ? 'Creating...' : 'Create Load'}
           </Button>
         </DialogActions>
 

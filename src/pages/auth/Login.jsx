@@ -272,7 +272,7 @@ const Login = () => {
                 label="Keep me signed in"
                 sx={{ '& .MuiFormControlLabel-label': { fontSize: 14, color: '#666' } }}
               />
-              <Link
+              {/* <Link
                 href="#"
                 variant="body2"
                 sx={{
@@ -284,7 +284,7 @@ const Login = () => {
                 // onClick={() => navigate('/forgot-password')}
               >
                 Forgot Password?
-              </Link>
+              </Link> */}
             </Box>
 
             {/* Login Button */}

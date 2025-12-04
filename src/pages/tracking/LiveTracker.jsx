@@ -30,6 +30,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Navigation } from 'lucide-react';
 import { useAuth } from "../../context/AuthContext";
+import PageLoader from "../../components/PageLoader";
 
 // Fix for Leaflet default icons
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
@@ -986,9 +987,7 @@ export default function LiveTracker() {
         />
 
         {loading && (
-          <Box display="flex" justifyContent="center" alignItems="center" py={4}>
-            <Typography>Loading in-transit loads...</Typography>
-          </Box>
+          <PageLoader message="Loading in-transit loads..." />
         )}
 
         {!loading && !hasToken && !searchTerm.trim() && (

@@ -68,6 +68,7 @@ import {
 } from 'recharts';
 import SearchNavigationFeedback from '../../components/SearchNavigationFeedback';
 import { BASE_API_URL } from '../../apiConfig';
+import PageLoader from '../../components/PageLoader';
 
 // API service function to fetch VERIFIED loads
 const fetchVerifiedLoads = async (shipperId) => {
@@ -1011,12 +1012,7 @@ const Bills = () => {
         
         {/* Loading State */}
         {loading && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
-            <CircularProgress size={40} />
-            <Typography variant="body1" sx={{ ml: 2 }}>
-              Loading bills data...
-            </Typography>
-          </Box>
+          <PageLoader message="Loading bills data..." />
         )}
 
         {/* Error State */}

@@ -37,14 +37,14 @@ function App() {
         <div className="App">
           <Routes>
             {/* Public Routes */}
-            <Route path="/" element={<RootGate />} />
+            <Route path="/root" element={<RootGate />} />
             <Route path="/landingpage" element={<LandingPage />} />
             <Route path="/login" element={<Login />} />
 
             {/* Protected Layout wrapper with no path */}
             <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               {/* Keep absolute paths as-is so URLs don't change */}
-              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/" element={<Dashboard />} />
               <Route path="/live-tracker" element={<LiveTracker />} />
               <Route path="/consignment" element={<ErrorBoundary><Consignment /></ErrorBoundary>} />
               <Route path="/reports" element={<Reports />} />

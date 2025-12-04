@@ -30,6 +30,7 @@ import { useAuth } from '../../context/AuthContext';
 import { BASE_API_URL } from '../../apiConfig';
 import SearchNavigationFeedback from '../../components/SearchNavigationFeedback';
 import LoadLocationMap from './LoadLocationMap';
+import PageLoader from '../../components/PageLoader';
 
 const Consignment = () => {
   const location = useLocation();
@@ -421,11 +422,8 @@ const Consignment = () => {
   // Show loading state
   if (loading) {
     return (
-      <Box sx={{ p: 3, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
-        <CircularProgress size={60} />
-        <Typography variant="h6" sx={{ ml: 2 }}>
-          Loading consignment data...
-        </Typography>
+      <Box sx={{ p: 3 }}>
+        <PageLoader message="Loading consignment data..." />
       </Box>
     );
   }
