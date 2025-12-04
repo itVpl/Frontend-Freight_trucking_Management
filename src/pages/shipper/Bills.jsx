@@ -949,7 +949,7 @@ const Bills = () => {
         <tbody>
           ${LH > 0 ? `<tr><td>Line Haul</td><td class="amount">$${LH.toLocaleString()}</td></tr>` : ''}
           ${FSC > 0 ? `<tr><td>FSC</td><td class="amount">$${FSC.toLocaleString()}</td></tr>` : ''}
-          ${OTH > 0 ? `<tr><td>Other</td><td class="amount">$${OTH.toLocaleString()}</td></tr>` : ''}
+          ${OTH > 0 && !isNaN(OTH) ? `<tr><td>Other</td><td class="amount">$${OTH.toLocaleString()}</td></tr>` : ''}
           <tr class="total-row">
             <td><strong>TOTAL</strong></td>
             <td class="amount"><strong>$${CUSTOMER_TOTAL.toLocaleString()} USD</strong></td>
@@ -2028,11 +2028,13 @@ const Bills = () => {
                           <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
                           <TableCell sx={{ fontWeight: 600 }}>${fsc.toLocaleString()}</TableCell>
                         </TableRow>
-                        <TableRow>
-                          <TableCell sx={{ color: 'text.secondary' }}>Other</TableCell>
-                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>${other.toLocaleString()}</TableCell>
-                        </TableRow>
+                        {(other > 0 && !isNaN(other)) && (
+                          <TableRow>
+                            <TableCell sx={{ color: 'text.secondary' }}>Other</TableCell>
+                            <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                            <TableCell sx={{ fontWeight: 600 }}>${other.toLocaleString()}</TableCell>
+                          </TableRow>
+                        )}
                         <TableRow>
                           <TableCell sx={{ color: 'text.secondary' }}>Total Rates</TableCell>
                           <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
@@ -2147,29 +2149,43 @@ const Bills = () => {
                   </Paper>
                 )}
 
-                {/* Driver and Vehicle Information */}
-                <Paper elevation={0} sx={{ border: '1px solid #ce93d8', borderRadius: 2, overflow: 'hidden' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, background: '#f3e5f5' }}>
-                    <Box sx={{ width: 32, height: 32, borderRadius: 1, background: '#6a1b9a', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>🧑‍✈️</Box>
-                    <Typography variant="h6" fontWeight={700} color="#4a148c">Driver and Vehicle Information</Typography>
-                  </Box>
-                  <Box sx={{ p: 2 }}>
-                    <Table size="small" sx={{ '& td, & th': { border: 0, py: 1.2 } }}>
-                      <TableBody>
-                        <TableRow>
-                          <TableCell sx={{ width: 220, color: 'text.secondary' }}>Driver Name</TableCell>
-                          <TableCell sx={{ width: 80, color: '#9e9e9e' }}>-----</TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>{doData?.driver?.name || doData?.driverName || 'N/A'}</TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell sx={{ color: 'text.secondary' }}>Vehicle No</TableCell>
-                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>{lr?.vehicleNumber || doData?.vehicleNo || 'N/A'}</TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
-                  </Box>
-                </Paper>
+                {/* Driver and Vehicle Information - Only show if data exists */}
+                {(() => {
+                  const driverName = doData?.driver?.name || doData?.driverName;
+                  const vehicleNo = lr?.vehicleNumber || doData?.vehicleNo;
+                  const hasDriverOrVehicleInfo = driverName || vehicleNo;
+                  
+                  if (!hasDriverOrVehicleInfo) return null;
+                  
+                  return (
+                    <Paper elevation={0} sx={{ border: '1px solid #ce93d8', borderRadius: 2, overflow: 'hidden' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, background: '#f3e5f5' }}>
+                        <Box sx={{ width: 32, height: 32, borderRadius: 1, background: '#6a1b9a', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>🧑‍✈️</Box>
+                        <Typography variant="h6" fontWeight={700} color="#4a148c">Driver and Vehicle Information</Typography>
+                      </Box>
+                      <Box sx={{ p: 2 }}>
+                        <Table size="small" sx={{ '& td, & th': { border: 0, py: 1.2 } }}>
+                          <TableBody>
+                            {driverName && (
+                              <TableRow>
+                                <TableCell sx={{ width: 220, color: 'text.secondary' }}>Driver Name</TableCell>
+                                <TableCell sx={{ width: 80, color: '#9e9e9e' }}>-----</TableCell>
+                                <TableCell sx={{ fontWeight: 600 }}>{driverName}</TableCell>
+                              </TableRow>
+                            )}
+                            {vehicleNo && (
+                              <TableRow>
+                                <TableCell sx={{ color: 'text.secondary' }}>Vehicle No</TableCell>
+                                <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                                <TableCell sx={{ fontWeight: 600 }}>{vehicleNo}</TableCell>
+                              </TableRow>
+                            )}
+                          </TableBody>
+                        </Table>
+                      </Box>
+                    </Paper>
+                  );
+                })()}
 
                 {/* Important Dates */}
                 <Paper elevation={0} sx={{ border: '1px solid #9fa8da', borderRadius: 2, overflow: 'hidden' }}>

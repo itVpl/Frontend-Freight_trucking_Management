@@ -1044,7 +1044,9 @@ const Consignment = () => {
                                   <strong>Coordinates:</strong>
                                 </Typography>
                                 <Typography variant="body2" component="span">
-                                  {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
+                                  {location.latitude != null && location.longitude != null 
+                                    ? `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`
+                                    : 'N/A'}
                                 </Typography>
                               </Box>
                               

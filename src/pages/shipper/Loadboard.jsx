@@ -558,6 +558,14 @@ const LoadBoard = () => {
 
   useEffect(() => {
     fetchLoads();
+    
+    // Auto-refresh every 30 seconds to check for updates
+    const refreshInterval = setInterval(() => {
+      fetchLoads();
+    }, 30000); // 30 seconds
+    
+    // Cleanup interval on component unmount
+    return () => clearInterval(refreshInterval);
   }, []);
 
 
@@ -2643,7 +2651,7 @@ const handleEditLoad = (load) => {
                           >
                             Edit
                           </Button>
-                          <Button
+                          {/* <Button
                             size="small"
                             variant="outlined"
                             onClick={() => handleDuplicateLoad(load)}
@@ -2656,7 +2664,7 @@ const handleEditLoad = (load) => {
                             }}
                           >
                             Duplicate
-                          </Button>
+                          </Button> */}
                           <Button
                             size="small"
                             variant="outlined"
@@ -4435,7 +4443,7 @@ const handleEditLoad = (load) => {
             sx={{
               borderRadius: 2,
               textTransform: 'none',
-              backgroundColor: '#2F5AA8', // darker blue
+             background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
               px: 4,
               py: 1,
               fontWeight: 600,
@@ -5378,314 +5386,180 @@ const handleEditLoad = (load) => {
       </Dialog>
 
       {/* Accept Bid Modal */}
-      <Dialog
-        open={acceptModalOpen}
-        onClose={handleCloseAcceptModal}
-        maxWidth="sm"
-        fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: 4,
-            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15)',
-            overflow: 'hidden'
-          }
-        }}
-      >
-        <DialogTitle sx={{
-          fontWeight: 800,
-          fontSize: 26,
-          color: '#ffffff',
-          borderBottom: 'none',
-          py: 3,
-          px: 4,
-          background: 'linear-gradient(135deg, #4caf50 0%, #2e7d32 100%)',
-          position: 'relative',
-          overflow: 'hidden',
-          '&::before': {
-            content: '""',
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%)',
-            pointerEvents: 'none'
-          }
-        }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, position: 'relative', zIndex: 1 }}>
-            <Box sx={{
-              background: 'rgba(255, 255, 255, 0.2)',
-              borderRadius: '50%',
-              width: 48,
-              height: 48,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              backdropFilter: 'blur(10px)'
-            }}>
-              <CheckCircle sx={{ color: '#ffffff', fontSize: 32 }} />
+<Dialog
+  open={acceptModalOpen}
+  onClose={handleCloseAcceptModal}
+  maxWidth="sm"     // 👈 SMALL WIDTH
+  fullWidth
+  PaperProps={{
+    sx: {
+      borderRadius: 4,
+      p: 2,
+      boxShadow: "0 20px 60px rgba(0,0,0,0.12)",
+      background: "#fff",
+    },
+  }}
+>
+  {/* Header */}
+  <DialogTitle
+    sx={{
+      fontWeight: 700,
+      fontSize: 24,
+      color: "#1e3a8a",
+      borderBottom: "1px solid #e5e7eb",
+      pb: 2,
+    }}
+  >
+    Accept Bid
+  </DialogTitle>
+
+  <DialogContent sx={{ mt: 3 }}>
+    <Box component="form" onSubmit={handleAcceptSubmit}>
+      <Grid container spacing={2}>
+        
+        {/* Shipment Number */}
+        <Grid item xs={12} sm={6}>
+          <TextField
+            label="Shipment Number"
+            name="shipmentNumber"
+            value={acceptForm.shipmentNumber}
+            onChange={handleAcceptFormChange}
+            fullWidth
+            required
+            InputProps={{
+              sx: {
+                height: 45,
+                borderRadius: "10px",
+                background: "#f8fafc",
+              },
+            }}
+          />
+        </Grid>
+
+        {/* PO Number */}
+        <Grid item xs={12} sm={6}>
+          <TextField
+            label="PO Number"
+            name="poNumber"
+            value={acceptForm.poNumber}
+            onChange={handleAcceptFormChange}
+            fullWidth
+            required
+            InputProps={{
+              sx: {
+                height: 45,
+                borderRadius: "10px",
+                background: "#f8fafc",
+              },
+            }}
+          />
+        </Grid>
+
+        {/* BOL Number */}
+        <Grid item xs={12} sm={6}>
+          <TextField
+            label="BOL Number"
+            name="bolNumber"
+            value={acceptForm.bolNumber}
+            onChange={handleAcceptFormChange}
+            fullWidth
+            required
+            InputProps={{
+              sx: {
+                height: 45,
+                borderRadius: "10px",
+                background: "#f8fafc",
+              },
+            }}
+          />
+        </Grid>
+
+        {/* Upload Box — SAME SIZE AS INPUT */}
+        <Grid item xs={12} sm={6}>
+          <Box sx={{ width: "100%" }}>
+            <Box
+              sx={{
+                height: 45,    
+                width: 220,    // 👈 SAME HEIGHT AS INPUT
+                border: "1.5px dashed #1170e6ff",
+                borderRadius: "10px",
+                background: "#f8fafc",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                textAlign: "center",
+                "&:hover": {
+                  background: "#3b82f6",
+                  borderColor: "#eff6ff",
+                },
+              }}
+            >
+              <input
+                accept="image/*,.pdf,.doc,.docx"
+                type="file"
+                id="upload-do-file"
+                style={{ display: "none" }}
+                name="acceptanceAttachment1"
+                onChange={handleAcceptFormChange}
+              />
+
+              <label htmlFor="upload-do-file" style={{ cursor: "pointer" }}>
+                <Typography sx={{ fontSize: 13, color: "#475569" }}>
+                  Upload DO
+                </Typography>
+              </label>
             </Box>
-            <Typography variant="h5" sx={{ fontWeight: 800, color: '#ffffff', letterSpacing: 0.5 }}>
-              Accept Bid
-            </Typography>
           </Box>
-        </DialogTitle>
-        <DialogContent sx={{
-          px: 4,
-          py: 4,
-          background: 'linear-gradient(135deg, #f8fafc 0%, #ffffff 100%)',
-          minHeight: 400
-        }}>
-       <Box component="form" onSubmit={handleAcceptSubmit} sx={{ 
-    p: 4, 
-    backgroundColor: '#ffffff', 
-    borderRadius: 3, 
-    boxShadow: '0 8px 25px rgba(0, 0, 0, 0.05)', 
-    border: '1px solid #f0f4f8' // Very subtle border
-}}>
-  <Grid container spacing={4}>
-    
-    {/* Shipment Number */}
-    <Grid item xs={12}>
-      <TextField
-        label="Shipment Number"
-        name="shipmentNumber"
-        value={acceptForm.shipmentNumber}
-        onChange={handleAcceptFormChange}
-        fullWidth
-        required
-        variant="standard" // Changed to standard for flat look
-        InputProps={{
-          startAdornment: (
-            <InputAdornment position="start">
-              <Assignment sx={{ color: '#6366f1', mr: 1 }} />
-            </InputAdornment>
-          ),
-          disableUnderline: true, // Optional: for a fully borderless look
-        }}
-        sx={{
-          '& .MuiInputBase-root': {
-            backgroundColor: '#f8fafc', // Light background for the field
-            borderRadius: 1,
-            padding: '12px 14px',
-            transition: '0.2s ease',
-            borderBottom: '2px solid #e2e8f0', // Subtle bottom line
-          },
-          '& .MuiInputBase-root:hover': {
-             borderBottomColor: '#a78bfa', // Lighter purple on hover
-          },
-          '& .MuiInputBase-root.Mui-focused': {
-            borderBottomColor: '#4f46e5', // Primary color on focus
-          },
-          '& .MuiInputLabel-root': { color: '#64748b', fontWeight: 500, top: '4px', left: '20px' },
-          '& .MuiInputLabel-root.Mui-focused': { color: '#4f46e5' },
-        }}
-        error={!!acceptErrors.shipmentNumber}
-        helperText={acceptErrors.shipmentNumber}
-      />
-    </Grid>
+        </Grid>
+      </Grid>
 
-    {/* PO Number */}
-    <Grid item xs={12}>
-      <TextField
-        label="PO Number"
-        name="poNumber"
-        value={acceptForm.poNumber}
-        onChange={handleAcceptFormChange}
-        fullWidth
-        required
-        variant="standard"
-        InputProps={{
-          startAdornment: (
-            <InputAdornment position="start">
-              <Description sx={{ color: '#6366f1', mr: 1 }} />
-            </InputAdornment>
-          ),
-          disableUnderline: true,
-        }}
-        sx={{
-          '& .MuiInputBase-root': {
-            backgroundColor: '#f8fafc',
-            borderRadius: 1,
-            padding: '12px 14px',
-            transition: '0.2s ease',
-            borderBottom: '2px solid #e2e8f0',
-          },
-          '& .MuiInputBase-root:hover': {
-             borderBottomColor: '#a78bfa',
-          },
-          '& .MuiInputBase-root.Mui-focused': {
-            borderBottomColor: '#4f46e5',
-          },
-          '& .MuiInputLabel-root': { color: '#64748b', fontWeight: 500, top: '4px', left: '20px' },
-          '& .MuiInputLabel-root.Mui-focused': { color: '#4f46e5' },
-        }}
-        error={!!acceptErrors.poNumber}
-        helperText={acceptErrors.poNumber}
-      />
-    </Grid>
-
-    {/* BOL Number */}
-    <Grid item xs={12}>
-      <TextField
-        label="BOL Number"
-        name="bolNumber"
-        value={acceptForm.bolNumber}
-        onChange={handleAcceptFormChange}
-        fullWidth
-        required
-        variant="standard"
-        InputProps={{
-          startAdornment: (
-            <InputAdornment position="start">
-              <Description sx={{ color: '#6366f1', mr: 1 }} />
-            </InputAdornment>
-          ),
-          disableUnderline: true,
-        }}
-        sx={{
-          '& .MuiInputBase-root': {
-            backgroundColor: '#f8fafc',
-            borderRadius: 1,
-            padding: '12px 14px',
-            transition: '0.2s ease',
-            borderBottom: '2px solid #e2e8f0',
-          },
-          '& .MuiInputBase-root:hover': {
-             borderBottomColor: '#a78bfa',
-          },
-          '& .MuiInputBase-root.Mui-focused': {
-            borderBottomColor: '#4f46e5',
-          },
-          '& .MuiInputLabel-root': { color: '#64748b', fontWeight: 500, top: '4px', left: '20px' },
-          '& .MuiInputLabel-root.Mui-focused': { color: '#4f46e5' },
-        }}
-        error={!!acceptErrors.bolNumber}
-        helperText={acceptErrors.bolNumber}
-      />
-    </Grid>
-
-    {/* Upload Box (Prominent Card Look) */}
-    <Grid item xs={12}>
+      {/* Buttons */}
       <Box
         sx={{
-          border: '2px solid #c7d2fe', // Light primary border
-          borderRadius: 2,
-          p: 4,
-          textAlign: 'center',
-          backgroundColor: '#f8fafc', // Light gray background
-          boxShadow: '0 4px 10px rgba(0, 0, 0, 0.05)',
-          transition: '0.3s ease',
-          cursor: 'pointer',
-          '&:hover': { 
-              borderColor: '#4f46e5', 
-              backgroundColor: '#eff6ff', // Very light blue on hover 
-          }
+          display: "flex",
+          justifyContent: "flex-end",
+          gap: 2,
+          mt: 4,
         }}
       >
-        <input
-          accept="image/*,.pdf,.doc,.docx"
-          style={{ display: 'none' }}
-          id="acceptance-attachment-upload-v3"
-          type="file"
-          name="acceptanceAttachment1"
-          onChange={handleAcceptFormChange}
-        />
+        <Button
+          onClick={handleCloseAcceptModal}
+          sx={{
+            px: 4,
+            borderRadius: "10px",
+            background: "#f1f5f9",
+            color: "#334155",
+            textTransform: "none",
+            "&:hover": { background: "#e2e8f0" },
+          }}
+        >
+          Cancel
+        </Button>
 
-        <label htmlFor="acceptance-attachment-upload-v3">
-          <Box sx={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            {acceptFilePreview ? (
-              <Box sx={{ position: 'relative', width: '100%' }}>
-                <Box
-                  component="img"
-                  src={acceptFilePreview}
-                  alt="Preview"
-                  sx={{
-                    width: '100%',
-                    maxHeight: 160,
-                    objectFit: 'contain',
-                    borderRadius: 1
-                  }}
-                />
-                <IconButton
-                  size="small"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setAcceptForm(prev => ({ ...prev, acceptanceAttachment1: null }));
-                    setAcceptFilePreview(null);
-                    document.getElementById('acceptance-attachment-upload-v3').value = '';
-                  }}
-                  sx={{
-                    position: 'absolute',
-                    top: 6,
-                    right: 6,
-                    backgroundColor: '#fff',
-                    boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
-                  }}
-                >
-                  <Close fontSize="small" />
-                </IconButton>
-              </Box>
-            ) : (
-              <Box>
-                <CloudUpload sx={{ fontSize: 60, color: '#4f46e5', mb: 1.5 }} />
-                <Typography variant="h6" sx={{ fontWeight: 700, color: '#1e293b' }}>
-                  Upload Delivery Order (DO)
-                </Typography>
-                <Typography sx={{ color: '#64748b', fontSize: 14, mt: 0.5 }}>
-                  Recommended formats: Image, PDF, or DOCX
-                </Typography>
-              </Box>
-            )}
-          </Box>
-        </label>
+        <Button
+          type="submit"
+          variant="contained"
+          sx={{
+            px: 4,
+            borderRadius: "10px",
+            background: "#2563eb",
+            textTransform: "none",
+            fontWeight: 600,
+            "&:hover": { background: "#1d4ed8" },
+          }}
+        >
+          Accept Bid
+        </Button>
       </Box>
-    </Grid>
-  </Grid>
+    </Box>
+  </DialogContent>
+</Dialog>
 
-  {/* Buttons */}
-  <DialogActions sx={{ mt: 5, px: 0, pt: 3, justifyContent: 'center' }}>
-    <Button
-      onClick={handleCloseAcceptModal}
-      variant="outlined"
-      sx={{
-        borderRadius: 2,
-        px: 5,
-        py: 1.5,
-        fontWeight: 600,
-        textTransform: 'none',
-        borderColor: '#94a3b8',
-        color: '#475569',
-        '&:hover': { backgroundColor: '#f1f5f9', borderColor: '#475569' }
-      }}
-    >
-      Cancel
-    </Button>
 
-    <Button
-      type="submit"
-      variant="contained"
-      startIcon={<CheckCircle />}
-      sx={{
-        borderRadius: 2,
-        px: 5,
-        py: 1.5,
-        fontWeight: 700,
-        textTransform: 'none',
-        background: 'linear-gradient(90deg, #4f46e5 0%, #7c3aed 100%)', // Gradient for a richer look
-        boxShadow: '0 4px 20px rgba(79, 70, 229, 0.5)',
-        '&:hover': { 
-            background: 'linear-gradient(90deg, #4338ca 0%, #6d28d9 100%)', 
-            boxShadow: '0 6px 25px rgba(67, 56, 202, 0.6)' 
-        }
-      }}
-    >
-      Accept Bid
-    </Button>
-  </DialogActions>
-</Box>
-        </DialogContent>
-      </Dialog>
+
+
+
 
       {/* Negotiation Modal */}
       <Dialog open={negotiationModalOpen} onClose={handleCloseNegotiationModal} maxWidth="sm" fullWidth>
