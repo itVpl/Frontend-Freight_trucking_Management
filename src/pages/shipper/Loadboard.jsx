@@ -7636,8 +7636,11 @@ const handleEditLoad = (load) => {
 
       {/* CMT Agent Details Modal */}
       <Dialog open={cmtModalOpen} onClose={handleCloseCmtModal} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700, color: '#1976d2', fontSize: 22, borderBottom: '1px solid #e0e0e0' }}>
+        <DialogTitle sx={{ fontWeight: 700, color: '#1976d2', fontSize: 22, borderBottom: '1px solid #e0e0e0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           CMT Agent Details
+          <IconButton onClick={handleCloseCmtModal} sx={{ color: '#1976d2' }}>
+            <Close />
+          </IconButton>
         </DialogTitle>
         <DialogContent sx={{ px: 4, py: 3, background: '#fff' }}>
           {cmtLoading ? (
@@ -7766,7 +7769,7 @@ const handleEditLoad = (load) => {
                   <Table>
                     <TableBody>
                       <TableRow>
-                        <TableCell sx={{ fontWeight: 600, width: '25%', background: '#e8f5e8' }}>Alias Name</TableCell>
+                        <TableCell sx={{ fontWeight: 600, width: '25%', background: '#e8f5e8' }}>Name</TableCell>
                         <TableCell sx={{ fontWeight: 500, fontSize: 16, color: '#2e7d32', width: '25%' }}>
                           {cmtData.cmtAssignment.assignedCMTUser?.displayName || cmtData.cmtAssignment.assignedCMTUser?.aliasName || 'N/A'}
                         </TableCell>
@@ -7777,6 +7780,11 @@ const handleEditLoad = (load) => {
                       <TableRow>
                         <TableCell sx={{ fontWeight: 600, background: '#e8f5e8' }}>Email</TableCell>
                         <TableCell sx={{ fontWeight: 500 }}>{cmtData.cmtAssignment.assignedCMTUser?.email || 'N/A'}</TableCell>
+
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 600, background: '#e8f5e8' }}>Mobile No</TableCell>
+                        <TableCell sx={{ fontWeight: 500 }}>{cmtData.cmtAssignment.assignedCMTUser?.mobileNo || 'N/A'}</TableCell>
 
                       </TableRow>
 
