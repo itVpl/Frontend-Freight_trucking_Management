@@ -655,7 +655,7 @@ const AddLoad = () => {
         apiPayload.bolNumber = loadData.bolNumber;
       }
       if (loadData.shipmentNo) {
-        apiPayload.shipmentNo = loadData.shipmentNo;
+        apiPayload.shipmentNumber = loadData.shipmentNo;
       }
 
       // Add bidDeadline if provided
@@ -949,7 +949,12 @@ const AddLoad = () => {
       const loadDetails = await fetchLoadById(load.loadId || load._id);
 
       if (loadDetails) {
-        setViewLoadData(loadDetails.load || loadDetails);
+        const loadData = loadDetails.load || loadDetails;
+        // Ensure shipmentNumber is accessible from main object or tracking
+        if (!loadData.shipmentNumber && loadData.tracking?.shipmentNumber) {
+          loadData.shipmentNumber = loadData.tracking.shipmentNumber;
+        }
+        setViewLoadData(loadData);
       } else {
         setViewLoadData(load);
       }
@@ -3600,16 +3605,6 @@ const AddLoad = () => {
                       <TableCell sx={{ fontWeight: 600, borderBottom: '1px solid #e0e0e0' }}>Vehicle Type</TableCell>
                       <TableCell sx={{ borderBottom: '1px solid #e0e0e0' }}>{viewLoadData.vehicleType || 'N/A'}</TableCell>
                     </TableRow>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 600, borderBottom: '1px solid #e0e0e0' }}>Status</TableCell>
-                      <TableCell sx={{ borderBottom: '1px solid #e0e0e0' }}>
-                        <Chip
-                          label={viewLoadData.status || 'N/A'}
-                          color={viewLoadData.status === 'active' ? 'success' : 'default'}
-                          size="small"
-                        />
-                      </TableCell>
-                    </TableRow>
                     {viewLoadData.weight && (
                       <TableRow>
                         <TableCell sx={{ fontWeight: 600, borderBottom: '1px solid #e0e0e0' }}>Weight</TableCell>
@@ -3871,12 +3866,12 @@ const AddLoad = () => {
                         <TableCell sx={{ borderBottom: '1px solid #e0e0e0' }}>{viewLoadData.bolNumber}</TableCell>
                       </TableRow>
                     )}
-                    {viewLoadData.shipmentNo && (
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 600, borderBottom: '1px solid #e0e0e0' }}>Shipment Number</TableCell>
-                        <TableCell sx={{ borderBottom: '1px solid #e0e0e0' }}>{viewLoadData.shipmentNo}</TableCell>
-                      </TableRow>
-                    )}
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 600, borderBottom: viewLoadData.specialInstructions ? '1px solid #e0e0e0' : 'none' }}>Shipment Number</TableCell>
+                      <TableCell sx={{ borderBottom: viewLoadData.specialInstructions ? '1px solid #e0e0e0' : 'none' }}>
+                        {viewLoadData.shipmentNumber || viewLoadData.shipmentNo || viewLoadData.tracking?.shipmentNumber || 'N/A'}
+                      </TableCell>
+                    </TableRow>
                     {viewLoadData.specialInstructions && (
                       <TableRow>
                         <TableCell sx={{ fontWeight: 600, borderBottom: 'none', verticalAlign: 'top' }}>Special Instructions</TableCell>
