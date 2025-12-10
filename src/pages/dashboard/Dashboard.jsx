@@ -936,7 +936,7 @@ const Dashboard = () => {
         <Box sx={{ gridColumn: 'span 1' }}>
           <StatCard 
             title="Bids On Loads" 
-            value={actualCounts.bidding || getDashboardValue('biddingLoads') || getDashboardValue('pendingDeliveries')} 
+            value={0} 
             icon={cancel} 
             image={localshipping}
             onClick={handleBidsOnLoadsClick}
