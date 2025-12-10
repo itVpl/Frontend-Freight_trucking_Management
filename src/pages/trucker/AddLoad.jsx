@@ -717,13 +717,22 @@ const AddLoad = () => {
         throw new Error('No authentication token found');
       }
 
+      // Transform updateData to match API structure
+      const apiPayload = { ...updateData };
+      
+      // Transform shipmentNo to shipmentNumber if it exists
+      if (apiPayload.shipmentNo) {
+        apiPayload.shipmentNumber = apiPayload.shipmentNo;
+        delete apiPayload.shipmentNo;
+      }
+
       const response = await fetch(`${BASE_API_URL}/api/v1/trucker-loads/${loadId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(updateData),
+        body: JSON.stringify(apiPayload),
       });
 
       if (!response.ok) {
@@ -910,7 +919,7 @@ const AddLoad = () => {
         containerNo: loadData.containerNo || '',
         poNumber: loadData.poNumber || '',
         bolNumber: loadData.bolNumber || '',
-        shipmentNo: loadData.shipmentNo || '',
+        shipmentNo: loadData.shipmentNumber || loadData.shipmentNo || '',
         customerName: loadData.customerLoadDetails?.customerName || '',
         customerPhone: loadData.customerLoadDetails?.customerPhone || '',
         customerEmail: loadData.customerLoadDetails?.customerEmail || '',
