@@ -73,8 +73,10 @@ const Payments = () => {
   // Dialog states
   const [openPayDialog, setOpenPayDialog] = useState(false);
   const [openLoadDetailsDialog, setOpenLoadDetailsDialog] = useState(false);
+  const [openPaymentDetailsDialog, setOpenPaymentDetailsDialog] = useState(false);
   const [selectedDriver, setSelectedDriver] = useState(null);
   const [selectedDriverForDetails, setSelectedDriverForDetails] = useState(null);
+  const [selectedDriverPaymentDetails, setSelectedDriverPaymentDetails] = useState(null);
 
   // Pay driver form
   const [payDriverForm, setPayDriverForm] = useState({
@@ -159,6 +161,24 @@ const Payments = () => {
     } finally {
       setPaidDriversLoading(false);
     }
+  };
+
+  // Handle View Payment Details
+  const handleViewPaymentDetails = (driver) => {
+    const driverId = driver.driverId || driver._id || driver.driver?._id;
+    if (!driverId) {
+      setSnackbar({ open: true, message: 'Driver ID not found', severity: 'error' });
+      return;
+    }
+
+    // Set the driver info from the list data
+    setSelectedDriverPaymentDetails({
+      ...driver,
+      driverId: driverId,
+      paidLoads: driver.paidLoads || [],
+    });
+
+    setOpenPaymentDetailsDialog(true);
   };
 
   // Pay Driver
@@ -683,6 +703,7 @@ const Payments = () => {
                   'Paid Loads',
                   'Total Amount',
                   'Paid Date',
+                  'Actions',
                 ].map((header) => (
                   <TableCell
                     key={header}
@@ -702,7 +723,7 @@ const Payments = () => {
             <TableBody>
               {paidDriversLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
+                  <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
                     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
                       <CircularProgress size={40} />
                       <Typography variant="body1" color="text.secondary">
@@ -713,7 +734,7 @@ const Payments = () => {
                 </TableRow>
               ) : paidDrivers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
+                  <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
                     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
                       <LocalShipping sx={{ fontSize: 48, color: '#cbd5e1' }} />
                       <Typography variant="h6" color="text.secondary" fontWeight={600}>
@@ -774,6 +795,33 @@ const Payments = () => {
                         <Typography variant="body2">
                           {driver.lastPaymentDate ? formatDateTime(driver.lastPaymentDate) : (driver.paidAt ? formatDateTime(driver.paidAt) : 'N/A')}
                         </Typography>
+                      </TableCell>
+                      <TableCell sx={{ py: 2 }}>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          startIcon={<Visibility />}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleViewPaymentDetails(driver);
+                          }}
+                          sx={{
+                            fontSize: '0.75rem',
+                            px: 1.5,
+                            py: 0.5,
+                            textTransform: 'none',
+                            color: '#1976d2',
+                            borderColor: '#bfdbfe',
+                            backgroundColor: '#eff6ff',
+                            fontWeight: 600,
+                            '&:hover': {
+                              backgroundColor: '#dbeafe',
+                              borderColor: '#1976d2',
+                            },
+                          }}
+                        >
+                          View
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))
@@ -1218,6 +1266,446 @@ const Payments = () => {
             onClick={() => {
               setOpenLoadDetailsDialog(false);
               setSelectedDriverForDetails(null);
+            }}
+            sx={{
+              borderRadius: 2,
+              textTransform: 'none',
+              px: 3,
+              py: 1,
+              color: '#64748b',
+              '&:hover': {
+                backgroundColor: '#f1f5f9',
+              },
+            }}
+          >
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Payment Details Dialog */}
+      <Dialog 
+        open={openPaymentDetailsDialog} 
+        onClose={() => {
+          setOpenPaymentDetailsDialog(false);
+          setSelectedDriverPaymentDetails(null);
+        }} 
+        maxWidth="lg" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+          }
+        }}
+      >
+        <DialogTitle
+          sx={{
+            background: 'linear-gradient(90deg, #f8fafc 0%, #f1f5f9 100%)',
+            py: 2.5,
+            px: 3,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            borderBottom: '1px solid #e2e8f0',
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Payment sx={{ fontSize: 28, color: '#059669' }} />
+            <Box>
+              <Typography variant="h6" fontWeight={700} sx={{ color: '#1e293b' }}>
+                Payment Details
+              </Typography>
+              {selectedDriverPaymentDetails && (
+                <Typography variant="body2" color="text.secondary">
+                  {selectedDriverPaymentDetails.driver?.fullName || selectedDriverPaymentDetails.driverName || selectedDriverPaymentDetails.fullName || 'N/A'} - Payment History
+                </Typography>
+              )}
+            </Box>
+          </Box>
+          <IconButton
+            onClick={() => {
+              setOpenPaymentDetailsDialog(false);
+              setSelectedDriverPaymentDetails(null);
+            }}
+            sx={{ 
+              color: '#64748b',
+              '&:hover': {
+                backgroundColor: '#e2e8f0',
+              },
+            }}
+          >
+            <Close />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ p: 3 }}>
+          {selectedDriverPaymentDetails ? (
+            <Box>
+              {/* Driver Summary */}
+              <Paper elevation={0} sx={{ p: 2.5, mb: 3, backgroundColor: '#f8fafc', borderRadius: 2, border: '1px solid #e2e8f0' }}>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6} md={3}>
+                    <Typography variant="body2" color="text.secondary">Driver Name</Typography>
+                    <Typography variant="body1" fontWeight={700} sx={{ color: '#1e293b' }}>
+                      {selectedDriverPaymentDetails.driver?.fullName || selectedDriverPaymentDetails.driverName || selectedDriverPaymentDetails.fullName || 'N/A'}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={3}>
+                    <Typography variant="body2" color="text.secondary">Phone</Typography>
+                    <Typography variant="body1" fontWeight={600} sx={{ color: '#1e293b' }}>
+                      {selectedDriverPaymentDetails.driver?.phone || selectedDriverPaymentDetails.phone || 'N/A'}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={3}>
+                    <Typography variant="body2" color="text.secondary">Total Paid Loads</Typography>
+                    <Typography variant="body1" fontWeight={700} sx={{ color: '#059669' }}>
+                      {selectedDriverPaymentDetails.paidLoads?.length || selectedDriverPaymentDetails.loadCount || selectedDriverPaymentDetails.paidLoadCount || 0}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={3}>
+                    <Typography variant="body2" color="text.secondary">Total Amount</Typography>
+                    <Typography variant="body1" fontWeight={700} sx={{ color: '#059669', fontSize: '1.1rem' }}>
+                      {formatCurrency(selectedDriverPaymentDetails.totalPaidAmount || selectedDriverPaymentDetails.totalAmount || 0)}
+                    </Typography>
+                  </Grid>
+                </Grid>
+              </Paper>
+
+              {/* Paid Loads List */}
+              {selectedDriverPaymentDetails.paidLoads && selectedDriverPaymentDetails.paidLoads.length > 0 ? (
+                <Box>
+                  <Typography variant="h6" fontWeight={700} sx={{ mb: 3, color: '#1e293b' }}>
+                    Paid Loads Details
+                  </Typography>
+                  {selectedDriverPaymentDetails.paidLoads.map((load, idx) => (
+                    <Paper 
+                      key={load.loadId || idx} 
+                      elevation={2}
+                      sx={{ 
+                        p: 0,
+                        mb: 3,
+                        backgroundColor: idx % 2 === 0 ? '#ffffff' : '#fafbfc',
+                        borderRadius: 3,
+                        border: '2px solid #e2e8f0',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                        overflow: 'hidden',
+                        '&:hover': {
+                          boxShadow: '0 6px 16px rgba(0,0,0,0.12)',
+                          borderColor: '#cbd5e1',
+                        },
+                      }}
+                    >
+                      {/* Header Section with Colored Background */}
+                      <Box
+                        sx={{
+                          background: 'linear-gradient(90deg, #eff6ff 0%, #dbeafe 100%)',
+                          borderBottom: '2px solid #bfdbfe',
+                          p: 2,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                          <Box
+                            sx={{
+                              width: 40,
+                              height: 40,
+                              borderRadius: '50%',
+                              backgroundColor: '#1976d2',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: 'white',
+                            }}
+                          >
+                            <LocalShipping sx={{ fontSize: 20 }} />
+                          </Box>
+                          <Box>
+                            <Typography variant="h6" fontWeight={700} sx={{ color: '#1e293b' }}>
+                              {load.shipmentNumber || 'N/A'}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              Load #{idx + 1} of {selectedDriverPaymentDetails.paidLoads.length}
+                            </Typography>
+                          </Box>
+                        </Box>
+                        <Chip
+                          label={load.status || 'Paid'}
+                          size="medium"
+                          sx={{
+                            fontWeight: 700,
+                            fontSize: '0.8rem',
+                            height: 32,
+                            backgroundColor: '#d1fae5',
+                            color: '#065f46',
+                            border: '2px solid #a7f3d0',
+                          }}
+                        />
+                      </Box>
+
+                      {/* Content Section */}
+                      <Box sx={{ p: 3 }}>
+                        <Grid container spacing={2}>
+                          {/* Row 1: Basic Load Information */}
+                          <Grid item xs={12} sm={6} md={4}>
+                            <Box sx={{ 
+                              p: 2, 
+                              height: '100%',
+                              minHeight: 100,
+                              backgroundColor: '#f8fafc', 
+                              borderRadius: 2,
+                              border: '1px solid #e2e8f0',
+                              display: 'flex',
+                              flexDirection: 'column',
+                            }}>
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>Load ID</Typography>
+                              <Typography variant="body1" fontWeight={700} sx={{ color: '#1e293b', wordBreak: 'break-all', flex: 1 }}>
+                                {load.loadId || 'N/A'}
+                              </Typography>
+                            </Box>
+                          </Grid>
+
+                          <Grid item xs={12} sm={6} md={4}>
+                            <Box sx={{ 
+                              p: 2, 
+                              height: '100%',
+                              minHeight: 100,
+                              backgroundColor: '#f8fafc', 
+                              borderRadius: 2,
+                              border: '1px solid #e2e8f0',
+                              display: 'flex',
+                              flexDirection: 'column',
+                            }}>
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>Shipper</Typography>
+                              <Typography variant="body1" fontWeight={700} sx={{ color: '#1e293b', flex: 1 }}>
+                                {load.shipper || 'N/A'}
+                              </Typography>
+                            </Box>
+                          </Grid>
+
+                          <Grid item xs={12} sm={6} md={4}>
+                            <Box sx={{ 
+                              p: 2, 
+                              height: '100%',
+                              minHeight: 100,
+                              backgroundColor: '#d1fae5', 
+                              borderRadius: 2,
+                              border: '2px solid #a7f3d0',
+                              display: 'flex',
+                              flexDirection: 'column',
+                            }}>
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>Payment Amount</Typography>
+                              <Typography variant="h6" fontWeight={700} sx={{ color: '#059669', flex: 1 }}>
+                                {formatCurrency(load.paymentAmount || 0)}
+                              </Typography>
+                            </Box>
+                          </Grid>
+
+                          {/* Row 2: Payment Information */}
+                          <Grid item xs={12} sm={6} md={4}>
+                            <Box sx={{ 
+                              p: 2, 
+                              height: '100%',
+                              minHeight: 100,
+                              backgroundColor: '#ffffff', 
+                              borderRadius: 2,
+                              border: '1px solid #e2e8f0',
+                              display: 'flex',
+                              flexDirection: 'column',
+                            }}>
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>Payment Method</Typography>
+                              <Typography variant="body1" fontWeight={700} sx={{ color: '#1e293b', textTransform: 'capitalize', flex: 1 }}>
+                                {load.paymentMethod ? load.paymentMethod.replace('_', ' ') : 'N/A'}
+                              </Typography>
+                            </Box>
+                          </Grid>
+
+                          <Grid item xs={12} sm={6} md={4}>
+                            <Box sx={{ 
+                              p: 2, 
+                              height: '100%',
+                              minHeight: 100,
+                              backgroundColor: '#ffffff', 
+                              borderRadius: 2,
+                              border: '1px solid #e2e8f0',
+                              display: 'flex',
+                              flexDirection: 'column',
+                            }}>
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>Payment Reference</Typography>
+                              <Typography variant="body1" fontWeight={700} sx={{ color: '#1e293b', flex: 1 }}>
+                                {load.paymentReference || 'N/A'}
+                              </Typography>
+                            </Box>
+                          </Grid>
+
+                          <Grid item xs={12} sm={6} md={4}>
+                            <Box sx={{ 
+                              p: 2, 
+                              height: '100%',
+                              minHeight: 100,
+                              backgroundColor: '#ffffff', 
+                              borderRadius: 2,
+                              border: '1px solid #e2e8f0',
+                              display: 'flex',
+                              flexDirection: 'column',
+                            }}>
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>Paid At</Typography>
+                              <Typography variant="body1" fontWeight={700} sx={{ color: '#1e293b', flex: 1 }}>
+                                {load.paidAt ? formatDateTime(load.paidAt) : 'N/A'}
+                              </Typography>
+                            </Box>
+                          </Grid>
+
+                          {/* Row 3: Payment Notes */}
+                          {load.paymentNotes && (
+                            <Grid item xs={12} sm={6} md={4}>
+                              <Box sx={{ 
+                                p: 2, 
+                                height: '100%',
+                                minHeight: 100,
+                                backgroundColor: '#fef3c7', 
+                                borderRadius: 2,
+                                border: '1px solid #fde68a',
+                                display: 'flex',
+                                flexDirection: 'column',
+                              }}>
+                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>Payment Notes</Typography>
+                                <Typography variant="body1" sx={{ color: '#92400e', flex: 1 }}>
+                                  {load.paymentNotes}
+                                </Typography>
+                              </Box>
+                            </Grid>
+                          )}
+
+                          {/* Row 3/4: Payment Proof */}
+                          {load.paymentProof && (
+                            <Grid item xs={12} sm={6} md={load.paymentNotes ? 4 : 6}>
+                              <Box sx={{ 
+                                p: 2, 
+                                height: '100%',
+                                minHeight: 100,
+                                backgroundColor: '#eff6ff', 
+                                borderRadius: 2,
+                                border: '1px solid #bfdbfe',
+                                display: 'flex',
+                                flexDirection: 'column',
+                              }}>
+                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>Payment Proof</Typography>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
+                                  <Box
+                                    sx={{
+                                      width: 40,
+                                      height: 40,
+                                      borderRadius: 1.5,
+                                      backgroundColor: '#dbeafe',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    <Description sx={{ color: '#1976d2', fontSize: 20 }} />
+                                  </Box>
+                                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                                    <Typography variant="body2" fontWeight={700} sx={{ color: '#1e293b', mb: 0.5, wordBreak: 'break-word' }}>
+                                      {load.paymentProof.fileName || 'Payment Proof'}
+                                    </Typography>
+                                    {load.paymentProof.uploadedAt && (
+                                      <Typography variant="caption" color="text.secondary">
+                                        {formatDateTime(load.paymentProof.uploadedAt)}
+                                      </Typography>
+                                    )}
+                                  </Box>
+                                  {load.paymentProof.fileUrl && (
+                                    <Button
+                                      size="small"
+                                      variant="contained"
+                                      href={load.paymentProof.fileUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      sx={{
+                                        textTransform: 'none',
+                                        fontSize: '0.75rem',
+                                        px: 1.5,
+                                        py: 0.5,
+                                        backgroundColor: '#1976d2',
+                                        flexShrink: 0,
+                                        '&:hover': {
+                                          backgroundColor: '#0d47a1',
+                                        },
+                                      }}
+                                    >
+                                      View
+                                    </Button>
+                                  )}
+                                </Box>
+                              </Box>
+                            </Grid>
+                          )}
+
+                          {/* Row 4/5: Paid By Information */}
+                          {load.paidBy && (
+                            <Grid item xs={12} sm={6} md={(!load.paymentNotes && !load.paymentProof) ? 4 : (!load.paymentNotes || !load.paymentProof) ? 6 : 4}>
+                              <Box sx={{ 
+                                p: 2, 
+                                height: '100%',
+                                minHeight: 100,
+                                backgroundColor: '#f8fafc', 
+                                borderRadius: 2,
+                                border: '1px solid #e2e8f0',
+                                display: 'flex',
+                                flexDirection: 'column',
+                              }}>
+                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>Paid By</Typography>
+                                <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                  {load.paidBy.truckerName && (
+                                    <Typography variant="body1" sx={{ color: '#1e293b', fontWeight: 600 }}>
+                                      <Typography component="span" variant="body2" sx={{ color: '#64748b' }}>Trucker: </Typography>
+                                      {load.paidBy.truckerName}
+                                    </Typography>
+                                  )}
+                                  {load.paidBy.truckerId && (
+                                    <Typography variant="body1" sx={{ color: '#1e293b', fontWeight: 600 }}>
+                                      <Typography component="span" variant="body2" sx={{ color: '#64748b' }}>ID: </Typography>
+                                      {load.paidBy.truckerId}
+                                    </Typography>
+                                  )}
+                                </Box>
+                              </Box>
+                            </Grid>
+                          )}
+                        </Grid>
+                      </Box>
+                    </Paper>
+                  ))}
+                </Box>
+              ) : (
+                <Box sx={{ textAlign: 'center', py: 8 }}>
+                  <Payment sx={{ fontSize: 48, color: '#cbd5e1', mb: 2 }} />
+                  <Typography variant="h6" color="text.secondary" fontWeight={600}>
+                    No payment details available
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                    Payment load details will appear here
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          ) : (
+            <Box sx={{ textAlign: 'center', py: 8 }}>
+              <Payment sx={{ fontSize: 48, color: '#cbd5e1', mb: 2 }} />
+              <Typography variant="h6" color="text.secondary" fontWeight={600}>
+                No payment details available
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 3, pt: 2, borderTop: '1px solid #e2e8f0' }}>
+          <Button 
+            onClick={() => {
+              setOpenPaymentDetailsDialog(false);
+              setSelectedDriverPaymentDetails(null);
             }}
             sx={{
               borderRadius: 2,
