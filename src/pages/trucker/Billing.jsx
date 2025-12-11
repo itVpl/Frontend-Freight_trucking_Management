@@ -15,6 +15,7 @@ import {
   TextField,
   IconButton,
   Popover,
+  InputAdornment,
   FormControl,
   InputLabel,
   Select,
@@ -24,8 +25,22 @@ import {
   DialogContent,
   DialogActions,
   Grid,
+  CircularProgress,
 } from '@mui/material';
-import { Receipt, Download, DateRange, Clear } from '@mui/icons-material';
+import { 
+  Receipt, 
+  Download, 
+  DateRange, 
+  Clear, 
+  Search,
+  Add,
+  Close,
+  Business,
+  AttachMoney,
+  LocationOn,
+  CalendarToday,
+  Visibility
+} from '@mui/icons-material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { format, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
@@ -91,6 +106,7 @@ const Dashboard = () => {
   const [isMarkingPaid, setIsMarkingPaid] = useState(false);
 
   const [billingData, setBillingData] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Fetch bills from API
   const fetchBills = async () => {
@@ -147,22 +163,40 @@ const Dashboard = () => {
     fetchBills();
   }, []);
 
-  // Filter data based on date range
+  // Filter data based on date range and search term
   useEffect(() => {
+    let filtered = billingData;
+    
+    // Filter by date range
     if (dateRange[0] && dateRange[1]) {
-      const filtered = billingData.filter(bill => {
+      filtered = filtered.filter(bill => {
         const billDate = new Date(bill.billDate);
         return isWithinInterval(billDate, {
           start: startOfDay(dateRange[0]),
           end: endOfDay(dateRange[1])
         });
       });
-      setFilteredData(filtered);
-    } else {
-      setFilteredData(billingData);
     }
+    
+    // Filter by search term
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase();
+      filtered = filtered.filter(bill => 
+        bill.billId?.toLowerCase().includes(searchLower) ||
+        bill.pickupAddress?.toLowerCase().includes(searchLower) ||
+        bill.deliveryAddress?.toLowerCase().includes(searchLower) ||
+        bill.customerName?.toLowerCase().includes(searchLower) ||
+        bill.status?.toLowerCase().includes(searchLower)
+      );
+    }
+    
+    setFilteredData(filtered);
     setPage(0);
-  }, [dateRange, billingData]);
+  }, [dateRange, billingData, searchTerm]);
+
+  const handleSearch = (e) => {
+    setSearchTerm(e.target.value);
+  };
 
   const handleChangePage = (event, newPage) => {
     setPage(newPage);
@@ -475,13 +509,40 @@ const Dashboard = () => {
             alignItems: 'center',
             mb: 3,
             flexWrap: 'wrap',
-            gap: 2
+            gap: 2,
           }}
         >
-          <Typography variant="h5" fontWeight={700}>
-            Billing Overview
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Typography variant="h5" fontWeight={700}>
+              Billing Overview
+            </Typography>
+            <Chip
+              label={`${billingData.length} Bill${billingData.length !== 1 ? 's' : ''}`}
+              color="primary"
+              sx={{ fontWeight: 600 }}
+            />
+          </Box>
           <Stack direction="row" spacing={1} alignItems="center">
+            {/* Search Field */}
+            <TextField
+              variant="outlined"
+              size="small"
+              placeholder="Search bills..."
+              value={searchTerm}
+              onChange={handleSearch}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search color="primary" />
+                  </InputAdornment>
+                ),
+                sx: {
+                  borderRadius: 2,
+                  fontSize: '0.85rem',
+                  px: 1,
+                },
+              }}
+            />
             {/* Date Range Picker */}
             <Button
               variant="outlined"
@@ -620,18 +681,18 @@ const Dashboard = () => {
             </Button>
             <Button
               variant="contained"
-              startIcon={<Receipt />}
+              startIcon={<Add />}
               onClick={handleGenerateBill}
               sx={{
-                borderRadius: 2,
-                fontSize: '0.75rem',
-                px: 2,
-                py: 0.8,
-                fontWeight: 500,
-                textTransform: 'none',
                 backgroundColor: '#1976d2',
+                color: 'white',
+                px: 3,
+                py: 1,
+                textTransform: 'none',
+                fontWeight: 600,
+                borderRadius: 2,
                 '&:hover': {
-                  backgroundColor: '#1565c0',
+                  backgroundColor: '#0d47a1',
                 },
               }}
             >
@@ -641,31 +702,70 @@ const Dashboard = () => {
         </Box>
 
         <Paper elevation={3} sx={{ borderRadius: 3, overflow: 'hidden' }}>
-          <Table>
+          <Table
+            sx={{
+              borderRadius: 3,
+              overflow: 'hidden',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
+              border: '1px solid #e5e7eb',
+            }}
+          >
             <TableHead>
-              <TableRow sx={{ backgroundColor: '#f0f4f8' }}>
-                <TableCell sx={{ fontWeight: 600 }}>Bill Id</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Pickup Address</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Delivery Address</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Amount</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Bill Date</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Due Date</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Payment Terms</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Actions</TableCell>
+              <TableRow
+                sx={{
+                  background: 'linear-gradient(90deg, #f8fafc 0%, #f1f5f9 100%)',
+                }}
+              >
+                {[
+                  'Bill Id',
+                  'Pickup Address',
+                  'Delivery Address',
+                  'Amount',
+                  'Bill Date',
+                  'Due Date',
+                  'Payment Terms',
+                  'Status',
+                  'Actions',
+                ].map((header) => (
+                  <TableCell
+                    key={header}
+                    sx={{
+                      fontWeight: 700,
+                      color: '#374151',
+                      fontSize: '0.95rem',
+                      py: 1.5,
+                      borderBottom: '2px solid #e2e8f0',
+                    }}
+                  >
+                    {header}
+                  </TableCell>
+                ))}
               </TableRow>
             </TableHead>
              <TableBody>
                {loading ? (
                  <TableRow>
-                   <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
-                     <Typography>Loading bills...</Typography>
+                   <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
+                     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                       <CircularProgress size={40} />
+                       <Typography variant="body1" color="text.secondary">
+                         Loading bills...
+                       </Typography>
+                     </Box>
                    </TableCell>
                  </TableRow>
                ) : filteredData.length === 0 ? (
                  <TableRow>
-                   <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
-                     <Typography>No bills found</Typography>
+                   <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
+                     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                       <Receipt sx={{ fontSize: 48, color: '#cbd5e1' }} />
+                       <Typography variant="h6" color="text.secondary" fontWeight={600}>
+                         No bills found
+                       </Typography>
+                       <Typography variant="body2" color="text.secondary">
+                         {searchTerm ? 'Try adjusting your search criteria' : 'Generate your first bill to get started'}
+                       </Typography>
+                     </Box>
                    </TableCell>
                  </TableRow>
                ) : (
@@ -675,73 +775,164 @@ const Dashboard = () => {
                      const today = new Date();
                      const dueDate = new Date(bill.dueDate);
                      const isOverdue = today > dueDate && bill.status.toLowerCase() !== 'paid';
+                     const daysUntilDue = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
                      
                      return (
-                       <TableRow key={bill._id || i} hover sx={{ transition: '0.3s', '&:hover': { backgroundColor: '#e3f2fd' } }}>
-                         <TableCell>{bill.billId}</TableCell>
-                         <TableCell sx={{ maxWidth: 200, wordWrap: 'break-word' }}>
-                           {bill.pickupAddress}
+                       <TableRow 
+                         key={bill._id || i} 
+                         hover 
+                         sx={{
+                           transition: 'all 0.25s ease',
+                           borderBottom: '1px solid #f1f5f9',
+                           '&:hover': {
+                             backgroundColor: '#f8fafc',
+                             boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                           },
+                           ...(isOverdue && {
+                             borderLeft: '4px solid #ef4444',
+                             backgroundColor: '#fef2f2',
+                             '&:hover': {
+                               backgroundColor: '#fee2e2',
+                             }
+                           })
+                         }}
+                       >
+                         <TableCell sx={{ fontWeight: 700, color: '#1e293b', fontSize: '0.9rem', py: 2 }}>
+                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                             <Receipt sx={{ fontSize: 18, color: '#64748b' }} />
+                             <Typography sx={{ fontWeight: 700 }}>{bill.billId}</Typography>
+                           </Box>
                          </TableCell>
-                         <TableCell sx={{ maxWidth: 200, wordWrap: 'break-word' }}>
-                           {bill.deliveryAddress}
+                         <TableCell sx={{ maxWidth: 200, wordWrap: 'break-word', color: '#475569', py: 2 }}>
+                           <Box sx={{ display: 'flex', alignItems: 'start', gap: 1 }}>
+                             <LocationOn sx={{ fontSize: 16, color: '#94a3b8', mt: 0.5 }} />
+                             <Typography variant="body2">{bill.pickupAddress}</Typography>
+                           </Box>
                          </TableCell>
-                         <TableCell>${bill.amount.toLocaleString()}</TableCell>
-                         <TableCell>{bill.billDate}</TableCell>
-                         <TableCell sx={{ 
-                           color: isOverdue ? '#d32f2f' : 'inherit',
-                           fontWeight: isOverdue ? 600 : 'normal'
-                         }}>
-                           {bill.dueDate}
+                         <TableCell sx={{ maxWidth: 200, wordWrap: 'break-word', color: '#475569', py: 2 }}>
+                           <Box sx={{ display: 'flex', alignItems: 'start', gap: 1 }}>
+                             <LocationOn sx={{ fontSize: 16, color: '#94a3b8', mt: 0.5 }} />
+                             <Typography variant="body2">{bill.deliveryAddress}</Typography>
+                           </Box>
                          </TableCell>
-                         <TableCell>
+                         <TableCell sx={{ py: 2 }}>
+                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                             <AttachMoney sx={{ fontSize: 18, color: '#10b981', fontWeight: 700 }} />
+                             <Typography sx={{ 
+                               color: '#059669', 
+                               fontWeight: 700, 
+                               fontSize: '1rem',
+                               fontFamily: 'monospace'
+                             }}>
+                               {bill.amount.toLocaleString()}
+                             </Typography>
+                           </Box>
+                         </TableCell>
+                         <TableCell sx={{ color: '#64748b', py: 2 }}>
+                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                             <CalendarToday sx={{ fontSize: 16, color: '#94a3b8' }} />
+                             <Typography variant="body2">
+                               {new Date(bill.billDate).toLocaleDateString('en-US', { 
+                                 month: 'short', 
+                                 day: 'numeric', 
+                                 year: 'numeric' 
+                               })}
+                             </Typography>
+                           </Box>
+                         </TableCell>
+                         <TableCell sx={{ py: 2 }}>
+                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                             <CalendarToday sx={{ 
+                               fontSize: 16, 
+                               color: isOverdue ? '#ef4444' : '#94a3b8' 
+                             }} />
+                             <Typography variant="body2" sx={{ 
+                               color: isOverdue ? '#dc2626' : '#64748b',
+                               fontWeight: isOverdue ? 700 : 400
+                             }}>
+                               {new Date(bill.dueDate).toLocaleDateString('en-US', { 
+                                 month: 'short', 
+                                 day: 'numeric', 
+                                 year: 'numeric' 
+                               })}
+                             </Typography>
+                             {isOverdue && (
+                               <Chip 
+                                 label="Overdue" 
+                                 size="small" 
+                                 sx={{ 
+                                   height: 20,
+                                   fontSize: '0.65rem',
+                                   backgroundColor: '#fee2e2',
+                                   color: '#dc2626',
+                                   fontWeight: 700,
+                                   ml: 0.5
+                                 }} 
+                               />
+                             )}
+                           </Box>
+                         </TableCell>
+                         <TableCell sx={{ color: '#64748b', py: 2 }}>
                            <Typography variant="body2" sx={{ 
                              fontSize: '0.875rem',
-                             color: '#666',
                              fontWeight: 500
                            }}>
                              {bill.paymentTerms?.days || 30} days
                            </Typography>
                          </TableCell>
-                         <TableCell>
+                         <TableCell sx={{ py: 2 }}>
                            <Chip 
-                             label={bill.status} 
+                             label={bill.status.charAt(0).toUpperCase() + bill.status.slice(1)} 
                              color={getStatusColor(bill.status)} 
                              size="small"
                              sx={{
+                               fontWeight: 600,
+                               fontSize: '0.75rem',
+                               height: 26,
+                               ...(bill.status.toLowerCase() === 'paid' && {
+                                 backgroundColor: '#d1fae5',
+                                 color: '#065f46',
+                                 border: '1px solid #a7f3d0',
+                               }),
                                ...(bill.status.toLowerCase() === 'pending' && {
-                                 backgroundColor: '#ffeb3b',
-                                 color: '#000',
-                                 '&:hover': {
-                                   backgroundColor: '#fdd835'
-                                 }
+                                 backgroundColor: '#fef3c7',
+                                 color: '#92400e',
+                                 border: '1px solid #fde68a',
                                }),
                                ...(bill.status.toLowerCase() === 'draft' && {
-                                 backgroundColor: '#e0e0e0',
-                                 color: '#000',
-                                 '&:hover': {
-                                   backgroundColor: '#d0d0d0'
-                                 }
+                                 backgroundColor: '#f3f4f6',
+                                 color: '#374151',
+                                 border: '1px solid #e5e7eb',
+                               }),
+                               ...(bill.status.toLowerCase() === 'overdue' && {
+                                 backgroundColor: '#fee2e2',
+                                 color: '#991b1b',
+                                 border: '1px solid #fecaca',
                                })
                              }}
                            />
                          </TableCell>
-                         <TableCell>
-                           <Stack direction="row" spacing={1}>
+                         <TableCell sx={{ py: 2 }}>
+                           <Stack direction="row" spacing={1} flexWrap="wrap">
                              <Button
                                size="small"
                                variant="outlined"
+                               startIcon={<Visibility />}
                                onClick={() => handleViewBill(bill._id)}
                                sx={{
-                                 fontSize: '0.75rem',
+                                 fontSize: '0.7rem',
                                  px: 1.5,
                                  py: 0.5,
                                  textTransform: 'none',
-                                 borderColor: '#1976d2',
-                                 color: '#1976d2',
+                                 color: '#2563eb',
+                                 borderColor: '#bfdbfe',
+                                 backgroundColor: '#eff6ff',
+                                 fontWeight: 600,
                                  '&:hover': {
-                                   borderColor: '#0d47a1',
-                                   color: '#0d47a1',
-                                 }
+                                   backgroundColor: '#2563eb',
+                                   color: '#fff',
+                                   borderColor: '#2563eb',
+                                 },
                                }}
                              >
                                View
@@ -749,17 +940,22 @@ const Dashboard = () => {
                              {bill.status.toLowerCase() !== 'paid' && (
                                <Button
                                  size="small"
-                                 variant="contained"
+                                 variant="outlined"
                                  onClick={() => handleMarkAsPaid(bill)}
                                  sx={{
-                                   fontSize: '0.75rem',
+                                   fontSize: '0.7rem',
                                    px: 1.5,
                                    py: 0.5,
                                    textTransform: 'none',
-                                   backgroundColor: '#2e7d32',
+                                   color: '#16a34a',
+                                   borderColor: '#bbf7d0',
+                                   backgroundColor: '#f0fdf4',
+                                   fontWeight: 600,
                                    '&:hover': {
-                                     backgroundColor: '#1b5e20',
-                                   }
+                                     backgroundColor: '#16a34a',
+                                     color: '#fff',
+                                     borderColor: '#16a34a',
+                                   },
                                  }}
                                >
                                  Mark Paid
@@ -781,6 +977,10 @@ const Dashboard = () => {
             rowsPerPage={rowsPerPage}
             onRowsPerPageChange={handleChangeRowsPerPage}
             rowsPerPageOptions={[5, 10, 15, 20]}
+            sx={{
+              borderTop: '1px solid #e0e0e0',
+              backgroundColor: '#fafafa'
+            }}
           />
         </Paper>
 
@@ -788,47 +988,63 @@ const Dashboard = () => {
         <Dialog 
           open={billModalOpen} 
           onClose={handleCloseBillModal}
-          maxWidth="md"
+          maxWidth="lg"
           fullWidth
           PaperProps={{
             sx: {
-              borderRadius: 3,
-              maxHeight: '90vh'
+              borderRadius: 4,
+              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15)',
+              background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+              minHeight: '85vh',
+              maxHeight: '95vh',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column'
             }
           }}
         >
-          <DialogTitle sx={{ 
-            backgroundColor: '#f0f4f8', 
-            borderBottom: '1px solid #e0e0e0',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 2
-          }}>
-            <Receipt sx={{ color: '#1976d2' }} />
-            <Typography variant="h6" fontWeight={600}>
-              Generate New Bill
-            </Typography>
+          <DialogTitle className="border-b-0 bg-[#1976d2] flex items-center justify-between gap-3 py-4 px-6 relative rounded-t-lg" sx={{ backgroundColor: '#1976d2' }}>
+            <Box className="flex items-center gap-3 flex-1">
+              <Box className="bg-white rounded-lg w-12 h-12 flex items-center justify-center border-2 border-blue-300 shadow-sm">
+                <Receipt className="text-xl text-blue-500" />
+              </Box>
+              <Box>
+                <Typography variant="h5" className="font-bold text-white mb-0.5 text-xl">
+                  Generate New Bill
+                </Typography>
+                <Typography variant="body2" className="text-white text-sm opacity-95">
+                  Fill in the details to create a new bill
+                </Typography>
+              </Box>
+            </Box>
+            <IconButton
+              onClick={handleCloseBillModal}
+              sx={{
+                color: '#ffffff',
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.2)'
+                },
+              }}
+              size="small"
+            >
+              <Close />
+            </IconButton>
           </DialogTitle>
           
-          <DialogContent sx={{ p: 4, background: '#fff' }}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              
-              {/* Customer Information Section */}
-              <Box>
-                <Typography variant="h6" sx={{ 
-                  mb: 2, 
-                  color: '#1976d2', 
-                  fontWeight: 600,
-                  fontSize: '1.1rem'
-                }}>
-                  Customer Information
-                </Typography>
-                <Box sx={{ 
-                  width: '100%', 
-                  height: '2px', 
-                  background: 'linear-gradient(90deg, #1976d2, #e0e0e0)',
-                  mb: 3
-                }} />
+          <DialogContent className="p-0 bg-gray-100 flex-1 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-gray-200 [&::-webkit-scrollbar-thumb]:bg-gray-400 [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb:hover]:bg-gray-500" sx={{ p: 0, backgroundColor: '#f5f5f5', flex: 1, overflowY: 'auto' }}>
+            <Box sx={{ p: 3 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                
+                {/* Customer Information Section */}
+                <Paper elevation={0} sx={{ p: 3, borderRadius: 2, backgroundColor: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                    <Box sx={{ width: 48, height: 48, borderRadius: '50%', backgroundColor: '#e3f2fd', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Business sx={{ color: '#1976d2', fontSize: 24 }} />
+                    </Box>
+                    <Typography variant="h6" sx={{ fontWeight: 600, color: '#2D3748', fontSize: '1.125rem' }}>
+                      Customer Information
+                    </Typography>
+                  </Box>
                 
                 <Grid container spacing={3}>
                   <Grid item xs={12} sm={4}>
@@ -903,24 +1119,18 @@ const Dashboard = () => {
                     />
                   </Grid>
                 </Grid>
-              </Box>
+              </Paper>
 
               {/* Pick Up Information Section */}
-              <Box>
-                <Typography variant="h6" sx={{ 
-                  mb: 2, 
-                  color: '#1976d2', 
-                  fontWeight: 600,
-                  fontSize: '1.1rem'
-                }}>
-                  Pick Up Information
-                </Typography>
-                <Box sx={{ 
-                  width: '100%', 
-                  height: '2px', 
-                  background: 'linear-gradient(90deg, #1976d2, #e0e0e0)',
-                  mb: 3
-                }} />
+              <Paper elevation={0} sx={{ p: 3, borderRadius: 2, backgroundColor: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                  <Box sx={{ width: 48, height: 48, borderRadius: '50%', backgroundColor: '#fff3e0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <LocationOn sx={{ color: '#ff9800', fontSize: 24 }} />
+                  </Box>
+                  <Typography variant="h6" sx={{ fontWeight: 600, color: '#2D3748', fontSize: '1.125rem' }}>
+                    Pick Up Information
+                  </Typography>
+                </Box>
                 
                 <Grid container spacing={3}>
                   <Grid item xs={12}>
@@ -955,24 +1165,18 @@ const Dashboard = () => {
                      />
                    </Grid>
                 </Grid>
-              </Box>
+              </Paper>
 
               {/* Delivery Information Section */}
-              <Box>
-                <Typography variant="h6" sx={{ 
-                  mb: 2, 
-                  color: '#1976d2', 
-                  fontWeight: 600,
-                  fontSize: '1.1rem'
-                }}>
-                  Delivery Information
-                </Typography>
-                <Box sx={{ 
-                  width: '100%', 
-                  height: '2px', 
-                  background: 'linear-gradient(90deg, #1976d2, #e0e0e0)',
-                  mb: 3
-                }} />
+              <Paper elevation={0} sx={{ p: 3, borderRadius: 2, backgroundColor: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                  <Box sx={{ width: 48, height: 48, borderRadius: '50%', backgroundColor: '#e8f5e9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <LocationOn sx={{ color: '#4caf50', fontSize: 24 }} />
+                  </Box>
+                  <Typography variant="h6" sx={{ fontWeight: 600, color: '#2D3748', fontSize: '1.125rem' }}>
+                    Delivery Information
+                  </Typography>
+                </Box>
                 
                 <Grid container spacing={3}>
                   <Grid item xs={12}>
@@ -1027,24 +1231,18 @@ const Dashboard = () => {
                     />
                   </Grid>
                 </Grid>
-              </Box>
+              </Paper>
 
               {/* Additional Information Section */}
-              <Box>
-                <Typography variant="h6" sx={{ 
-                  mb: 2, 
-                  color: '#1976d2', 
-                  fontWeight: 600,
-                  fontSize: '1.1rem'
-                }}>
-                  Additional Information
-                </Typography>
-                <Box sx={{ 
-                  width: '100%', 
-                  height: '2px', 
-                  background: 'linear-gradient(90deg, #1976d2, #e0e0e0)',
-                  mb: 3
-                }} />
+              <Paper elevation={0} sx={{ p: 3, borderRadius: 2, backgroundColor: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                  <Box sx={{ width: 48, height: 48, borderRadius: '50%', backgroundColor: '#f3e5f5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <AttachMoney sx={{ color: '#7b1fa2', fontSize: 24 }} />
+                  </Box>
+                  <Typography variant="h6" sx={{ fontWeight: 600, color: '#2D3748', fontSize: '1.125rem' }}>
+                    Additional Information
+                  </Typography>
+                </Box>
                 
                 <Grid container spacing={3}>
                   <Grid item xs={12} sm={6}>
@@ -1216,7 +1414,8 @@ const Dashboard = () => {
                      />
                    </Grid>
                 </Grid>
-              </Box>
+              </Paper>
+            </Box>
             </Box>
           </DialogContent>
           
@@ -1267,160 +1466,238 @@ const Dashboard = () => {
         <Dialog 
           open={viewBillModalOpen} 
           onClose={handleCloseViewBillModal}
-          maxWidth="md"
+          maxWidth="lg"
           fullWidth
           PaperProps={{
             sx: {
               borderRadius: 3,
-              maxHeight: '90vh'
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
             }
           }}
         >
-          <DialogTitle sx={{ 
-            backgroundColor: '#f0f4f8', 
-            borderBottom: '1px solid #e0e0e0',
+          <DialogTitle sx={{
+            background: 'linear-gradient(to right, #1976d2, #1565c0)',
+            color: '#fff',
+            py: 3,
+            px: 4,
             display: 'flex',
-            alignItems: 'center',
-            gap: 2
+            justifyContent: 'space-between',
+            alignItems: 'center'
           }}>
-            <Receipt sx={{ color: '#1976d2' }} />
-            <Typography variant="h6" fontWeight={600}>
-              Bill Details
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Receipt sx={{ fontSize: 28 }} />
+              <Box>
+                <Typography variant="h5" sx={{ fontWeight: 700, color: '#fff' }}>
+                  Bill Details
+                </Typography>
+                <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.9)', mt: 0.5 }}>
+                  Complete bill information
+                </Typography>
+              </Box>
+            </Box>
+            <IconButton
+              onClick={handleCloseViewBillModal}
+              sx={{ color: '#fff' }}
+            >
+              <Close />
+            </IconButton>
           </DialogTitle>
-          
-          <DialogContent sx={{ p: 3, background: '#fff' }}>
+          <DialogContent sx={{ p: 0, backgroundColor: '#f5f5f5' }}>
             {viewBillLoading ? (
-              <Box sx={{ textAlign: 'center', py: 4 }}>
-                <Typography>Loading bill details...</Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
+                <CircularProgress />
               </Box>
             ) : selectedBill ? (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                {/* Bill Header */}
-                <Box sx={{ 
-                  p: 2, 
-                  backgroundColor: '#f8f9fa', 
-                  borderRadius: 2,
-                  border: '1px solid #e0e0e0'
-                }}>
-                  <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
-                    {selectedBill.billNumber}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Invoice Date: {new Date(selectedBill.invoiceDate).toLocaleDateString()}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Status: <Chip label={selectedBill.status} color={getStatusColor(selectedBill.status)} size="small" />
-                  </Typography>
-                </Box>
+              <Box sx={{ p: 3 }}>
+                {/* Bill Identification Section */}
+                <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: 2, backgroundColor: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                  <Table size="small">
+                    <TableBody>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 600, width: '40%', borderBottom: '1px solid #e0e0e0' }}>Bill ID</TableCell>
+                        <TableCell sx={{ borderBottom: '1px solid #e0e0e0' }}>{selectedBill.billNumber}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 600, borderBottom: '1px solid #e0e0e0' }}>Invoice Date</TableCell>
+                        <TableCell sx={{ borderBottom: '1px solid #e0e0e0' }}>{new Date(selectedBill.invoiceDate).toLocaleDateString()}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 600, borderBottom: 'none' }}>Status</TableCell>
+                        <TableCell sx={{ borderBottom: 'none' }}>
+                          <Chip label={selectedBill.status} color={getStatusColor(selectedBill.status)} size="small" />
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </Paper>
 
-                {/* Customer Information */}
-                <Box>
-                  <Typography variant="h6" sx={{ mb: 2, color: '#1976d2', fontWeight: 600 }}>
-                    Customer Information
-                  </Typography>
-                  <Box sx={{ pl: 2 }}>
-                    <Typography><strong>Name:</strong> {selectedBill.billTo.customerName}</Typography>
-                    <Typography><strong>Email:</strong> {selectedBill.billTo.customerEmail || 'N/A'}</Typography>
-                    <Typography><strong>Phone:</strong> {selectedBill.billTo.customerPhone || 'N/A'}</Typography>
-                    {selectedBill.billTo.customerAddress && (
-                      <Box sx={{ mt: 1 }}>
-                        <Typography><strong>Address:</strong></Typography>
-                        <Typography sx={{ pl: 2 }}>
-                          {selectedBill.billTo.customerAddress.addressLine1}
-                          {selectedBill.billTo.customerAddress.addressLine2 && `, ${selectedBill.billTo.customerAddress.addressLine2}`}
-                        </Typography>
-                        <Typography sx={{ pl: 2 }}>
-                          {selectedBill.billTo.customerAddress.city}, {selectedBill.billTo.customerAddress.state} {selectedBill.billTo.customerAddress.zipCode}
-                        </Typography>
-                        <Typography sx={{ pl: 2 }}>{selectedBill.billTo.customerAddress.country}</Typography>
-                      </Box>
-                    )}
-                  </Box>
-                </Box>
-
-                {/* Pickup Information */}
-                <Box>
-                  <Typography variant="h6" sx={{ mb: 2, color: '#1976d2', fontWeight: 600 }}>
-                    Pickup Information
-                  </Typography>
-                  <Box sx={{ pl: 2 }}>
-                    <Typography><strong>Address:</strong> {selectedBill.pickup.address}</Typography>
-                    <Typography><strong>City:</strong> {selectedBill.pickup.city}</Typography>
-                    <Typography><strong>Weight:</strong> {selectedBill.pickup.weight} lbs</Typography>
-                    <Typography><strong>Container:</strong> {selectedBill.pickup.container}</Typography>
-                    <Typography><strong>Container Type:</strong> {selectedBill.pickup.containerType}</Typography>
-                    <Typography><strong>Quantity:</strong> {selectedBill.pickup.quantity}</Typography>
-                  </Box>
-                </Box>
-
-                {/* Delivery Information */}
-                <Box>
-                  <Typography variant="h6" sx={{ mb: 2, color: '#1976d2', fontWeight: 600 }}>
-                    Delivery Information
-                  </Typography>
-                  <Box sx={{ pl: 2 }}>
-                    <Typography><strong>Address:</strong> {selectedBill.delivery.address}</Typography>
-                    <Typography><strong>City:</strong> {selectedBill.delivery.city}</Typography>
-                    <Typography><strong>Date:</strong> {new Date(selectedBill.delivery.date).toLocaleDateString()}</Typography>
-                  </Box>
-                </Box>
-
-                {/* Billing Information */}
-                <Box>
-                  <Typography variant="h6" sx={{ mb: 2, color: '#1976d2', fontWeight: 600 }}>
-                    Billing Information
-                  </Typography>
-                  <Box sx={{ pl: 2 }}>
-                    <Typography><strong>Work Order:</strong> ${selectedBill.billing.wO}</Typography>
-                    <Typography><strong>Line Haul:</strong> ${selectedBill.billing.lineHaul}</Typography>
-                    <Typography><strong>FSC:</strong> ${selectedBill.billing.fsc}</Typography>
-                    <Typography><strong>Other:</strong> ${selectedBill.billing.other}</Typography>
-                    <Typography variant="h6" sx={{ mt: 2, color: '#2e7d32' }}>
-                      <strong>Total: ${selectedBill.billing.total}</strong>
+                {/* Customer Information Section */}
+                <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: 2, backgroundColor: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                    <Business sx={{ color: '#1976d2', fontSize: 24 }} />
+                    <Typography variant="h6" sx={{ fontWeight: 600, color: '#2D3748' }}>
+                      Customer Information
                     </Typography>
                   </Box>
-                </Box>
+                  <Table size="small">
+                    <TableBody>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 600, width: '40%', borderBottom: '1px solid #e0e0e0' }}>Customer Name</TableCell>
+                        <TableCell sx={{ borderBottom: '1px solid #e0e0e0' }}>{selectedBill.billTo.customerName}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 600, borderBottom: '1px solid #e0e0e0' }}>Email</TableCell>
+                        <TableCell sx={{ borderBottom: '1px solid #e0e0e0' }}>{selectedBill.billTo.customerEmail || 'N/A'}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 600, borderBottom: '1px solid #e0e0e0' }}>Phone</TableCell>
+                        <TableCell sx={{ borderBottom: '1px solid #e0e0e0' }}>{selectedBill.billTo.customerPhone || 'N/A'}</TableCell>
+                      </TableRow>
+                      {selectedBill.billTo.customerAddress && (
+                        <>
+                          <TableRow>
+                            <TableCell sx={{ fontWeight: 600, borderBottom: '1px solid #e0e0e0' }}>Address</TableCell>
+                            <TableCell sx={{ borderBottom: '1px solid #e0e0e0' }}>
+                              {selectedBill.billTo.customerAddress.addressLine1}
+                              {selectedBill.billTo.customerAddress.addressLine2 && `, ${selectedBill.billTo.customerAddress.addressLine2}`}
+                            </TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell sx={{ fontWeight: 600, borderBottom: 'none' }}>City, State, ZIP</TableCell>
+                            <TableCell sx={{ borderBottom: 'none' }}>
+                              {selectedBill.billTo.customerAddress.city}, {selectedBill.billTo.customerAddress.state} {selectedBill.billTo.customerAddress.zipCode}, {selectedBill.billTo.customerAddress.country}
+                            </TableCell>
+                          </TableRow>
+                        </>
+                      )}
+                    </TableBody>
+                  </Table>
+                </Paper>
 
-                {/* Notes */}
+                {/* Pickup Information Section */}
+                <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: 2, backgroundColor: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                    <LocationOn sx={{ color: '#1976d2', fontSize: 24 }} />
+                    <Typography variant="h6" sx={{ fontWeight: 600, color: '#2D3748' }}>
+                      Pickup Information
+                    </Typography>
+                  </Box>
+                  <Table size="small">
+                    <TableBody>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 600, width: '40%', borderBottom: '1px solid #e0e0e0' }}>Address</TableCell>
+                        <TableCell sx={{ borderBottom: '1px solid #e0e0e0' }}>{selectedBill.pickup.address}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 600, borderBottom: '1px solid #e0e0e0' }}>City</TableCell>
+                        <TableCell sx={{ borderBottom: '1px solid #e0e0e0' }}>{selectedBill.pickup.city}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 600, borderBottom: '1px solid #e0e0e0' }}>Weight</TableCell>
+                        <TableCell sx={{ borderBottom: '1px solid #e0e0e0' }}>{selectedBill.pickup.weight} lbs</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 600, borderBottom: '1px solid #e0e0e0' }}>Container</TableCell>
+                        <TableCell sx={{ borderBottom: '1px solid #e0e0e0' }}>{selectedBill.pickup.container}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 600, borderBottom: '1px solid #e0e0e0' }}>Container Type</TableCell>
+                        <TableCell sx={{ borderBottom: '1px solid #e0e0e0' }}>{selectedBill.pickup.containerType}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 600, borderBottom: 'none' }}>Quantity</TableCell>
+                        <TableCell sx={{ borderBottom: 'none' }}>{selectedBill.pickup.quantity}</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </Paper>
+
+                {/* Delivery Information Section */}
+                <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: 2, backgroundColor: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                    <LocationOn sx={{ color: '#1976d2', fontSize: 24 }} />
+                    <Typography variant="h6" sx={{ fontWeight: 600, color: '#2D3748' }}>
+                      Delivery Information
+                    </Typography>
+                  </Box>
+                  <Table size="small">
+                    <TableBody>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 600, width: '40%', borderBottom: '1px solid #e0e0e0' }}>Address</TableCell>
+                        <TableCell sx={{ borderBottom: '1px solid #e0e0e0' }}>{selectedBill.delivery.address}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 600, borderBottom: '1px solid #e0e0e0' }}>City</TableCell>
+                        <TableCell sx={{ borderBottom: '1px solid #e0e0e0' }}>{selectedBill.delivery.city}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 600, borderBottom: 'none' }}>Date</TableCell>
+                        <TableCell sx={{ borderBottom: 'none' }}>{new Date(selectedBill.delivery.date).toLocaleDateString()}</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </Paper>
+
+                {/* Billing Information Section */}
+                <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: 2, backgroundColor: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                    <AttachMoney sx={{ color: '#1976d2', fontSize: 24 }} />
+                    <Typography variant="h6" sx={{ fontWeight: 600, color: '#2D3748' }}>
+                      Billing Information
+                    </Typography>
+                  </Box>
+                  <Table size="small">
+                    <TableBody>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 600, width: '40%', borderBottom: '1px solid #e0e0e0' }}>Work Order</TableCell>
+                        <TableCell sx={{ borderBottom: '1px solid #e0e0e0' }}>${selectedBill.billing.wO}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 600, borderBottom: '1px solid #e0e0e0' }}>Line Haul</TableCell>
+                        <TableCell sx={{ borderBottom: '1px solid #e0e0e0' }}>${selectedBill.billing.lineHaul}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 600, borderBottom: '1px solid #e0e0e0' }}>FSC</TableCell>
+                        <TableCell sx={{ borderBottom: '1px solid #e0e0e0' }}>${selectedBill.billing.fsc}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 600, borderBottom: '1px solid #e0e0e0' }}>Other</TableCell>
+                        <TableCell sx={{ borderBottom: '1px solid #e0e0e0' }}>${selectedBill.billing.other}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 700, borderBottom: 'none', fontSize: '1rem' }}>Total</TableCell>
+                        <TableCell sx={{ borderBottom: 'none', fontWeight: 700, fontSize: '1rem', color: '#2e7d32' }}>${selectedBill.billing.total}</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </Paper>
+
+                {/* Notes Section */}
                 {selectedBill.notes && (
-                  <Box>
-                    <Typography variant="h6" sx={{ mb: 2, color: '#1976d2', fontWeight: 600 }}>
-                      Notes
-                    </Typography>
-                    <Box sx={{ pl: 2 }}>
-                      <Typography>{selectedBill.notes}</Typography>
+                  <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: 2, backgroundColor: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                      <CalendarToday sx={{ color: '#1976d2', fontSize: 24 }} />
+                      <Typography variant="h6" sx={{ fontWeight: 600, color: '#2D3748' }}>
+                        Notes
+                      </Typography>
                     </Box>
-                  </Box>
+                    <Table size="small">
+                      <TableBody>
+                        <TableRow>
+                          <TableCell sx={{ fontWeight: 600, width: '40%', borderBottom: 'none' }}>Notes</TableCell>
+                          <TableCell sx={{ borderBottom: 'none' }}>{selectedBill.notes}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </Paper>
                 )}
               </Box>
             ) : (
-              <Box sx={{ textAlign: 'center', py: 4 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
                 <Typography>No bill details available</Typography>
               </Box>
             )}
           </DialogContent>
-          
-          <DialogActions sx={{ p: 3, backgroundColor: '#f8f9fa', borderTop: '1px solid #e0e0e0' }}>
-            <Button
-              onClick={handleCloseViewBillModal}
-              variant="outlined"
-              sx={{
-                borderRadius: 2,
-                textTransform: 'none',
-                px: 3,
-                py: 1,
-                borderColor: '#1976d2',
-                color: '#1976d2',
-                '&:hover': {
-                  borderColor: '#0d47a1',
-                  color: '#0d47a1',
-                },
-              }}
-            >
-              Close
-            </Button>
-          </DialogActions>
         </Dialog>
 
         {/* Mark as Paid Modal */}
@@ -1431,39 +1708,52 @@ const Dashboard = () => {
           fullWidth
           PaperProps={{
             sx: {
-              borderRadius: 3,
+              borderRadius: 4,
+              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15)',
+              background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
             }
           }}
         >
-          <DialogTitle sx={{ 
-            backgroundColor: '#f0f4f8', 
-            borderBottom: '1px solid #e0e0e0',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 2
-          }}>
-            <Receipt sx={{ color: '#2e7d32' }} />
-            <Typography variant="h6" fontWeight={600}>
-              Mark Bill as Paid
-            </Typography>
+          <DialogTitle className="border-b-0 bg-[#2e7d32] flex items-center justify-between gap-3 py-4 px-6 relative rounded-t-lg" sx={{ backgroundColor: '#2e7d32' }}>
+            <Box className="flex items-center gap-3 flex-1">
+              <Box className="bg-white rounded-lg w-12 h-12 flex items-center justify-center border-2 border-green-300 shadow-sm">
+                <Receipt className="text-xl text-green-600" />
+              </Box>
+              <Box>
+                <Typography variant="h5" className="font-bold text-white mb-0.5 text-xl">
+                  Mark Bill as Paid
+                </Typography>
+                <Typography variant="body2" className="text-white text-sm opacity-95">
+                  Record payment information for this bill
+                </Typography>
+              </Box>
+            </Box>
+            <IconButton
+              onClick={handleCloseMarkPaidModal}
+              sx={{
+                color: '#ffffff',
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.2)'
+                },
+              }}
+              size="small"
+            >
+              <Close />
+            </IconButton>
           </DialogTitle>
           
-          <DialogContent sx={{ p: 3, background: '#fff' }}>
+          <DialogContent className="p-0 bg-gray-100 flex-1 overflow-y-auto" sx={{ p: 0, backgroundColor: '#f5f5f5' }}>
+            <Box sx={{ p: 3 }}>
             {selectedBillForPayment && (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                <Box sx={{ 
-                  p: 2, 
-                  backgroundColor: '#f8f9fa', 
-                  borderRadius: 2,
-                  border: '1px solid #e0e0e0'
-                }}>
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                <Paper elevation={0} sx={{ p: 3, borderRadius: 2, backgroundColor: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                  <Typography variant="h6" sx={{ fontWeight: 600, color: '#2D3748', mb: 1 }}>
                     {selectedBillForPayment.billId}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     Amount: ${selectedBillForPayment.amount.toLocaleString()}
                   </Typography>
-                </Box>
+                </Paper>
 
                 <Grid container spacing={3}>
                   <Grid item xs={12}>
@@ -1517,6 +1807,7 @@ const Dashboard = () => {
                 </Grid>
               </Box>
             )}
+            </Box>
           </DialogContent>
           
           <DialogActions sx={{ p: 3, backgroundColor: '#f8f9fa', borderTop: '1px solid #e0e0e0' }}>

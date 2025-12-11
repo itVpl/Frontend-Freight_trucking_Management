@@ -25,7 +25,7 @@ import {
   Grid,
   Divider,
 } from '@mui/material';
-import { Receipt, Download, Search, Clear, Close, Visibility, ExpandMore, Print, GetApp, LocationOn, LocalShipping, Assignment, Chat, Info, AttachMoney, Description, TrackChanges } from '@mui/icons-material';
+import { Receipt, Download, Search, Clear, Close, Visibility, ExpandMore, Print, GetApp, LocationOn, LocalShipping, Assignment, Chat, Info, AttachMoney, Description, TrackChanges, Business, CalendarToday } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
 import { BASE_API_URL } from '../../apiConfig';
 import SearchNavigationFeedback from '../../components/SearchNavigationFeedback';
@@ -539,20 +539,42 @@ const Consignment = () => {
       </Box>
 
       <Paper elevation={3} sx={{ borderRadius: 3, overflow: 'hidden' }}>
-        <Table>
+        <Table
+          sx={{
+            borderRadius: 3,
+            overflow: 'hidden',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
+            border: '1px solid #e5e7eb',
+          }}
+        >
           <TableHead>
-            <TableRow sx={{ backgroundColor: '#f0f4f8' }}>
-              <TableCell sx={{ fontWeight: 600, width: '100px' }}>Load ID</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: '120px' }}>Consignment No</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: '80px' }}>Weight</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: '200px' }}>Pick Up</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: '200px' }}>Drop</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: '100px' }}>Load Type</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: '120px' }}>Action</TableCell>
+            <TableRow
+              sx={{
+                background: 'linear-gradient(90deg, #f8fafc 0%, #f1f5f9 100%)',
+              }}
+            >
+              <TableCell sx={{ fontWeight: 700, color: '#374151', fontSize: '0.95rem', py: 1.5, borderBottom: '2px solid #e2e8f0' }}>Load ID</TableCell>
+              <TableCell sx={{ fontWeight: 700, color: '#374151', fontSize: '0.95rem', py: 1.5, borderBottom: '2px solid #e2e8f0' }}>Consignment No</TableCell>
+              <TableCell sx={{ fontWeight: 700, color: '#374151', fontSize: '0.95rem', py: 1.5, borderBottom: '2px solid #e2e8f0' }}>Weight</TableCell>
+              <TableCell sx={{ fontWeight: 700, color: '#374151', fontSize: '0.95rem', py: 1.5, borderBottom: '2px solid #e2e8f0' }}>Pick Up</TableCell>
+              <TableCell sx={{ fontWeight: 700, color: '#374151', fontSize: '0.95rem', py: 1.5, borderBottom: '2px solid #e2e8f0' }}>Drop</TableCell>
+              <TableCell sx={{ fontWeight: 700, color: '#374151', fontSize: '0.95rem', py: 1.5, borderBottom: '2px solid #e2e8f0' }}>Load Type</TableCell>
+              <TableCell sx={{ fontWeight: 700, color: '#374151', fontSize: '0.95rem', py: 1.5, borderBottom: '2px solid #e2e8f0' }}>Action</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredData && filteredData.length > 0 ? (
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                    <CircularProgress size={40} />
+                    <Typography variant="body1" color="text.secondary">
+                      Loading consignments...
+                    </Typography>
+                  </Box>
+                </TableCell>
+              </TableRow>
+            ) : filteredData && filteredData.length > 0 ? (
               filteredData
                 .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                 .map((row, i) => {
@@ -565,40 +587,91 @@ const Consignment = () => {
                     key={i} 
                     hover 
                     sx={{ 
-                      transition: '0.3s', 
-                      '&:hover': { backgroundColor: '#e3f2fd' },
+                      transition: 'all 0.25s ease',
+                      borderBottom: '1px solid #f1f5f9',
+                      '&:hover': {
+                        backgroundColor: '#f8fafc',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                      },
                       ...(isSearchedItem && {
                         backgroundColor: '#fff3e0',
                         borderLeft: '4px solid #ff9800',
-                        '&:hover': { backgroundColor: '#ffe0b2' }
+                        '&:hover': { 
+                          backgroundColor: '#ffe0b2',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                        }
                       })
                     }}
                   >
-                  <TableCell sx={{ width: '100px' }}>{row.loadId}</TableCell>       
-                  <TableCell sx={{ width: '120px' }}>{row.consignmentNo}</TableCell>                                        
-                  <TableCell sx={{ width: '80px' }}>{row.weight}</TableCell>        
-                  <TableCell sx={{ width: '200px', wordWrap: 'break-word' }}>{row.pickup}</TableCell>        
-                  <TableCell sx={{ width: '200px', wordWrap: 'break-word' }}>{row.drop}</TableCell>         
-                  <TableCell sx={{ width: '100px' }}>{row.loadType}</TableCell>       
-                  <TableCell sx={{ width: '120px' }}>
+                  <TableCell sx={{ fontWeight: 700, color: '#1e293b', fontSize: '0.9rem', py: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <LocalShipping sx={{ fontSize: 18, color: '#64748b' }} />
+                      <Typography sx={{ fontWeight: 700 }}>{row.loadId}</Typography>
+                    </Box>
+                  </TableCell>       
+                  <TableCell sx={{ color: '#475569', py: 2 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                      {row.consignmentNo}
+                    </Typography>
+                  </TableCell>                                        
+                  <TableCell sx={{ color: '#64748b', py: 2 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                      {row.weight}
+                    </Typography>
+                  </TableCell>        
+                  <TableCell sx={{ color: '#475569', py: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'start', gap: 1 }}>
+                      <LocationOn sx={{ fontSize: 16, color: '#94a3b8', mt: 0.5 }} />
+                      <Typography variant="body2" sx={{ wordWrap: 'break-word' }}>
+                        {row.pickup}
+                      </Typography>
+                    </Box>
+                  </TableCell>        
+                  <TableCell sx={{ color: '#475569', py: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'start', gap: 1 }}>
+                      <LocationOn sx={{ fontSize: 16, color: '#94a3b8', mt: 0.5 }} />
+                      <Typography variant="body2" sx={{ wordWrap: 'break-word' }}>
+                        {row.drop}
+                      </Typography>
+                    </Box>
+                  </TableCell>         
+                  <TableCell sx={{ py: 2 }}>
+                    <Chip
+                      label={row.loadType}
+                      size="small"
+                      sx={{
+                        fontWeight: 600,
+                        fontSize: '0.75rem',
+                        height: 26,
+                        backgroundColor: row.loadType === 'DRAYAGE' ? '#dbeafe' : '#e0e7ff',
+                        color: row.loadType === 'DRAYAGE' ? '#1e40af' : '#3730a3',
+                        border: row.loadType === 'DRAYAGE' ? '1px solid #bfdbfe' : '1px solid #c7d2fe',
+                      }}
+                    />
+                  </TableCell>       
+                  <TableCell sx={{ py: 2 }}>
                     <Button
-                      variant="contained"
+                      variant="outlined"
                       size="small"
                       startIcon={<Visibility />}
                       onClick={() => handleViewDetail(row)}
                       sx={{
-                        backgroundColor: '#1976d2',
-                        color: 'white',
-                        fontSize: '0.75rem',
-                        px: 2,
+                        fontSize: '0.7rem',
+                        px: 1.5,
                         py: 0.5,
                         textTransform: 'none',
+                        color: '#2563eb',
+                        borderColor: '#bfdbfe',
+                        backgroundColor: '#eff6ff',
+                        fontWeight: 600,
                         '&:hover': {
-                          backgroundColor: '#0d47a1',
+                          backgroundColor: '#2563eb',
+                          color: '#fff',
+                          borderColor: '#2563eb',
                         },
                       }}
                     >
-                      View Detail
+                      View
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -606,10 +679,18 @@ const Consignment = () => {
               })
             ) : (
               <TableRow>
-                <TableCell colSpan={7} sx={{ textAlign: 'center', py: 4 }}>
-                  <Typography variant="body1" color="text.secondary">
-                    {loadsData.length === 0 ? 'No consignment data available' : 'No data matches your search criteria'}
-                  </Typography>
+                <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                    <LocalShipping sx={{ fontSize: 48, color: '#cbd5e1' }} />
+                    <Typography variant="h6" color="text.secondary" fontWeight={600}>
+                      No consignments found
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {loadsData.length === 0 
+                        ? 'No consignment data available' 
+                        : 'Try adjusting your search criteria'}
+                    </Typography>
+                  </Box>
                 </TableCell>
               </TableRow>
             )}
@@ -651,34 +732,59 @@ const Consignment = () => {
           {/* Header */}
           <Box
             sx={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              p: 2,
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              p: 3,
               borderBottom: '1px solid #e0e0e0',
-              backgroundColor: '#f5f5f5',
+              position: 'sticky',
+              top: 0,
+              zIndex: 10,
             }}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Typography variant="h5" fontWeight={700}>
-                Load #: {loadDetails?.load ? `L-${loadDetails.load._id.slice(-5)}` : 'Loading...'}
-              </Typography>
-              <Chip
-                label={loadDetails?.load?.status || 'Loading...'}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Box
+                  sx={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: 2,
+                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backdropFilter: 'blur(10px)',
+                  }}
+                >
+                  <LocalShipping sx={{ fontSize: 32, color: 'white' }} />
+                </Box>
+                <Box>
+                  <Typography variant="h5" fontWeight={700} sx={{ color: 'white', mb: 0.5 }}>
+                    Load #: {loadDetails?.load ? `L-${loadDetails.load._id.slice(-5)}` : 'Loading...'}
+                  </Typography>
+                  <Chip
+                    label={loadDetails?.load?.status || 'Loading...'}
+                    sx={{
+                      backgroundColor: loadDetails?.load?.status === 'Pending' ? '#ff9800' : 
+                                      loadDetails?.load?.status === 'Bidding' ? '#2196f3' :
+                                      loadDetails?.load?.status === 'Assigned' ? '#4caf50' :
+                                      loadDetails?.load?.status === 'In Transit' ? '#ff9800' :
+                                      loadDetails?.load?.status === 'Delivered' ? '#4caf50' : '#9e9e9e',
+                      color: 'white',
+                      fontWeight: 600,
+                      height: 28,
+                    }}
+                  />
+                </Box>
+              </Box>
+              <IconButton 
+                onClick={handleClosePopup}
                 sx={{
-                  backgroundColor: loadDetails?.load?.status === 'Pending' ? '#ff9800' : 
-                                  loadDetails?.load?.status === 'Bidding' ? '#2196f3' :
-                                  loadDetails?.load?.status === 'Assigned' ? '#4caf50' :
-                                  loadDetails?.load?.status === 'In Transit' ? '#ff9800' :
-                                  loadDetails?.load?.status === 'Delivered' ? '#4caf50' : '#9e9e9e',
                   color: 'white',
-                  fontWeight: 600,
+                  backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                  '&:hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+                  },
                 }}
-              />
-            </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              
-              <IconButton onClick={handleClosePopup}>
+              >
                 <Close />
               </IconButton>
             </Box>
@@ -697,47 +803,56 @@ const Consignment = () => {
               }}
             >
               {/* Customer Section */}
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="h6" fontWeight={600} sx={{ mb: 1 }}>
-                  Customer
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 0.5 }}>
+              <Paper elevation={0} sx={{ p: 2, mb: 3, backgroundColor: '#f8fafc', borderRadius: 2, border: '1px solid #e2e8f0' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                  <Business sx={{ fontSize: 20, color: '#64748b' }} />
+                  <Typography variant="h6" fontWeight={700} sx={{ color: '#1e293b' }}>
+                    Customer
+                  </Typography>
+                </Box>
+                <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 500, color: '#334155' }}>
                   {loadDetails?.shipper?.compName || 'Loading...'}
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
                   {loadDetails?.shipper?.email || 'Loading...'}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   {loadDetails?.shipper?.phoneNo || 'Loading...'}
                 </Typography>
-              </Box>
+              </Paper>
 
               {/* Pick Up Location */}
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="h6" fontWeight={600} sx={{ mb: 1 }}>
-                  Pick Up Location
-                </Typography>
+              <Paper elevation={0} sx={{ p: 2, mb: 3, backgroundColor: '#f8fafc', borderRadius: 2, border: '1px solid #e2e8f0' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                  <LocationOn sx={{ fontSize: 20, color: '#64748b' }} />
+                  <Typography variant="h6" fontWeight={700} sx={{ color: '#1e293b' }}>
+                    Pick Up Location
+                  </Typography>
+                </Box>
                 {loadDetails?.load?.origins && loadDetails.load.origins.length > 0 ? (
                   loadDetails.load.origins.map((origin, index) => (
                     <Box key={index} sx={{ mb: 2 }}>
-                      <Typography variant="body2" sx={{ mb: 0.5 }}>
+                      <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 500, color: '#334155' }}>
                         {origin.addressLine1}
                       </Typography>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
                         {origin.addressLine2 && `${origin.addressLine2}, `}
                         {origin.city}, {origin.state} {origin.zip}
                       </Typography>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
                         Weight: {origin.weight} lbs | Commodity: {origin.commodity}
                       </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Pickup: {new Date(origin.pickupDate).toLocaleDateString()}
-                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <CalendarToday sx={{ fontSize: 14, color: '#94a3b8' }} />
+                        <Typography variant="body2" color="text.secondary">
+                          Pickup: {new Date(origin.pickupDate).toLocaleDateString()}
+                        </Typography>
+                      </Box>
                     </Box>
                   ))
                 ) : loadDetails?.load?.originPlace?.location ? (
                   <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" sx={{ mb: 0.5 }}>
+                    <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 500, color: '#334155' }}>
                       {loadDetails.load.originPlace.location}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
@@ -759,34 +874,40 @@ const Consignment = () => {
                     {loadingDetails ? 'Loading...' : 'No pickup location data'}
                   </Typography>
                 )}
-              </Box>
+              </Paper>
 
               {/* Delivery Location */}
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="h6" fontWeight={600} sx={{ mb: 1 }}>
-                  Delivery Location
-                </Typography>
+              <Paper elevation={0} sx={{ p: 2, mb: 3, backgroundColor: '#f8fafc', borderRadius: 2, border: '1px solid #e2e8f0' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                  <LocationOn sx={{ fontSize: 20, color: '#64748b' }} />
+                  <Typography variant="h6" fontWeight={700} sx={{ color: '#1e293b' }}>
+                    Delivery Location
+                  </Typography>
+                </Box>
                 {loadDetails?.load?.destinations && loadDetails.load.destinations.length > 0 ? (
                   loadDetails.load.destinations.map((destination, index) => (
                     <Box key={index} sx={{ mb: 2 }}>
-                      <Typography variant="body2" sx={{ mb: 0.5 }}>
+                      <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 500, color: '#334155' }}>
                         {destination.addressLine1}
                       </Typography>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
                         {destination.addressLine2 && `${destination.addressLine2}, `}
                         {destination.city}, {destination.state} {destination.zip}
                       </Typography>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
                         Weight: {destination.weight} lbs | Commodity: {destination.commodity}
                       </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Delivery: {new Date(destination.deliveryDate).toLocaleDateString()}
-                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <CalendarToday sx={{ fontSize: 14, color: '#94a3b8' }} />
+                        <Typography variant="body2" color="text.secondary">
+                          Delivery: {new Date(destination.deliveryDate).toLocaleDateString()}
+                        </Typography>
+                      </Box>
                     </Box>
                   ))
                 ) : loadDetails?.load?.destination?.city ? (
                   <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" sx={{ mb: 0.5 }}>
+                    <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 500, color: '#334155' }}>
                       {loadDetails.load.destination.city}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
@@ -798,7 +919,7 @@ const Consignment = () => {
                   </Box>
                 ) : loadDetails?.load?.destinationPlace?.location ? (
                   <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" sx={{ mb: 0.5 }}>
+                    <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 500, color: '#334155' }}>
                       {loadDetails.load.destinationPlace.location}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
@@ -820,37 +941,56 @@ const Consignment = () => {
                     {loadingDetails ? 'Loading...' : 'No delivery location data'}
                   </Typography>
                 )}
-              </Box>
+              </Paper>
 
               {/* Return Location */}
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="h6" fontWeight={600} sx={{ mb: 1 }}>
-                  Return Location
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
+              <Paper elevation={0} sx={{ p: 2, mb: 3, backgroundColor: '#f8fafc', borderRadius: 2, border: '1px solid #e2e8f0' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                  <LocationOn sx={{ fontSize: 20, color: '#64748b' }} />
+                  <Typography variant="h6" fontWeight={700} sx={{ color: '#1e293b' }}>
+                    Return Location
+                  </Typography>
+                </Box>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
                   {loadDetails?.load?.returnAddress || 'N/A'}
                 </Typography>
                 {loadDetails?.load?.returnCity && (
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
                     {loadDetails.load.returnCity}, {loadDetails.load.returnState || ''} {loadDetails.load.returnZip || ''}
                   </Typography>
                 )}
                 {loadDetails?.load?.returnDate && (
-                  <Typography variant="body2" color="text.secondary">
-                    Return Date: {new Date(loadDetails.load.returnDate).toLocaleDateString()}
-                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <CalendarToday sx={{ fontSize: 14, color: '#94a3b8' }} />
+                    <Typography variant="body2" color="text.secondary">
+                      Return Date: {new Date(loadDetails.load.returnDate).toLocaleDateString()}
+                    </Typography>
+                  </Box>
                 )}
-              </Box>
+              </Paper>
 
               {/* Load Info Summary */}
-              <Accordion defaultExpanded>
-                <AccordionSummary expandIcon={<ExpandMore />}>
-                  <Typography variant="h6" fontWeight={600}>
-                    Load Info Summary
-                  </Typography>
+              <Accordion defaultExpanded sx={{ mb: 3 }}>
+                <AccordionSummary 
+                  expandIcon={<ExpandMore />}
+                  sx={{
+                    backgroundColor: '#f8fafc',
+                    borderRadius: 2,
+                    border: '1px solid #e2e8f0',
+                    '&:hover': {
+                      backgroundColor: '#f1f5f9',
+                    }
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Info sx={{ fontSize: 20, color: '#64748b' }} />
+                    <Typography variant="h6" fontWeight={700} sx={{ color: '#1e293b' }}>
+                      Load Info Summary
+                    </Typography>
+                  </Box>
                 </AccordionSummary>
                 <AccordionDetails>
-                  <Box sx={{ p: 2 }}>
+                  <Box sx={{ p: 2, backgroundColor: '#ffffff', borderRadius: 2 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                       <Typography variant="body2" component="span">
                         <strong>Load Status:</strong>

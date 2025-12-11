@@ -1355,7 +1355,18 @@ const AddLoad = () => {
           </TableHead>
 
           <TableBody>
-            {filteredData && filteredData.length > 0 ? (
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                    <CircularProgress size={40} />
+                    <Typography variant="body1" color="text.secondary">
+                      Loading loads...
+                    </Typography>
+                  </Box>
+                </TableCell>
+              </TableRow>
+            ) : filteredData && filteredData.length > 0 ? (
               filteredData
                 .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                 .map((load) => (
@@ -1364,47 +1375,91 @@ const AddLoad = () => {
                     hover
                     sx={{
                       transition: 'all 0.25s ease',
+                      borderBottom: '1px solid #f1f5f9',
                       '&:hover': {
-                        backgroundColor: '#f0f7ff',
-                        transform: 'scale(1.01)',
+                        backgroundColor: '#f8fafc',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
                       },
                     }}
                   >
-                    <TableCell sx={{ fontWeight: 600, color: '#334155' }}>
-                      {load.loadType}
+                    <TableCell sx={{ py: 2 }}>
+                      <Chip
+                        label={load.loadType || 'N/A'}
+                        size="small"
+                        color="primary"
+                        sx={{
+                          fontWeight: 700,
+                          fontSize: '0.75rem',
+                          height: 26,
+                          backgroundColor: load.loadType === 'DRAYAGE' ? '#dbeafe' : '#e0e7ff',
+                          color: load.loadType === 'DRAYAGE' ? '#1e40af' : '#3730a3',
+                          border: load.loadType === 'DRAYAGE' ? '1px solid #bfdbfe' : '1px solid #c7d2fe',
+                        }}
+                      />
                     </TableCell>
-                    <TableCell sx={{ color: '#475569' }}>
-                      {load.origins?.[0]?.addressLine1 || 'N/A'}
+                    <TableCell sx={{ color: '#475569', py: 2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'start', gap: 1 }}>
+                        <LocationOn sx={{ fontSize: 16, color: '#94a3b8', mt: 0.5 }} />
+                        <Typography variant="body2">
+                          {load.origins?.[0]?.addressLine1 || load.fromAddress || 'N/A'}
+                        </Typography>
+                      </Box>
                     </TableCell>
-                    <TableCell sx={{ color: '#475569' }}>
-                      {load.destinations?.[0]?.addressLine1 || 'N/A'}
+                    <TableCell sx={{ color: '#475569', py: 2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'start', gap: 1 }}>
+                        <LocationOn sx={{ fontSize: 16, color: '#94a3b8', mt: 0.5 }} />
+                        <Typography variant="body2">
+                          {load.destinations?.[0]?.addressLine1 || load.toAddress || 'N/A'}
+                        </Typography>
+                      </Box>
                     </TableCell>
-                    <TableCell sx={{ color: '#475569' }}>
-                      {load.origins?.[0]?.weight || 'N/A'} lbs
+                    <TableCell sx={{ color: '#64748b', py: 2 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                        {load.origins?.[0]?.weight || load.weight || 'N/A'} lbs
+                      </Typography>
                     </TableCell>
-                    <TableCell sx={{ color: '#475569' }}>
-                      ${load.rate}
+                    <TableCell sx={{ py: 2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <AttachMoney sx={{ fontSize: 18, color: '#10b981', fontWeight: 700 }} />
+                        <Typography sx={{ 
+                          color: '#059669', 
+                          fontWeight: 700, 
+                          fontSize: '1rem',
+                          fontFamily: 'monospace'
+                        }}>
+                          {load.rate ? load.rate.toLocaleString() : 'N/A'}
+                        </Typography>
+                      </Box>
                     </TableCell>
-                    <TableCell sx={{ color: '#475569' }}>
-                      {load.customerLoadDetails?.customerName || 'N/A'}
+                    <TableCell sx={{ color: '#475569', py: 2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Business sx={{ fontSize: 16, color: '#94a3b8' }} />
+                        <Typography variant="body2">
+                          {load.customerLoadDetails?.customerName || load.customerName || 'N/A'}
+                        </Typography>
+                      </Box>
                     </TableCell>
 
-                    <TableCell>
-                      <Stack direction="row" spacing={1}>
+                    <TableCell sx={{ py: 2 }}>
+                      <Stack direction="row" spacing={1} flexWrap="wrap">
                         <Button
                           variant="outlined"
                           size="small"
                           startIcon={<Visibility />}
                           onClick={() => handleViewLoad(load)}
                           sx={{
-                            fontSize: '0.75rem',
+                            fontSize: '0.7rem',
                             px: 1.5,
+                            py: 0.5,
                             textTransform: 'none',
                             color: '#2563eb',
-                            borderColor: '#2563eb',
+                            borderColor: '#bfdbfe',
+                            backgroundColor: '#eff6ff',
+                            fontWeight: 600,
                             '&:hover': {
                               backgroundColor: '#2563eb',
                               color: '#fff',
+                              borderColor: '#2563eb',
                             },
                           }}
                         >
@@ -1417,15 +1472,24 @@ const AddLoad = () => {
                           onClick={() => handleEditLoad(load)}
                           disabled={load.status === 'Assigned'}
                           sx={{
-                            fontSize: '0.75rem',
+                            fontSize: '0.7rem',
                             px: 1.5,
+                            py: 0.5,
                             textTransform: 'none',
                             color: '#0284c7',
-                            borderColor: '#0284c7',
+                            borderColor: '#bae6fd',
+                            backgroundColor: '#f0f9ff',
+                            fontWeight: 600,
                             '&:hover': {
                               backgroundColor: '#0284c7',
                               color: '#fff',
+                              borderColor: '#0284c7',
                             },
+                            '&:disabled': {
+                              backgroundColor: '#f3f4f6',
+                              color: '#9ca3af',
+                              borderColor: '#e5e7eb',
+                            }
                           }}
                         >
                           Edit
@@ -1437,15 +1501,24 @@ const AddLoad = () => {
                           onClick={() => handleOpenAssignDriver(load)}
                           disabled={load.status === 'Assigned'}
                           sx={{
-                            fontSize: '0.75rem',
+                            fontSize: '0.7rem',
                             px: 1.5,
+                            py: 0.5,
                             textTransform: 'none',
                             color: '#16a34a',
-                            borderColor: '#16a34a',
+                            borderColor: '#bbf7d0',
+                            backgroundColor: '#f0fdf4',
+                            fontWeight: 600,
                             '&:hover': {
                               backgroundColor: '#16a34a',
                               color: '#fff',
+                              borderColor: '#16a34a',
                             },
+                            '&:disabled': {
+                              backgroundColor: '#f3f4f6',
+                              color: '#9ca3af',
+                              borderColor: '#e5e7eb',
+                            }
                           }}
                         >
                           Assign
@@ -1457,15 +1530,24 @@ const AddLoad = () => {
                           onClick={() => handleDeleteLoad(load._id)}
                           disabled={load.status === 'Assigned'}
                           sx={{
-                            fontSize: '0.75rem',
+                            fontSize: '0.7rem',
                             px: 1.5,
+                            py: 0.5,
                             textTransform: 'none',
                             color: '#dc2626',
-                            borderColor: '#dc2626',
+                            borderColor: '#fecaca',
+                            backgroundColor: '#fef2f2',
+                            fontWeight: 600,
                             '&:hover': {
                               backgroundColor: '#dc2626',
                               color: '#fff',
+                              borderColor: '#dc2626',
                             },
+                            '&:disabled': {
+                              backgroundColor: '#f3f4f6',
+                              color: '#9ca3af',
+                              borderColor: '#e5e7eb',
+                            }
                           }}
                         >
                           Delete
@@ -1476,12 +1558,18 @@ const AddLoad = () => {
                 ))
             ) : (
               <TableRow>
-                <TableCell colSpan={7} sx={{ textAlign: 'center', py: 4 }}>
-                  <Typography variant="body1" color="text.secondary">
-                    {loadsData.length === 0
-                      ? 'No loads found. Add your first load!'
-                      : 'No loads match your search criteria'}
-                  </Typography>
+                <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                    <LocalShipping sx={{ fontSize: 48, color: '#cbd5e1' }} />
+                    <Typography variant="h6" color="text.secondary" fontWeight={600}>
+                      No loads found
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {loadsData.length === 0
+                        ? 'Add your first load to get started!'
+                        : 'Try adjusting your search criteria'}
+                    </Typography>
+                  </Box>
                 </TableCell>
               </TableRow>
             )}
@@ -3212,7 +3300,7 @@ const AddLoad = () => {
 
                         <Grid item xs={12} sm={6} md={4}>
                           <TextField
-                            label="FRC (%)"
+                            label="FSC (%)"
                             name="fsc"
                             value={formData.fsc}
                             onChange={handleFormInputChange}
