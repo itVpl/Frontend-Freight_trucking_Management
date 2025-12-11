@@ -6,6 +6,7 @@ import LiveTracker from './pages/tracking/LiveTracker';
 import Fleet from './pages/trucker/Fleet';
 import Billing from './pages/trucker/Billing';
 import Driver from './pages/trucker/Driver';
+import Payments from './pages/trucker/Payments';
 import Consignment from './pages/consignment/Consignment';
 import BidManagement from './pages/trucker/BidManagement';
 import AddCustomer from './pages/trucker/AddCustomer';
@@ -57,6 +58,7 @@ function App() {
               <Route path="/fleet" element={<ProtectedRoute userType="trucker"><Fleet /></ProtectedRoute>} />
               <Route path="/billing" element={<ProtectedRoute userType="trucker"><Billing /></ProtectedRoute>} />
               <Route path="/driver" element={<ProtectedRoute userType="trucker"><Driver /></ProtectedRoute>} />
+              <Route path="/payments" element={<ProtectedRoute userType="trucker"><Payments /></ProtectedRoute>} />
               <Route path="/bid-management" element={<ProtectedRoute userType="trucker"><BidManagement /></ProtectedRoute>} />
               <Route path="/add-customer" element={<ProtectedRoute userType="trucker"><AddCustomer /></ProtectedRoute>} />
               <Route path="/add-load" element={<ProtectedRoute userType="trucker"><AddLoad /></ProtectedRoute>} />

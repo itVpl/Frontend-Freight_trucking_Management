@@ -38,6 +38,7 @@ import {
   Email as EmailIcon,
   PersonAdd,
   Add,
+  Payment,
 } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
 import UniversalSearch from '../UniversalSearch';
@@ -82,6 +83,7 @@ const Layout = () => {
       { text: 'Live Tracker', icon: <LocationOn />, path: '/live-tracker' },
       { text: 'Fleet', icon: <LocalShipping />, path: '/fleet' },
       { text: 'Billing', icon: <Receipt />, path: '/billing' },
+      { text: 'Payments', icon: <Payment />, path: '/payments' },
       { text: 'Driver', icon: <Person />, path: '/driver' },
       { text: 'Consignment', icon: <Assignment />, path: '/consignment' },
       { text: 'Bid Management', icon: <ListAlt />, path: '/bid-management' },
