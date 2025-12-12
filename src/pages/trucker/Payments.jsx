@@ -1827,7 +1827,7 @@ const Payments = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Load Details Dialog */}
+      {/* Load Details Dialogs */}
       <Dialog 
         open={openLoadDetailsDialog} 
         onClose={() => {
