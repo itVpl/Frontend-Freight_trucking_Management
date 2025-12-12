@@ -31,24 +31,11 @@ import {
   TrendingUp,
   LocationOn,
 } from '@mui/icons-material';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+import { Wrapper, Status } from '@googlemaps/react-wrapper';
 import { useAuth } from '../../context/AuthContext';
-
-// Fix for Leaflet default icons
-import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
-import markerIcon from 'leaflet/dist/images/marker-icon.png';
-import markerShadow from 'leaflet/dist/images/marker-shadow.png';
-
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: markerIcon2x,
-  iconUrl: markerIcon,
-  shadowUrl: markerShadow,
-});
-import { BASE_API_URL } from '../../apiConfig';
+import { BASE_API_URL, GOOGLE_MAPS_API_KEY } from '../../apiConfig';
 import PageLoader from '../../components/PageLoader';
+import GoogleMap from '../../components/maps/GoogleMap';
 import group23 from "../../assets/Icons super admin/Group23.png"
 import group22 from "../../assets/Icons super admin/Group22.png"
 import group26 from "../../assets/Icons super admin/Group26.png"
@@ -101,6 +88,41 @@ const Dashboard = () => {
 
   const handleTrackShipment = () => {
     navigate('/live-tracker');
+  };
+
+  // Render function for Google Maps wrapper
+  const render = (status) => {
+    if (status === Status.LOADING) {
+      return (
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            alignItems: 'center', 
+            height: '100%' 
+          }}
+        >
+          <CircularProgress />
+        </Box>
+      );
+    }
+    if (status === Status.FAILURE) {
+      return (
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            alignItems: 'center', 
+            height: '100%',
+            flexDirection: 'column',
+            gap: 2
+          }}
+        >
+          <Alert severity="error">Error loading Google Maps. Please check your API key.</Alert>
+        </Box>
+      );
+    }
+    return null;
   };
 
   // Fetch shipment data for map
@@ -829,54 +851,9 @@ const Dashboard = () => {
                   <CircularProgress />
                 </Box>
               ) : (
-                <MapContainer
-                  center={[39.8283, -98.5795]} // Center of USA
-                  zoom={4}
-                  style={{ height: '100%', width: '100%' }}
-                  whenReady={() => console.log('Dashboard map is ready')}
-                >
-                  <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  />
-                  
-                  {/* Render current location markers */}
-                  {mapData.map((shipment) => {
-                    // Calculate current location (midpoint between origin and destination for demo)
-                    const currentLat = (shipment.origin.coordinates[0] + shipment.destination.coordinates[0]) / 2;
-                    const currentLng = (shipment.origin.coordinates[1] + shipment.destination.coordinates[1]) / 2;
-                    
-                    return (
-                      <Marker key={shipment.id} position={[currentLat, currentLng]}>
-                        <Popup>
-                          <Box sx={{ p: 1, minWidth: 200 }}>
-                            <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#1976d2' }}>
-                              {shipment.shipmentNumber}
-                            </Typography>
-                            <Typography variant="body2">
-                              <strong>Status:</strong> {shipment.status}
-                            </Typography>
-                            <Typography variant="body2">
-                              <strong>From:</strong> {shipment.origin.city}, {shipment.origin.state}
-                            </Typography>
-                            <Typography variant="body2">
-                              <strong>To:</strong> {shipment.destination.city}, {shipment.destination.state}
-                            </Typography>
-                            <Typography variant="body2">
-                              <strong>Pickup:</strong> {new Date(shipment.pickupDate).toLocaleDateString()}
-                            </Typography>
-                            <Typography variant="body2">
-                              <strong>Delivery:</strong> {new Date(shipment.deliveryDate).toLocaleDateString()}
-                            </Typography>
-                            <Typography variant="body2">
-                              <strong>Rate:</strong> ${shipment.rate}
-                            </Typography>
-                          </Box>
-                        </Popup>
-                      </Marker>
-                    );
-                  })}
-                </MapContainer>
+                <Wrapper apiKey={GOOGLE_MAPS_API_KEY} render={render}>
+                  <GoogleMap mapData={mapData} center={{ lat: 39.8283, lng: -98.5795 }} zoom={4} />
+                </Wrapper>
               )}
             </Box>
             

@@ -10,6 +10,8 @@ import Consignment from './pages/consignment/Consignment';
 import BidManagement from './pages/trucker/BidManagement';
 import AddCustomer from './pages/trucker/AddCustomer';
 import AddLoad from './pages/trucker/AddLoad';
+import Yard from './pages/trucker/Yard';
+import YardDropContainer from './pages/trucker/YardDropContainer';
 import Reports from './pages/reports/Reports';
 import Bills from './pages/shipper/Bills';
 import Loadboard from './pages/shipper/Loadboard';
@@ -60,6 +62,8 @@ function App() {
               <Route path="/bid-management" element={<ProtectedRoute userType="trucker"><BidManagement /></ProtectedRoute>} />
               <Route path="/add-customer" element={<ProtectedRoute userType="trucker"><AddCustomer /></ProtectedRoute>} />
               <Route path="/add-load" element={<ProtectedRoute userType="trucker"><AddLoad /></ProtectedRoute>} />
+              <Route path="/yard" element={<ProtectedRoute userType="trucker"><Yard /></ProtectedRoute>} />
+              <Route path="/yard-drop-container" element={<ProtectedRoute userType="trucker"><YardDropContainer /></ProtectedRoute>} />
 
               {/* Shipper Only Routes */}
               <Route path="/bills" element={<ProtectedRoute userType="shipper"><Bills /></ProtectedRoute>} />
