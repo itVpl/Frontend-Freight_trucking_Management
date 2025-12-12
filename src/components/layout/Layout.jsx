@@ -37,6 +37,7 @@ import {
   ChevronRight,
   Email as EmailIcon,
   PersonAdd,
+  Warehouse,
   Add,
   Payment,
 } from '@mui/icons-material';
