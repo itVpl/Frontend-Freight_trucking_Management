@@ -40,6 +40,7 @@ import {
   Add,
   Payment,
 } from '@mui/icons-material';
+import ContainerIcon from '../icons/ContainerIcon';
 import { useAuth } from '../../context/AuthContext';
 import UniversalSearch from '../UniversalSearch';
 
@@ -89,6 +90,8 @@ const Layout = () => {
       { text: 'Bid Management', icon: <ListAlt />, path: '/bid-management' },
       { text: 'Add Customer', icon: <PersonAdd />, path: '/add-customer' },
       { text: 'Add Load', icon: <Add />, path: '/add-load' },
+      { text: 'Yard', icon: <Warehouse />, path: '/yard' },
+      { text: 'Yard Drop Container', icon: <ContainerIcon />, path: '/yard-drop-container' },
       { text: 'Email', icon: <EmailIcon />, path: '/email' },
       { text: 'Report', icon: <Assessment />, path: '/reports' },
       { text: 'Load Calculator', icon: <AccountBalance />, path: '/loadcalculator' },
