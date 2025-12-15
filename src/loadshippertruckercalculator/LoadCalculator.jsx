@@ -81,7 +81,7 @@ const containerImages = {
   "20ftPlatform": p20, // 20ftPlatform
   "40ftPlatform": p40, // 40ftPlatform
   "20ftReefer": r20, // 20ftReefer
-  "40ftReefer": r40, // 40ftReefer 
+  "40ftReefer": r40, // 40ftReefergg
   "20ftBulk": b20, // 20ftBulk
   "20ftTank": t20, // 20ftTank
 
@@ -97,7 +97,7 @@ const truckImages = {
 };
 
 // ---------- Cargo icons ----------
-import Inventory2Icon from "@mui/icons-material/Inventory2"; // Box
+import Inventory2Icon from "@mui/icons-material/Inventory2"; // Boxs
 import GrainIcon from "@mui/icons-material/Grain";            // Sacks
 import AllInboxIcon from "@mui/icons-material/AllInbox";      // Bigbags
 import SportsBarIcon from "@mui/icons-material/SportsBar";    // Barrels
