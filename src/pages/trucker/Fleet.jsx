@@ -13,6 +13,7 @@ import {
   Stack,
   CircularProgress,
   Alert,
+  Skeleton,
   IconButton,
   Dialog,
   DialogTitle,
@@ -55,6 +56,7 @@ const Dashboard = () => {
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [vehicleToDelete, setVehicleToDelete] = useState(null);
+  const [viewLoading, setViewLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   // Form state for adding/editing vehicles
@@ -254,13 +256,20 @@ const Dashboard = () => {
 
   const openViewDialogHandler = async (vehicle) => {
     try {
+      setViewLoading(true);
+      setOpenViewDialog(true);
       const response = await makeAPICall(`/api/v1/vehicle/details/${vehicle._id}`);
       if (response.success) {
         setSelectedVehicle(response.vehicle);
-        setOpenViewDialog(true);
+      } else {
+        setSnackbar({ open: true, message: 'Failed to load vehicle details', severity: 'error' });
+        setOpenViewDialog(false);
       }
     } catch (err) {
       setSnackbar({ open: true, message: 'Error loading vehicle details: ' + err.message, severity: 'error' });
+      setOpenViewDialog(false);
+    } finally {
+      setViewLoading(false);
     }
   };
 
@@ -293,12 +302,81 @@ const Dashboard = () => {
     window.URL.revokeObjectURL(url);
   };
 
-  if (loading) {
-    return (
-      <Box sx={{ p: 3, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
-        <CircularProgress />
+  // Fleet Skeleton Loading Component
+  const FleetSkeleton = () => (
+    <Box sx={{ p: 3 }}>
+      {/* Header Skeleton */}
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          mb: 3,
+          flexWrap: 'wrap',
+          gap: 2,
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Skeleton variant="text" width={150} height={32} />
+          <Skeleton variant="rectangular" width={100} height={32} sx={{ borderRadius: 2 }} />
+        </Box>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Skeleton variant="rectangular" width={250} height={40} sx={{ borderRadius: 2 }} />
+          <Skeleton variant="rectangular" width={120} height={40} sx={{ borderRadius: 2 }} />
+          <Skeleton variant="rectangular" width={140} height={40} sx={{ borderRadius: 2 }} />
+        </Stack>
       </Box>
-    );
+
+      {/* Table Skeleton */}
+      <Paper elevation={3} sx={{ borderRadius: 3, overflow: 'hidden' }}>
+        <Table>
+          <TableHead>
+            <TableRow sx={{ background: 'linear-gradient(90deg, #f8fafc 0%, #f1f5f9 100%)' }}>
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((col) => (
+                <TableCell key={col}>
+                  <Skeleton variant="text" width={100} height={20} />
+                </TableCell>
+              ))}
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {Array.from({ length: 5 }).map((_, index) => (
+              <TableRow key={index}>
+                <TableCell><Skeleton variant="text" width={120} /></TableCell>
+                <TableCell><Skeleton variant="text" width={150} /></TableCell>
+                <TableCell><Skeleton variant="text" width={120} /></TableCell>
+                <TableCell><Skeleton variant="text" width={80} /></TableCell>
+                <TableCell><Skeleton variant="rectangular" width={80} height={26} sx={{ borderRadius: 1 }} /></TableCell>
+                <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                <TableCell><Skeleton variant="text" width={80} /></TableCell>
+                <TableCell><Skeleton variant="rectangular" width={70} height={26} sx={{ borderRadius: 1 }} /></TableCell>
+                <TableCell>
+                  <Stack direction="row" spacing={1}>
+                    <Skeleton variant="rectangular" width={60} height={28} sx={{ borderRadius: 1 }} />
+                    <Skeleton variant="rectangular" width={60} height={28} sx={{ borderRadius: 1 }} />
+                    <Skeleton variant="rectangular" width={60} height={28} sx={{ borderRadius: 1 }} />
+                  </Stack>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        {/* Pagination Skeleton */}
+        <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #e0e0e0' }}>
+          <Skeleton variant="text" width={200} />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Skeleton variant="rectangular" width={80} height={32} sx={{ borderRadius: 1 }} />
+            <Skeleton variant="text" width={100} />
+            <Skeleton variant="rectangular" width={80} height={32} sx={{ borderRadius: 1 }} />
+          </Box>
+        </Box>
+      </Paper>
+    </Box>
+  );
+
+  if (loading) {
+    return <FleetSkeleton />;
   }
 
   return (
@@ -436,16 +514,26 @@ const Dashboard = () => {
           </TableHead>
           <TableBody>
             {loading ? (
-              <TableRow>
-                <TableCell colSpan={10} align="center" sx={{ py: 6 }}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                    <CircularProgress size={40} />
-                    <Typography variant="body1" color="text.secondary">
-                      Loading vehicles...
-                    </Typography>
-                  </Box>
-                </TableCell>
-              </TableRow>
+              Array.from({ length: 5 }).map((_, index) => (
+                <TableRow key={index}>
+                  <TableCell><Skeleton variant="text" width={120} /></TableCell>
+                  <TableCell><Skeleton variant="text" width={150} /></TableCell>
+                  <TableCell><Skeleton variant="text" width={120} /></TableCell>
+                  <TableCell><Skeleton variant="text" width={80} /></TableCell>
+                  <TableCell><Skeleton variant="rectangular" width={80} height={26} sx={{ borderRadius: 1 }} /></TableCell>
+                  <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                  <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                  <TableCell><Skeleton variant="text" width={80} /></TableCell>
+                  <TableCell><Skeleton variant="rectangular" width={70} height={26} sx={{ borderRadius: 1 }} /></TableCell>
+                  <TableCell>
+                    <Stack direction="row" spacing={1}>
+                      <Skeleton variant="rectangular" width={60} height={28} sx={{ borderRadius: 1 }} />
+                      <Skeleton variant="rectangular" width={60} height={28} sx={{ borderRadius: 1 }} />
+                      <Skeleton variant="rectangular" width={60} height={28} sx={{ borderRadius: 1 }} />
+                    </Stack>
+                  </TableCell>
+                </TableRow>
+              ))
             ) : filteredVehicles.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={10} align="center" sx={{ py: 6 }}>
@@ -869,7 +957,16 @@ const Dashboard = () => {
           </IconButton>
         </DialogTitle>
         <DialogContent sx={{ p: 0, backgroundColor: '#f5f5f5' }}>
-          {selectedVehicle ? (
+          {viewLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                <CircularProgress size={50} />
+                <Typography variant="body1" color="text.secondary">
+                  Loading vehicle details...
+                </Typography>
+              </Box>
+            </Box>
+          ) : selectedVehicle ? (
             <Box sx={{ p: 3 }}>
               {/* Vehicle Information Section */}
               <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: 2, backgroundColor: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>

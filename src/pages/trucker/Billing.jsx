@@ -26,6 +26,7 @@ import {
   DialogActions,
   Grid,
   CircularProgress,
+  Skeleton,
 } from '@mui/material';
 import { 
   Receipt, 
@@ -744,16 +745,19 @@ const Dashboard = () => {
             </TableHead>
              <TableBody>
                {loading ? (
-                 <TableRow>
-                   <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
-                     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                       <CircularProgress size={40} />
-                       <Typography variant="body1" color="text.secondary">
-                         Loading bills...
-                       </Typography>
-                     </Box>
-                   </TableCell>
-                 </TableRow>
+                 Array.from({ length: 5 }).map((_, index) => (
+                   <TableRow key={index}>
+                     <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                     <TableCell><Skeleton variant="text" width={150} /></TableCell>
+                     <TableCell><Skeleton variant="text" width={150} /></TableCell>
+                     <TableCell><Skeleton variant="text" width={80} /></TableCell>
+                     <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                     <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                     <TableCell><Skeleton variant="text" width={120} /></TableCell>
+                     <TableCell><Skeleton variant="rectangular" width={80} height={24} sx={{ borderRadius: 1 }} /></TableCell>
+                     <TableCell><Skeleton variant="rectangular" width={60} height={32} sx={{ borderRadius: 1 }} /></TableCell>
+                   </TableRow>
+                 ))
                ) : filteredData.length === 0 ? (
                  <TableRow>
                    <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
@@ -1504,8 +1508,45 @@ const Dashboard = () => {
           </DialogTitle>
           <DialogContent sx={{ p: 0, backgroundColor: '#f5f5f5' }}>
             {viewBillLoading ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
-                <CircularProgress />
+              <Box sx={{ p: 3 }}>
+                {/* Bill Details Skeleton */}
+                <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: 2, backgroundColor: '#fff' }}>
+                  <Skeleton variant="text" width={200} height={28} sx={{ mb: 2 }} />
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {Array.from({ length: 6 }).map((_, index) => (
+                      <Box key={index} sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Skeleton variant="text" width={150} height={20} />
+                        <Skeleton variant="text" width={200} height={20} />
+                      </Box>
+                    ))}
+                  </Box>
+                </Paper>
+                
+                {/* Customer Info Skeleton */}
+                <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: 2, backgroundColor: '#fff' }}>
+                  <Skeleton variant="text" width={200} height={28} sx={{ mb: 2 }} />
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {Array.from({ length: 5 }).map((_, index) => (
+                      <Box key={index} sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Skeleton variant="text" width={150} height={20} />
+                        <Skeleton variant="text" width={200} height={20} />
+                      </Box>
+                    ))}
+                  </Box>
+                </Paper>
+                
+                {/* Billing Details Skeleton */}
+                <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: 2, backgroundColor: '#fff' }}>
+                  <Skeleton variant="text" width={200} height={28} sx={{ mb: 2 }} />
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {Array.from({ length: 4 }).map((_, index) => (
+                      <Box key={index} sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Skeleton variant="text" width={150} height={20} />
+                        <Skeleton variant="text" width={100} height={20} />
+                      </Box>
+                    ))}
+                  </Box>
+                </Paper>
               </Box>
             ) : selectedBill ? (
               <Box sx={{ p: 3 }}>

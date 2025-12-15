@@ -16,6 +16,7 @@ import {
   InputAdornment,
   CircularProgress,
   Alert,
+  Skeleton,
   Modal,
   IconButton,
   Grid,
@@ -1228,15 +1229,68 @@ const AddLoad = () => {
     'Intermodal'
   ];
 
-  if (loading && loadsData.length === 0) {
-    return (
-      <Box sx={{ p: 3, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
-        <CircularProgress />
-        <Typography variant="h6" sx={{ ml: 2 }}>
-          Loading loads...
-        </Typography>
+  // AddLoad Skeleton Loading Component
+  const AddLoadSkeleton = () => (
+    <Box sx={{ p: 3 }}>
+      {/* Header Skeleton */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Skeleton variant="text" width={120} height={32} />
+          <Skeleton variant="rectangular" width={100} height={32} sx={{ borderRadius: 2 }} />
+        </Box>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Skeleton variant="rectangular" width={250} height={40} sx={{ borderRadius: 2 }} />
+          <Skeleton variant="rectangular" width={120} height={40} sx={{ borderRadius: 2 }} />
+        </Stack>
       </Box>
-    );
+
+      {/* Table Skeleton */}
+      <Paper elevation={3} sx={{ borderRadius: 3, overflow: 'hidden' }}>
+        <Table>
+          <TableHead>
+            <TableRow sx={{ background: 'linear-gradient(90deg, #f8fafc 0%, #f1f5f9 100%)' }}>
+              {[1, 2, 3, 4, 5, 6, 7].map((col) => (
+                <TableCell key={col}>
+                  <Skeleton variant="text" width={100} height={20} />
+                </TableCell>
+              ))}
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {Array.from({ length: 5 }).map((_, index) => (
+              <TableRow key={index}>
+                <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                <TableCell><Skeleton variant="text" width={150} /></TableCell>
+                <TableCell><Skeleton variant="text" width={150} /></TableCell>
+                <TableCell><Skeleton variant="text" width={80} /></TableCell>
+                <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                <TableCell><Skeleton variant="text" width={120} /></TableCell>
+                <TableCell>
+                  <Stack direction="row" spacing={1}>
+                    <Skeleton variant="rectangular" width={60} height={28} sx={{ borderRadius: 1 }} />
+                    <Skeleton variant="rectangular" width={60} height={28} sx={{ borderRadius: 1 }} />
+                    <Skeleton variant="rectangular" width={60} height={28} sx={{ borderRadius: 1 }} />
+                  </Stack>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        {/* Pagination Skeleton */}
+        <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #e0e0e0' }}>
+          <Skeleton variant="text" width={200} />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Skeleton variant="rectangular" width={80} height={32} sx={{ borderRadius: 1 }} />
+            <Skeleton variant="text" width={100} />
+            <Skeleton variant="rectangular" width={80} height={32} sx={{ borderRadius: 1 }} />
+          </Box>
+        </Box>
+      </Paper>
+    </Box>
+  );
+
+  if (loading && loadsData.length === 0) {
+    return <AddLoadSkeleton />;
   }
 
   return (
@@ -1356,16 +1410,23 @@ const AddLoad = () => {
 
           <TableBody>
             {loading ? (
-              <TableRow>
-                <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                    <CircularProgress size={40} />
-                    <Typography variant="body1" color="text.secondary">
-                      Loading loads...
-                    </Typography>
-                  </Box>
-                </TableCell>
-              </TableRow>
+              Array.from({ length: 5 }).map((_, index) => (
+                <TableRow key={index}>
+                  <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                  <TableCell><Skeleton variant="text" width={150} /></TableCell>
+                  <TableCell><Skeleton variant="text" width={150} /></TableCell>
+                  <TableCell><Skeleton variant="text" width={80} /></TableCell>
+                  <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                  <TableCell><Skeleton variant="text" width={120} /></TableCell>
+                  <TableCell>
+                    <Stack direction="row" spacing={1}>
+                      <Skeleton variant="rectangular" width={60} height={28} sx={{ borderRadius: 1 }} />
+                      <Skeleton variant="rectangular" width={60} height={28} sx={{ borderRadius: 1 }} />
+                      <Skeleton variant="rectangular" width={60} height={28} sx={{ borderRadius: 1 }} />
+                    </Stack>
+                  </TableCell>
+                </TableRow>
+              ))
             ) : filteredData && filteredData.length > 0 ? (
               filteredData
                 .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)

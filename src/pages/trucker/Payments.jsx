@@ -13,6 +13,7 @@ import {
   Stack,
   CircularProgress,
   Alert,
+  Skeleton,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -721,16 +722,16 @@ const Payments = () => {
             </TableHead>
             <TableBody>
               {unpaidDriversLoading ? (
-                <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                      <CircularProgress size={40} />
-                      <Typography variant="body1" color="text.secondary">
-                        Loading unpaid drivers...
-                      </Typography>
-                    </Box>
-                  </TableCell>
-                </TableRow>
+                Array.from({ length: 5 }).map((_, index) => (
+                  <TableRow key={index}>
+                    <TableCell><Skeleton variant="text" width={150} /></TableCell>
+                    <TableCell><Skeleton variant="text" width={120} /></TableCell>
+                    <TableCell><Skeleton variant="text" width={180} /></TableCell>
+                    <TableCell><Skeleton variant="rectangular" width={60} height={26} sx={{ borderRadius: 1 }} /></TableCell>
+                    <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                    <TableCell><Skeleton variant="rectangular" width={100} height={32} sx={{ borderRadius: 1 }} /></TableCell>
+                  </TableRow>
+                ))
               ) : unpaidDrivers.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
@@ -969,16 +970,17 @@ const Payments = () => {
             </TableHead>
             <TableBody>
               {paidDriversLoading ? (
-                <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                      <CircularProgress size={40} />
-                      <Typography variant="body1" color="text.secondary">
-                        Loading paid drivers...
-                      </Typography>
-                    </Box>
-                  </TableCell>
-                </TableRow>
+                Array.from({ length: 5 }).map((_, index) => (
+                  <TableRow key={index}>
+                    <TableCell><Skeleton variant="text" width={150} /></TableCell>
+                    <TableCell><Skeleton variant="text" width={120} /></TableCell>
+                    <TableCell><Skeleton variant="text" width={180} /></TableCell>
+                    <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                    <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                    <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                    <TableCell><Skeleton variant="rectangular" width={100} height={32} sx={{ borderRadius: 1 }} /></TableCell>
+                  </TableRow>
+                ))
               ) : paidDrivers.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
@@ -1231,16 +1233,16 @@ const Payments = () => {
                 </TableHead>
                 <TableBody>
                   {unpaidShippersLoading ? (
-                    <TableRow>
-                      <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
-                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                          <CircularProgress size={40} />
-                          <Typography variant="body1" color="text.secondary">
-                            Loading unpaid shippers...
-                          </Typography>
-                        </Box>
-                      </TableCell>
-                    </TableRow>
+                    Array.from({ length: 5 }).map((_, index) => (
+                      <TableRow key={index}>
+                        <TableCell><Skeleton variant="text" width={150} /></TableCell>
+                        <TableCell><Skeleton variant="text" width={120} /></TableCell>
+                        <TableCell><Skeleton variant="text" width={180} /></TableCell>
+                        <TableCell><Skeleton variant="rectangular" width={60} height={26} sx={{ borderRadius: 1 }} /></TableCell>
+                        <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                        <TableCell><Skeleton variant="rectangular" width={100} height={32} sx={{ borderRadius: 1 }} /></TableCell>
+                      </TableRow>
+                    ))
                   ) : unpaidShippers.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
@@ -1477,16 +1479,17 @@ const Payments = () => {
                   </TableHead>
                   <TableBody>
                     {paidShippersLoading ? (
-                      <TableRow>
-                        <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
-                          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                            <CircularProgress size={40} />
-                            <Typography variant="body1" color="text.secondary">
-                              Loading paid shippers...
-                            </Typography>
-                          </Box>
-                        </TableCell>
-                      </TableRow>
+                      Array.from({ length: 5 }).map((_, index) => (
+                        <TableRow key={index}>
+                          <TableCell><Skeleton variant="text" width={150} /></TableCell>
+                          <TableCell><Skeleton variant="text" width={120} /></TableCell>
+                          <TableCell><Skeleton variant="text" width={180} /></TableCell>
+                          <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                          <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                          <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                          <TableCell><Skeleton variant="rectangular" width={100} height={32} sx={{ borderRadius: 1 }} /></TableCell>
+                        </TableRow>
+                      ))
                     ) : paidShippers.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={7} align="center" sx={{ py: 6 }}>

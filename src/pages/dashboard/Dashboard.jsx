@@ -19,6 +19,7 @@ import {
   TableContainer,
   CircularProgress,
   Alert,
+  Skeleton,
 } from '@mui/material';
 import {
   LocalShipping,
@@ -34,7 +35,6 @@ import {
 import { Wrapper, Status } from '@googlemaps/react-wrapper';
 import { useAuth } from '../../context/AuthContext';
 import { BASE_API_URL, GOOGLE_MAPS_API_KEY } from '../../apiConfig';
-import PageLoader from '../../components/PageLoader';
 import GoogleMap from '../../components/maps/GoogleMap';
 import group23 from "../../assets/Icons super admin/Group23.png"
 import group22 from "../../assets/Icons super admin/Group22.png"
@@ -625,6 +625,7 @@ const Dashboard = () => {
         ? '/api/v1/load/shipper/dashboard'
         : '/api/v1/load/trucker/dashboard';
       
+      const startTime = performance.now();
       const response = await fetch(`${BASE_API_URL}${endpoint}`, {
         method: 'GET',
         headers: {
@@ -640,14 +641,17 @@ const Dashboard = () => {
       const data = await response.json();
       
       if (data.success) {
+        // Set data first, then immediately hide loading
         setDashboardData(data.data);
+        setLoading(false);
+        const endTime = performance.now();
+        console.log(`Dashboard API response time: ${(endTime - startTime).toFixed(2)}ms`);
       } else {
         throw new Error(data.message || 'Failed to fetch dashboard data');
       }
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
       setError(err.message);
-    } finally {
       setLoading(false);
     }
   };
@@ -655,9 +659,17 @@ const Dashboard = () => {
   useEffect(() => {
     // Fetch data if user is a shipper or trucker
     if (userType === 'shipper' || userType === 'trucker') {
+      // Main dashboard API - controls the loading state
       fetchDashboardData();
-      fetchMapData(); // Fetch map data
-      loadActualCounts(); // Load actual counts for accurate card display
+      
+      // Load map data immediately in parallel (doesn't block UI)
+      fetchMapData().catch(err => console.error('Error fetching map data:', err));
+      
+      // Lazy load actual counts after initial render (used to refine values)
+      // These are used to override dashboard API values, but dashboard API has fallback values
+      setTimeout(() => {
+        loadActualCounts().catch(err => console.error('Error loading actual counts:', err));
+      }, 300); // Load counts 300ms after initial render (reduced from 500ms)
     } else {
       setLoading(false);
     }
@@ -715,13 +727,167 @@ const Dashboard = () => {
       </Box>
     </Paper>
   );
-  // Show loading state
-  if (loading) {
-    return (
-      <Box sx={{ p: 3 }}>
-        <PageLoader message="Loading dashboard..." />
+  // Skeleton loading component
+  const DashboardSkeleton = () => (
+    <Box sx={{ p: 3 }}>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4, 1fr)',
+          gridTemplateRows: 'repeat(3, auto)',
+          gap: 2,
+          p: 2,
+        }}
+      >
+        {/* Row 1 - Stat Cards */}
+        <Box sx={{ gridColumn: 'span 1' }}>
+          <Paper elevation={2} sx={{ p: 2, borderRadius: 5, height: '100%' }}>
+            <Box display="flex" alignItems="center" gap={1} mb={2}>
+              <Skeleton variant="rectangular" width={50} height={50} sx={{ borderRadius: 1 }} />
+              <Skeleton variant="text" width={120} height={24} />
+            </Box>
+            <Box display="flex" justifyContent="space-between" alignItems="center" mt={2}>
+              <Skeleton variant="text" width={60} height={32} />
+              <Skeleton variant="rectangular" width={100} height={80} sx={{ borderRadius: 1 }} />
+            </Box>
+          </Paper>
+        </Box>
+        
+        <Box sx={{ gridColumn: 'span 1' }}>
+          <Paper elevation={2} sx={{ p: 2, borderRadius: 5, height: '100%' }}>
+            <Box display="flex" alignItems="center" gap={1} mb={2}>
+              <Skeleton variant="rectangular" width={50} height={50} sx={{ borderRadius: 1 }} />
+              <Skeleton variant="text" width={120} height={24} />
+            </Box>
+            <Box display="flex" justifyContent="space-between" alignItems="center" mt={2}>
+              <Skeleton variant="text" width={60} height={32} />
+              <Skeleton variant="rectangular" width={100} height={80} sx={{ borderRadius: 1 }} />
+            </Box>
+          </Paper>
+        </Box>
+
+        {/* Map Area */}
+        <Box sx={{ gridColumn: 'span 2', gridRow: 'span 4' }}>
+          <Paper 
+            elevation={3} 
+            sx={{ 
+              p: 2, 
+              borderRadius: 3, 
+              height: '100%',
+              background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+            }}
+          >
+            <Skeleton 
+              variant="rectangular" 
+              height={400} 
+              sx={{ borderRadius: 2, mb: 2 }} 
+            />
+            <Box sx={{ p: 2, textAlign: 'center' }}>
+              <Skeleton variant="rectangular" width={200} height={36} sx={{ borderRadius: 2, mx: 'auto' }} />
+            </Box>
+          </Paper>
+        </Box>
+
+        {/* Row 2 - More Stat Cards */}
+        <Box sx={{ gridColumn: 'span 1', gridRow: 'span 2' }}>
+          <Paper elevation={2} sx={{ p: 2, borderRadius: 5, height: '100%' }}>
+            <Box display="flex" alignItems="center" gap={1} mb={2}>
+              <Skeleton variant="rectangular" width={50} height={50} sx={{ borderRadius: 1 }} />
+              <Skeleton variant="text" width={140} height={24} />
+            </Box>
+            <Box display="flex" justifyContent="space-between" alignItems="center" mt={2}>
+              <Skeleton variant="text" width={60} height={32} />
+              <Skeleton variant="rectangular" width={100} height={80} sx={{ borderRadius: 1 }} />
+            </Box>
+          </Paper>
+        </Box>
+
+        <Box sx={{ gridColumn: 'span 1', gridRow: 'span 2' }}>
+          <Paper elevation={2} sx={{ p: 2, borderRadius: 5, height: '100%' }}>
+            <Box display="flex" alignItems="center" gap={1} mb={2}>
+              <Skeleton variant="rectangular" width={50} height={50} sx={{ borderRadius: 1 }} />
+              <Skeleton variant="text" width={80} height={24} />
+            </Box>
+            <Box display="flex" justifyContent="space-between" alignItems="center" mt={2}>
+              <Skeleton variant="text" width={60} height={32} />
+              <Skeleton variant="rectangular" width={100} height={80} sx={{ borderRadius: 1 }} />
+            </Box>
+          </Paper>
+        </Box>
+
+        <Box sx={{ gridColumn: 'span 1' }}>
+          <Paper elevation={2} sx={{ p: 2, borderRadius: 5, height: '100%' }}>
+            <Box display="flex" alignItems="center" gap={1} mb={2}>
+              <Skeleton variant="rectangular" width={50} height={50} sx={{ borderRadius: 1 }} />
+              <Skeleton variant="text" width={100} height={24} />
+            </Box>
+            <Box display="flex" justifyContent="space-between" alignItems="center" mt={2}>
+              <Skeleton variant="text" width={60} height={32} />
+              <Skeleton variant="rectangular" width={100} height={80} sx={{ borderRadius: 1 }} />
+            </Box>
+          </Paper>
+        </Box>
+
+        <Box sx={{ gridColumn: 'span 1' }}>
+          <Paper elevation={2} sx={{ p: 2, borderRadius: 5, height: '100%' }}>
+            <Box display="flex" alignItems="center" gap={1} mb={2}>
+              <Skeleton variant="rectangular" width={50} height={50} sx={{ borderRadius: 1 }} />
+              <Skeleton variant="text" width={120} height={24} />
+            </Box>
+            <Box display="flex" justifyContent="space-between" alignItems="center" mt={2}>
+              <Skeleton variant="text" width={60} height={32} />
+              <Skeleton variant="rectangular" width={100} height={80} sx={{ borderRadius: 1 }} />
+            </Box>
+          </Paper>
+        </Box>
       </Box>
-    );
+
+      {/* Table Skeleton */}
+      <Box mt={4}>
+        <Paper elevation={3} sx={{ borderRadius: 3, overflow: 'hidden' }}>
+          <Box
+            sx={{
+              bgcolor: '#1976d2',
+              color: '#fff',
+              py: 2,
+              textAlign: 'center',
+            }}
+          >
+            <Skeleton variant="text" width={200} height={28} sx={{ mx: 'auto' }} />
+          </Box>
+          
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow sx={{ backgroundColor: '#f8f9fa' }}>
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((col) => (
+                    <TableCell key={col}>
+                      <Skeleton variant="text" width={100} height={20} />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {[1, 2, 3, 4, 5].map((row) => (
+                  <TableRow key={row}>
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map((col) => (
+                      <TableCell key={col}>
+                        <Skeleton variant="text" width={80} height={20} />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+      </Box>
+    </Box>
+  );
+
+  // Show loading state with skeleton
+  if (loading) {
+    return <DashboardSkeleton />;
   }
 
   // Show error state
@@ -739,15 +905,42 @@ const Dashboard = () => {
   }
 
   // Get dashboard values from API data or use defaults
+  // Priority: dashboardData (from main API) > actualCounts (lazy loaded) > defaults
   const getDashboardValue = (key) => {
-    // Special handling for pendingDeliveries - always use inTransit count
-    if (key === 'pendingDeliveries') {
-      return actualCounts.inTransit || 0;
+    // First, try to use main dashboard API data (fastest, already loaded)
+    if ((userType === 'shipper' || userType === 'trucker') && dashboardData?.dashboard) {
+      // Handle statusBreakdown data
+      if (key === 'delivered') {
+        const dashboardValue = dashboardData.dashboard.statusBreakdown?.delivered;
+        if (dashboardValue !== undefined && dashboardValue !== null) {
+          return dashboardValue;
+        }
+      }
+      // Check if dashboard has this key
+      const dashboardValue = dashboardData.dashboard[key];
+      if (dashboardValue !== undefined && dashboardValue !== null) {
+        return dashboardValue;
+      }
+      // Special handling for inTransitLoads - check dashboard first
+      if (key === 'inTransitLoads' || key === 'pendingDeliveries') {
+        const inTransitValue = dashboardData.dashboard.inTransitLoads || dashboardData.dashboard.inTransit;
+        if (inTransitValue !== undefined && inTransitValue !== null) {
+          return inTransitValue;
+        }
+      }
     }
     
-    // Special handling for inTransitLoads - use actualCounts.inTransit
+    // Fallback to actualCounts if available (lazy loaded, more accurate)
+    if (key === 'pendingDeliveries') {
+      if (actualCounts.inTransit !== undefined && actualCounts.inTransit !== null) {
+        return actualCounts.inTransit;
+      }
+    }
+    
     if (key === 'inTransitLoads') {
-      return actualCounts.inTransit || 0;
+      if (actualCounts.inTransit !== undefined && actualCounts.inTransit !== null) {
+        return actualCounts.inTransit;
+      }
     }
     
     // Use actual counts if available (check for undefined, not just > 0)
@@ -755,24 +948,16 @@ const Dashboard = () => {
       return actualCounts[key];
     }
     
-    if ((userType === 'shipper' || userType === 'trucker') && dashboardData?.dashboard) {
-      // Handle statusBreakdown data
-      if (key === 'delivered') {
-        return dashboardData.dashboard.statusBreakdown?.delivered || 0;
-      }
-      return dashboardData.dashboard[key] || 0;
-    }
     // Default values for non-shipper/trucker users or when data is not available
     const defaults = {
-      totalLoads: 100,
-      todayDeliveries: 60,
+      totalLoads: 0,
+      todayDeliveries: 0,
       pendingDeliveries: 0,
-      activeLoads: 40,
-      delayedLoads: 5,
-      inTransitLoads: 15,
+      activeLoads: 0,
+      delayedLoads: 0,
+      inTransitLoads: 0,
       overdueLoads: 0,
       delivered: 0
-      
     };
     return defaults[key] || 0;
   };
