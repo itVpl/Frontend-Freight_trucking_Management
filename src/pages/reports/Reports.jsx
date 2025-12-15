@@ -4,6 +4,7 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Chip, Paper, TextField, MenuItem, Select, FormControl, InputLabel,
   CircularProgress, Alert, Button, Dialog, DialogTitle, DialogContent,
+  Skeleton,
   IconButton, Divider, Grid
 } from '@mui/material';
 import { Bar } from 'react-chartjs-2';
@@ -699,11 +700,40 @@ const handleCloseModal = () => {
 
       {/* Loading State */}
       {loading && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
-          <CircularProgress size={40} />
-          <Typography variant="body1" sx={{ ml: 2 }}>
-            Loading reports data...
-          </Typography>
+        <Box sx={{ py: 4 }}>
+          {/* Chart Skeleton */}
+          <Paper elevation={3} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
+            <Skeleton variant="text" width={200} height={32} sx={{ mb: 2 }} />
+            <Skeleton variant="rectangular" width="100%" height={400} sx={{ borderRadius: 2 }} />
+          </Paper>
+          
+          {/* Table Skeleton */}
+          <Paper elevation={3} sx={{ borderRadius: 2, overflow: 'hidden' }}>
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    {[1, 2, 3, 4, 5, 6].map((col) => (
+                      <TableCell key={col}>
+                        <Skeleton variant="text" width={100} height={20} />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {Array.from({ length: 5 }).map((_, index) => (
+                    <TableRow key={index}>
+                      {[1, 2, 3, 4, 5, 6].map((col) => (
+                        <TableCell key={col}>
+                          <Skeleton variant="text" width={80} height={20} />
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Paper>
         </Box>
       )}
 
