@@ -60,7 +60,12 @@ import p40 from "../assets/containerimg/p40.svg"; // 40ftPlatform
 import r20 from "../assets/containerimg/r20.svg"; // 20ftReefer
 import r40 from "../assets/containerimg/r40.svg"; // 40ftReefer 
 import b20 from "../assets/containerimg/b20.svg"; // 20ftBulk
-import t20 from "../assets/containerimg/t20.svg"; // 20ftTank
+import t20 from "../assets/containerimg/t20.svg";
+import d20 from "../assets/containerimg/d20.jpg";
+import f48 from "../assets/containerimg/48flat.jpg";
+import car141 from "../assets/containerimg/car141.png";
+import step48 from "../assets/containerimg/48step.webp";
+import ra20 from "../assets/containerimg/ra20.png";  // 20ftTank
 
 const containerImages = {
   "20ft": s20,
@@ -83,8 +88,11 @@ const containerImages = {
 };
 
 const truckImages = {
-  "DryVan-20ft": "",
-  "Reefer-20ft": "",
+  "DryVan-20ft": d20,
+  "Reefer-20ft": ra20,
+  "StepDeck-48ft": step48,
+  "Flatbed-48ft": f48,
+  "CargoVan-14ft": car141,
   // ...
 };
 
