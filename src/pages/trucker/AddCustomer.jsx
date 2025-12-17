@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, memo, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -45,11 +45,11 @@ import {
   Save,
   Cancel
 } from '@mui/icons-material';
-import { useAuth } from '../../context/AuthContext';
+ 
 import { BASE_API_URL } from '../../apiConfig';
+import { useThemeConfig } from '../../context/ThemeContext';
 //just for github 
 const AddCustomer = () => {
-  const { user, userType } = useAuth();
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
@@ -73,6 +73,10 @@ const AddCustomer = () => {
     zipCode: '',
     notes: ''
   }));
+
+  const { themeConfig } = useThemeConfig();
+  const brand = (themeConfig.header?.bg && themeConfig.header.bg !== 'white') ? themeConfig.header.bg : (themeConfig.tokens?.primary || '#1976d2');
+  const headerTextColor = themeConfig.header?.text || '#ffffff';
 
   // Fetch all customers on component mount
   useEffect(() => {
@@ -375,7 +379,7 @@ const AddCustomer = () => {
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography variant="h5" fontWeight={700}>
+          <Typography variant="h5" fontWeight={700} sx={{ color: (themeConfig.tokens?.text || '#333333'), ...(themeConfig.content?.bgImage ? { backgroundColor: 'rgba(255,255,255,0.88)', borderRadius: 1, px: 1 } : {}) }}>
             Add Customer
           </Typography>
           <Chip
@@ -426,17 +430,31 @@ const AddCustomer = () => {
         </Stack>
       </Box>
 
-      <Paper elevation={3} sx={{ borderRadius: 3, overflow: 'hidden' }}>
-        <Table>
+      <Paper elevation={3} sx={{ borderRadius: 3, overflow: 'hidden', backgroundColor: ((themeConfig.table?.bgImage || themeConfig.content?.bgImage) ? 'transparent' : (themeConfig.table?.bg || '#fff')), position: 'relative', boxShadow: '0 10px 30px rgba(0,0,0,0.08)', border: '1px solid rgba(0,0,0,0.06)' }}>
+        {themeConfig.table?.bgImage && (
+          <Box sx={{
+            position: 'absolute',
+            inset: 0,
+            backgroundImage: `url(${themeConfig.table.bgImage})`,
+            backgroundSize: 'cover',
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'center',
+            opacity: Number(themeConfig.table?.bgImageOpacity ?? 0),
+            pointerEvents: 'none',
+            zIndex: 0,
+          }} />
+        )}
+        <Box sx={{ position: 'relative', zIndex: 1 }}>
+        <Table sx={{ backgroundColor: (themeConfig.table?.bgImage || themeConfig.content?.bgImage) ? 'rgba(255,255,255,0.94)' : 'inherit' }}>
           <TableHead>
-            <TableRow sx={{ backgroundColor: '#f0f4f8' }}>
-              <TableCell sx={{ fontWeight: 600, width: '150px' }}>Company Name</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: '120px' }}>MC/DOT No</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: '150px' }}>Email</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: '120px' }}>Mobile</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: '200px' }}>Location</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: '100px' }}>Status</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: '150px' }}>Actions</TableCell>
+            <TableRow sx={{ backgroundColor: (themeConfig.table?.headerBg || '#f0f4f8') }}>
+              <TableCell sx={{ fontWeight: 600, width: '150px', color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Company Name</TableCell>
+              <TableCell sx={{ fontWeight: 600, width: '120px', color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>MC/DOT No</TableCell>
+              <TableCell sx={{ fontWeight: 600, width: '150px', color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Email</TableCell>
+              <TableCell sx={{ fontWeight: 600, width: '120px', color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Mobile</TableCell>
+              <TableCell sx={{ fontWeight: 600, width: '200px', color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Location</TableCell>
+              <TableCell sx={{ fontWeight: 600, width: '100px', color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Status</TableCell>
+              <TableCell sx={{ fontWeight: 600, width: '150px', color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -452,19 +470,19 @@ const AddCustomer = () => {
                       '&:hover': { backgroundColor: '#e3f2fd' }
                     }}
                   >
-                    <TableCell sx={{ width: '150px', fontWeight: 600 }}>
+                    <TableCell sx={{ width: '150px', fontWeight: 600, color: (themeConfig.table?.text || '#333333') }}>
                       {customer.companyInfo?.companyName}
                     </TableCell>
-                    <TableCell sx={{ width: '120px' }}>
+                    <TableCell sx={{ width: '120px', color: (themeConfig.table?.text || '#333333') }}>
                       {customer.companyInfo?.mcDotNo}
                     </TableCell>
-                    <TableCell sx={{ width: '150px' }}>
+                    <TableCell sx={{ width: '150px', color: (themeConfig.table?.text || '#333333') }}>
                       {customer.contactInfo?.email}
                     </TableCell>
-                    <TableCell sx={{ width: '120px' }}>
+                    <TableCell sx={{ width: '120px', color: (themeConfig.table?.text || '#333333') }}>
                       {customer.contactInfo?.mobile}
                     </TableCell>
-                    <TableCell sx={{ width: '200px', wordWrap: 'break-word' }}>
+                    <TableCell sx={{ width: '200px', wordWrap: 'break-word', color: (themeConfig.table?.text || '#333333') }}>
                       {customer.locationDetails?.city}, {customer.locationDetails?.state} {customer.locationDetails?.zipCode}
                     </TableCell>
                     <TableCell sx={{ width: '100px' }}>
@@ -551,17 +569,14 @@ const AddCustomer = () => {
           rowsPerPage={rowsPerPage}
           onRowsPerPageChange={handleChangeRowsPerPage}
           rowsPerPageOptions={[5, 10, 25]}
-          sx={{
-            borderTop: '1px solid #e0e0e0',
-            backgroundColor: '#fafafa'
-          }}
         />
+        </Box>
       </Paper>
 
       {/* Add Customer Dialog */}
       <Dialog open={addModalOpen} onClose={() => setAddModalOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ textAlign: 'left', pb: 0 }}>
-          <Typography variant="h5" color="primary" fontWeight={700} sx={{ textAlign: 'left' }}>
+          <Typography variant="h5" color="primary" fontWeight={700} sx={{ textAlign: 'left', color: headerTextColor }}>
             Add Customer
           </Typography>
           <Divider sx={{ mt: 1, mb: 0.5, width: '100%', borderColor: '#e0e0e0', borderBottomWidth: 2, borderRadius: 2 }} />
@@ -683,7 +698,7 @@ const AddCustomer = () => {
               </Grid>
             </Grid>
             <DialogActions sx={{ mt: 4, justifyContent: 'center', gap: 1 }}>
-              <Button onClick={() => setAddModalOpen(false)} variant="contained" sx={{ borderRadius: 3, backgroundColor: '#f0f0f0', color: '#000', textTransform: 'none', px: 4, '&:hover': { backgroundColor: '#e0e0e0' } }}>Cancel</Button>
+              <Button onClick={() => setAddModalOpen(false)} variant="outlined"sx={{ borderRadius: 3, backgroundColor: '#ffff', color: '#d32f2f', textTransform: 'none', px: 4, borderColor: '#d32f2f' }}>Cancel</Button>
               <Button type="submit" variant="contained" color="primary" sx={{ borderRadius: 3, textTransform: 'none', px: 4 }}>Submit</Button>
             </DialogActions>
           </Box>
@@ -715,23 +730,24 @@ const AddCustomer = () => {
           <Box sx={{ 
             p: 3, 
             borderBottom: '1px solid #e0e0e0',
-            backgroundColor: '#f8f9fa',
+            background: brand,
             borderRadius: '12px 12px 0 0'
           }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="h6" fontWeight={700} sx={{ color: '#333' }}>
+              <Typography variant="h6" fontWeight={700} sx={{ color: headerTextColor }}>
                 Edit Customer
               </Typography>
               <IconButton 
                 onClick={() => setEditModalOpen(false)}
                 sx={{
-                  backgroundColor: '#f5f5f5',
+                  color: headerTextColor,
+                  backgroundColor: 'transparent',
                   '&:hover': {
-                    backgroundColor: '#e0e0e0'
+                    background: 'rgba(255, 255, 255, 0.1)'
                   }
                 }}
               >
-                <Close />
+                <Close sx={{ color: headerTextColor }} />
               </IconButton>
             </Box>
           </Box>
@@ -859,20 +875,7 @@ const AddCustomer = () => {
               <Button
                 variant="outlined"
                 onClick={() => setEditModalOpen(false)}
-                sx={{
-                  borderRadius: '8px',
-                  borderColor: '#e0e0e0',
-                  color: '#666',
-                  backgroundColor: 'white',
-                  px: 3,
-                  py: 1,
-                  textTransform: 'none',
-                  fontWeight: 500,
-                  '&:hover': {
-                    borderColor: '#1976d2',
-                    backgroundColor: '#f5f5f5'
-                  }
-                }}
+              sx={{ borderRadius: 3, backgroundColor: '#ffff', color: '#d32f2f', textTransform: 'none', px: 4, borderColor: '#d32f2f' }}
               >
                 Cancel
               </Button>
@@ -880,22 +883,8 @@ const AddCustomer = () => {
                 type="submit"
                 variant="contained"
                 disabled={loading}
-                sx={{
-                  borderRadius: '8px',
-                  backgroundColor: '#1976d2',
-                  color: 'white',
-                  px: 3,
-                  py: 1,
-                  textTransform: 'none',
-                  fontWeight: 500,
-                  '&:hover': {
-                    backgroundColor: '#1565c0'
-                  },
-                  '&:disabled': {
-                    backgroundColor: '#e0e0e0',
-                    color: '#999'
-                  }
-                }}
+                color="primary" 
+                sx={{ borderRadius: 3, textTransform: 'none', px: 4 }}
               >
                 {loading ? <CircularProgress size={20} color="inherit" /> : 'Update Customer'}
               </Button>
@@ -928,21 +917,21 @@ const AddCustomer = () => {
             pb: 2,
             pt: 2,
             px: 3,
-            background: '#1976d2',
-            color: 'white',
+            background: brand,
+            color: headerTextColor,
             borderRadius: '8px 8px 0 0',
             minHeight: 64
           }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <Business sx={{ fontSize: 28, color: 'white' }} />
-              <Typography variant="h5" fontWeight={600} color="white">
+              <Business sx={{ fontSize: 28, color: headerTextColor }} />
+              <Typography variant="h5" fontWeight={600} color={headerTextColor}>
                 Customer Details
               </Typography>
             </Box>
             <Button
               onClick={() => setViewModalOpen(false)}
               sx={{
-                color: 'white',
+                color: headerTextColor,
                 minWidth: 'auto',
                 '&:hover': {
                   background: 'rgba(255, 255, 255, 0.1)',

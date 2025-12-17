@@ -25,14 +25,16 @@ import {
   Autocomplete,
 } from '@mui/material';
 import { Receipt, Download, Search, Send } from '@mui/icons-material';
+import alertify from 'alertifyjs';
 import axios from 'axios';
 import { BASE_API_URL } from '../../apiConfig';
+import { useThemeConfig } from '../../context/ThemeContext';
 
 const Dashboard = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
-  const [bidData, setBidData] = useState([]);
+  
   const [loading, setLoading] = useState(true); 
   const [bidModalOpen, setBidModalOpen] = useState(false);
   const [selectedLoad, setSelectedLoad] = useState(null);
@@ -47,6 +49,9 @@ const Dashboard = () => {
   });
   const [bidErrors, setBidErrors] = useState({});
   const [tab, setTab] = useState(0);
+  const { themeConfig } = useThemeConfig();
+  const brand = (themeConfig.header?.bg && themeConfig.header.bg !== 'white') ? themeConfig.header.bg : (themeConfig.tokens?.primary || '#1976d2');
+  const headerTextColor = themeConfig.header?.text || '#ffffff';
   const [pendingBids, setPendingBids] = useState([]);
   const [acceptedBids, setAcceptedBids] = useState([]);
   const handleTabChange = (event, newValue) => setTab(newValue);
@@ -207,7 +212,7 @@ const Dashboard = () => {
           headers: { Authorization: `Bearer ${token}` },
         });
         setAcceptedBids(Array.isArray(refresh.data.acceptedBids) ? refresh.data.acceptedBids : []);
-      } catch (_) {}
+      } catch (_) { console.error(_); }
     } catch (err) {
       if (window.alertify) {
         window.alertify.error(err.response?.data?.message || 'Failed to assign driver');
@@ -275,6 +280,7 @@ const Dashboard = () => {
     fetchDrivers();
   }, [tab]);
 
+  const bidData = tab === 0 ? pendingBids : acceptedBids;
   const filteredData = bidData.filter((row) =>
     Object.values(row).some((val) =>
       String(val).toLowerCase().includes(searchTerm.toLowerCase())
@@ -376,7 +382,7 @@ const Dashboard = () => {
     const headers = ['Load ID', 'From', 'To', 'ETA', 'Bid Status'];
     const csvRows = [headers.join(',')];
 
-    driverData.forEach((row) => {
+    pendingBids.forEach((row) => {
       const values = [
         row.loadId,
         row.from,
@@ -464,7 +470,7 @@ const Dashboard = () => {
           <Paper elevation={3} sx={{ borderRadius: 3, overflow: 'hidden' }}>
             <Table>
               <TableHead>
-                <TableRow sx={{ backgroundColor: '#f0f4f8' }}>
+                <TableRow sx={{ backgroundColor: (themeConfig.table?.headerBg || '#f0f4f8') }}>
                   <TableCell sx={{ fontWeight: 600 }}>Load ID</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>shipper Name</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Pickup</TableCell>
@@ -478,12 +484,12 @@ const Dashboard = () => {
                   <TableRow>
                     <TableCell colSpan={6} align="center">Loading...</TableCell>
                   </TableRow>
-                ) : pendingBids.length === 0 ? (
+                ) : filteredData.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} align="center">No available loads found</TableCell>
                   </TableRow>
                 ) : (
-                  pendingBids
+                  filteredData
                     .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                     .map((row, i) => (
                       <TableRow
@@ -525,7 +531,7 @@ const Dashboard = () => {
             </Table>
             <TablePagination
               component="div"
-              count={pendingBids.length}
+              count={filteredData.length}
               page={page}
               onPageChange={handleChangePage}
               rowsPerPage={rowsPerPage}
@@ -541,7 +547,7 @@ const Dashboard = () => {
           <Paper elevation={3} sx={{ borderRadius: 3, overflow: 'hidden' }}>
             <Table>
               <TableHead>
-                <TableRow sx={{ backgroundColor: '#f0f4f8' }}>
+                <TableRow sx={{ backgroundColor: (themeConfig.table?.headerBg || '#f0f4f8') }}>
                   <TableCell sx={{ fontWeight: 600 }}>Shipment No</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Pickup Location</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Drop Location</TableCell>
@@ -556,12 +562,12 @@ const Dashboard = () => {
                   <TableRow>
                     <TableCell colSpan={6} align="center">Loading...</TableCell>
                   </TableRow>
-                ) : acceptedBids.length === 0 ? (
+                ) : filteredData.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} align="center">No accepted bids found</TableCell>
                   </TableRow>
                 ) : (
-                  acceptedBids
+                  filteredData
                     .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                     .map((row, i) => (
                       <TableRow
@@ -604,7 +610,7 @@ const Dashboard = () => {
             </Table>
             <TablePagination
               component="div"
-              count={acceptedBids.length}
+              count={filteredData.length}
               page={page}
               onPageChange={handleChangePage}
               rowsPerPage={rowsPerPage}
@@ -623,15 +629,7 @@ const Dashboard = () => {
           background: '#fff',
         }
       }}>
-        <DialogTitle sx={{
-          textAlign: 'left',
-          fontWeight: 700,
-          fontSize: 26,
-          color: '#1976d2',
-          borderBottom: '1px solid #e0e0e0',
-          pb: 2,
-          mb: 2,
-        }}>
+        <DialogTitle sx={{ textAlign: 'left', color: headerTextColor }}>
           Place Your Bid
         </DialogTitle>
         <DialogContent sx={{ px: 4, py: 3, background: '#fff' }}>
@@ -916,20 +914,7 @@ const Dashboard = () => {
           <Button
             onClick={handleCloseBidModal}
             variant="outlined"
-            sx={{
-              px: 4, py: 1,
-              borderRadius: 2,
-              fontWeight: 600,
-              fontSize: 16,
-              color: '#1976d2',
-              borderColor: '#1976d2',
-              background: '#fff',
-              '&:hover': {
-                background: '#e3f0ff',
-                borderColor: '#1565c0',
-                color: '#1565c0',
-              },
-            }}
+            sx={{ borderRadius: 3, backgroundColor: '#ffff', color: '#d32f2f', textTransform: 'none', px: 4, borderColor: '#d32f2f' }}
           >
             Cancel
           </Button>
@@ -938,18 +923,7 @@ const Dashboard = () => {
             type="submit"
             variant="contained"
             color="primary"
-            sx={{
-              px: 4, py: 1,
-              borderRadius: 2,
-              fontWeight: 700,
-              fontSize: 16,
-              background: '#1976d2',
-              textTransform: 'none',
-              letterSpacing: 1,
-              '&:hover': {
-                background: '#1565c0',
-              },
-            }}
+           sx={{ borderRadius: 3, textTransform: 'none', px: 4 }}
           >
             Submit Bid
           </Button>
@@ -980,14 +954,14 @@ const Dashboard = () => {
           pb: 2,
           pt: 2,
           px: 3,
-          background: '#1976d2',
-          color: 'white',
+          background: brand,
+          color: headerTextColor,
           borderRadius: '8px 8px 0 0',
           minHeight: 64
         }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Receipt sx={{ fontSize: 28, color: 'white' }} />
-            <Typography variant="h5" fontWeight={600} color="white">
+            <Receipt sx={{ fontSize: 28, color: headerTextColor }} />
+            <Typography variant="h5" fontWeight={600} color={headerTextColor}>
               Bid Details
             </Typography>
           </Box>

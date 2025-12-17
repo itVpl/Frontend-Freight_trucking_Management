@@ -1,7 +1,7 @@
 .App {
   text-align: left;
   min-height: 100vh;
-  background-color: #f5f5f5;
+  background-color: var(--bg);
 }
 
 /* Global styles */
@@ -16,6 +16,8 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: var(--bg);
+  color: var(--text);
 }
 
 /* Utility classes */
@@ -45,7 +47,7 @@ body {
 
 /* Error message */
 .error {
-  color: #d32f2f;
+  color: var(--error);
   background-color: #ffebee;
   padding: 1rem;
   border-radius: 4px;
@@ -54,9 +56,9 @@ body {
 
 /* Success message */
 .success {
-  color: #2e7d32;
+  color: var(--success);
   background-color: #e8f5e8;
   padding: 1rem;
   border-radius: 4px;
   margin: 1rem 0;
-} 
+}

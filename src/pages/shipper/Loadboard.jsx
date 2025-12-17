@@ -33,7 +33,9 @@ import {
   Divider,
   CircularProgress,
   Alert,
-  IconButton
+  IconButton,
+  ToggleButton,
+  ToggleButtonGroup
 } from '@mui/material';
 import {
   Add,
@@ -62,6 +64,7 @@ import { Download, Search } from '@mui/icons-material';
 import PersonIcon from '@mui/icons-material/Person';
 import SearchNavigationFeedback from '../../components/SearchNavigationFeedback';
 import PageLoader from '../../components/PageLoader';
+import { useThemeConfig } from '../../context/ThemeContext';
 
 // US Cities List
 const usCities = [
@@ -229,6 +232,13 @@ const LoadBoard = () => {
   const [isFiltered, setIsFiltered] = useState(false);
   const [chargesCalculatorModalOpen, setChargesCalculatorModalOpen] = useState(false);
   const [charges, setCharges] = useState([]);
+
+  const { themeConfig } = useThemeConfig();
+  const primary = themeConfig.tokens?.primary || '#1976d2';
+  const brand = (themeConfig.header?.bg && themeConfig.header.bg !== 'white')
+    ? themeConfig.header.bg
+    : primary;
+  const headerTextColor = themeConfig.header?.text || '#ffffff';
 
   // Vehicle type options - Separate for DRAYAGE and OTR as per server enum
   // IMPORTANT: These must match EXACTLY with API enum values
@@ -2560,10 +2570,24 @@ const handleEditLoad = (load) => {
         </Tabs>
       </Paper>
 
-      <Paper elevation={3} sx={{ borderRadius: 3, overflow: 'hidden' }}>
+      <Paper elevation={3} sx={{ borderRadius: 3, overflow: 'hidden', backgroundColor: (themeConfig?.content?.bgImage ? 'rgba(255,255,255,0.94)' : (themeConfig?.table?.bg || '#fff')), position: 'relative', boxShadow: '0 10px 30px rgba(0,0,0,0.08)', border: '1px solid rgba(0,0,0,0.06)' }}>
+        {themeConfig?.table?.bgImage && (
+          <Box sx={{
+            position: 'absolute',
+            inset: 0,
+            backgroundImage: `url(${themeConfig.table.bgImage})`,
+            backgroundSize: 'cover',
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'center',
+            opacity: themeConfig.table?.bgImageOpacity ?? 0,
+            pointerEvents: 'none',
+            zIndex: 0,
+          }} />
+        )}
+        <Box sx={{ position: 'relative', zIndex: 1 }}>
         <Table>
           <TableHead>
-            <TableRow sx={{ backgroundColor: '#f0f4f8' }}>
+            <TableRow sx={{ backgroundColor: (themeConfig.table?.headerBg || '#f0f4f8') }}>
               <TableCell sx={{ fontWeight: 600 }}>Load ID</TableCell>
               {/* Hide Shipment No column for Pending Approval (0) and Bidding (1) tabs */}
               {activeTab !== 0 && activeTab !== 1 && (
@@ -2711,6 +2735,7 @@ const handleEditLoad = (load) => {
             )}
           </TableBody>
         </Table>
+        </Box>
         <TablePagination
           component="div"
           count={filteredData.length}
@@ -2741,16 +2766,16 @@ const handleEditLoad = (load) => {
           }
         }}
       >
-        <DialogTitle className="border-b-0 bg-[#1976d2] flex items-center justify-between gap-3 py-4 px-6 relative rounded-t-lg" sx={{ backgroundColor: '#1976d2' }}>
+        <DialogTitle className="border-b-0 flex items-center justify-between gap-3 py-4 px-6 relative rounded-t-lg" sx={{ backgroundColor: brand, color: headerTextColor }}>
           <Box className="flex items-center gap-3 flex-1">
             <Box className="bg-white rounded-lg w-12 h-12 flex items-center justify-center border-2 border-blue-300 shadow-sm">
               <LocalShipping className="text-xl text-blue-500" />
             </Box>
             <Box>
-              <Typography variant="h5" className="font-bold text-white mb-0.5 text-xl">
+              <Typography variant="h5" className="font-bold mb-0.5 text-xl" sx={{ color: headerTextColor }}>
                 Create New Load
               </Typography>
-              <Typography variant="body2" className="text-white text-sm opacity-95">
+              <Typography variant="body2" className="text-sm opacity-95" sx={{ color: headerTextColor }}>
                 Fill in the details to create a new shipment
               </Typography>
             </Box>
@@ -2758,85 +2783,41 @@ const handleEditLoad = (load) => {
 
           {/* Load Type Toggle and Close Button */}
           <Stack direction="row" spacing={1.5} className="items-center">
-            {/* OTR Button */}
-            <Button
-              onClick={() => handleLoadTypeChange('OTR')}
-              variant="contained"
-              className={`rounded-lg min-w-[90px] font-semibold normal-case py-1.5 px-3 text-sm transition-all duration-200 ${loadType === 'OTR'
-                ? 'bg-white text-[#1976d2] hover:bg-gray-100'
-                : 'bg-transparent text-white border border-white hover:bg-white/10'
-                }`}
+            <ToggleButtonGroup
+              value={loadType}
+              exclusive
+              onChange={(e, val) => { if (val) handleLoadTypeChange(val); }}
               sx={{
-                textTransform: 'none',
-                ...(loadType === 'OTR' ? {
-                  backgroundColor: '#ffffff',
-                  color: '#1976d2',
-                  border: 'none',
-                  boxShadow: 'none',
-                  '&:hover': {
-                    backgroundColor: '#f3f4f6',
-                    boxShadow: 'none'
-                  }
-                } : {
-                  backgroundColor: 'transparent',
-                  color: '#ffffff',
-                  borderColor: '#ffffff',
-                  borderWidth: 1,
-                  borderStyle: 'solid',
-                  boxShadow: 'none',
-                  '&:hover': {
-                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                    boxShadow: 'none'
-                  }
-                })
+                bgcolor: 'transparent',
+                '& .MuiToggleButton-root': {
+                  textTransform: 'none',
+                  borderRadius: 2,
+                  px: 3,
+                  py: 1.5,
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  color: headerTextColor,
+                  borderColor: 'rgba(255,255,255,0.7)',
+                },
+                '& .Mui-selected': {
+                  bgcolor: '#ffffff !important',
+                  color: primary + ' !important',
+                  borderColor: 'transparent',
+                },
               }}
             >
-              OTR
-            </Button>
-            {/* DRAYAGE Button */}
-            <Button
-              onClick={() => handleLoadTypeChange('DRAYAGE')}
-              variant="contained"
-              className={`rounded-lg min-w-[110px] font-semibold normal-case py-1.5 px-3 text-sm transition-all duration-200 ${loadType === 'DRAYAGE'
-                ? 'bg-white text-[#1976d2] hover:bg-gray-100'
-                : 'bg-transparent text-white border border-white hover:bg-white/10'
-                }`}
-              sx={{
-                textTransform: 'none',
-                ...(loadType === 'DRAYAGE' ? {
-                  backgroundColor: '#ffffff',
-                  color: '#1976d2',
-                  border: 'none',
-                  boxShadow: 'none',
-                  '&:hover': {
-                    backgroundColor: '#f3f4f6',
-                    boxShadow: 'none'
-                  }
-                } : {
-                  backgroundColor: 'transparent',
-                  color: '#ffffff',
-                  borderColor: '#ffffff',
-                  borderWidth: 1,
-                  borderStyle: 'solid',
-                  boxShadow: 'none',
-                  '&:hover': {
-                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                    boxShadow: 'none'
-                  }
-                })
-              }}
-            >
-              DRAYAGE
-            </Button>
+              <ToggleButton value="OTR">OTR</ToggleButton>
+              <ToggleButton value="DRAYAGE">DRAYAGE</ToggleButton>
+            </ToggleButtonGroup>
             {/* Close Button */}
             <IconButton
               onClick={handleCloseModal}
               sx={{
-                color: '#ffffff',
+                color: headerTextColor,
                 '&:hover': {
                   backgroundColor: 'rgba(255, 255, 255, 0.2)'
                 },
-                ml: 0.5
+                ml: 1.5
               }}
               size="small"
             >
@@ -4470,14 +4451,12 @@ const handleEditLoad = (load) => {
             sx={{
               borderRadius: 2,
               textTransform: 'none',
-             background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+             background: primary,
               px: 4,
               py: 1,
               fontWeight: 600,
               fontSize: '0.95rem',
-              '&:hover': {
-                backgroundColor: '#244A8F', // slightly darker on hover
-              },
+              '&:hover': { opacity: 0.9 },
               '&:disabled': {
                 background: '#cccccc',
                 color: '#666666',
@@ -4508,8 +4487,8 @@ const handleEditLoad = (load) => {
         }}
       >
         <DialogTitle sx={{
-          background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)',
-          color: '#fff',
+          background: brand,
+          color: headerTextColor,
           fontWeight: 700,
           fontSize: { xs: 18, sm: 24 },
           py: { xs: 2, sm: 3 },
@@ -5088,329 +5067,270 @@ const handleEditLoad = (load) => {
         </DialogActions>
       </Dialog>
 
-      {/* Bid Details Modal */}
-      <Dialog open={bidDetailsModalOpen} onClose={handleCloseBidDetailsModal} maxWidth={false} fullWidth PaperProps={{
-        sx: {
-          borderRadius: 3,
-          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
-          background: '#fff',
-          maxHeight: '45vh',
-          width: '700px',
-          maxWidth: '90vw'
-        }
-      }}>
-        <DialogTitle sx={{
-          fontWeight: 700,
-          color: '#1976d2',
-          fontSize: 20,
-          background: '#f8fafc',
-          borderBottom: '2px solid #e3f2fd',
-          py: 2,
-          textAlign: 'center'
-        }}>
-          🚛 Bid Details
-          {selectedBid && (
-            <Chip
-              label={selectedBid.status}
-              color={
-                selectedBid.status === 'Pending' ? 'default' :
-                  selectedBid.status === 'Negotiating' ? 'warning' :
-                    selectedBid.status === 'Accepted' ? 'success' :
-                      selectedBid.status === 'Rejected' ? 'error' : 'default'
-              }
-              size="small"
-              sx={{ ml: 2, fontWeight: 600 }}
-            />
-          )}
-        </DialogTitle>
-        <DialogContent sx={{ px: 3, py: 2 }}>
-          {selectedBid && (
+      {/* Bid Details Modal - Redesigned full-screen view */}
+      <Dialog
+        open={bidDetailsModalOpen}
+        onClose={handleCloseBidDetailsModal}
+        fullScreen
+        PaperProps={{
+          sx: {
+            backgroundColor: '#fff'
+          }
+        }}
+      >
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 2,
+            px: 3,
+            py: 2,
+            background: brand,
+            color: headerTextColor,
+            borderBottom: '1px solid #e0e0e0'
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Box sx={{
+              width: 48,
+              height: 48,
+              borderRadius: 2,
+              backgroundColor: 'rgba(255,255,255,0.15)',
               display: 'flex',
-              flexDirection: 'column',
-              gap: 2
-            }}>
-              {/* Driver Name - Centered */}
-              <Box sx={{ textAlign: 'center', mb: 2, mt: 1 }}>
-                <Avatar
-                  src={selectedBid.bidder?.avatar || ''}
-                  alt="Driver"
-                  sx={{
-                    width: 60,
-                    height: 60,
-                    mb: 1,
-                    bgcolor: '#e3f2fd',
-                    color: '#1976d2',
-                    border: '2px solid #1976d2',
-                    fontSize: 24,
-                    fontWeight: 600,
-                    mx: 'auto'
-                  }}
-                >
-                  {selectedBid.driver?.name ?
-                    (selectedBid.driver.name.split(' ').map(w => w[0]).join('').toUpperCase()) :
-                    <PersonIcon sx={{ fontSize: 28, color: '#1976d2' }} />
-                  }
-                </Avatar>
-                <Typography sx={{
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>🚛</Box>
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 800, color: '#fff' }}>
+                Bid Details {selectedLoadId ? `(Load #: L-${String(selectedLoadId).slice(-5)})` : ''}
+              </Typography>
+              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.85)' }}>
+                Driver, vehicle and bid information
+              </Typography>
+            </Box>
+            {selectedBid && (
+              <Chip
+                label={selectedBid.status}
+                sx={{
+                  ml: 2,
                   fontWeight: 700,
-                  fontSize: 18,
-                  color: '#1976d2',
-                  mb: 0.5
-                }}>
-                  {selectedBid.driver?.name || selectedBid.driverName || 'Driver Name'}
-                </Typography>
-              </Box>
+                  color: '#fff',
+                  backgroundColor:
+                    selectedBid.status === 'Pending' ? 'rgba(255,255,255,0.25)' :
+                    selectedBid.status === 'Negotiating' ? '#ff9800' :
+                    selectedBid.status === 'Accepted' ? '#4caf50' :
+                    selectedBid.status === 'Rejected' ? '#f44336' : 'rgba(255,255,255,0.25)'
+                }}
+                size="small"
+              />
+            )}
+          </Box>
+          <IconButton onClick={handleCloseBidDetailsModal} sx={{ color: headerTextColor }}>
+            <Close />
+          </IconButton>
+        </DialogTitle>
 
-              {/* Row 1: Vehicle No, Bid Amount, Pickup ETA, Drop ETA */}
-              <Box sx={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr 1fr 1fr',
-                gap: 2,
-                mb: 2
-              }}>
-                <Box sx={{
-                  background: '#f8f9fa',
-                  borderRadius: 2,
-                  p: 1.5,
-                  border: '1px solid #e9ecef',
-                  textAlign: 'center'
-                }}>
-                  <Typography sx={{
-                    fontWeight: 600,
-                    color: '#1976d2',
-                    fontSize: 12,
-                    mb: 0.5
-                  }}>
-                    Vehicle No
+        <DialogContent sx={{ p: 0 }}>
+          {selectedBid ? (
+            <Grid container sx={{ height: 'calc(100vh - 64px)' }}>
+              {/* Left Summary Panel */}
+              <Grid item xs={12} md={4} sx={{ backgroundColor: '#f8fafc', borderRight: '1px solid #e0e0e0', p: 3, overflowY: 'auto' }}>
+                <Box sx={{ textAlign: 'center', mb: 3 }}>
+                  <Avatar
+                    src={selectedBid.bidder?.avatar || ''}
+                    alt="Driver"
+                    sx={{
+                      width: 84,
+                      height: 84,
+                      mb: 1.5,
+                      bgcolor: '#e3f2fd',
+                      color: '#1976d2',
+                      border: '3px solid #1976d2',
+                      fontSize: 28,
+                      fontWeight: 700,
+                      mx: 'auto'
+                    }}
+                  >
+                    {selectedBid.driver?.name ?
+                      (selectedBid.driver.name.split(' ').map(w => w[0]).join('').toUpperCase()) :
+                      <PersonIcon sx={{ fontSize: 32, color: '#1976d2' }} />
+                    }
+                  </Avatar>
+                  <Typography sx={{ fontWeight: 800, fontSize: 20, color: '#1976d2' }}>
+                    {selectedBid.driver?.name || selectedBid.driverName || 'Driver Name'}
                   </Typography>
-                  <Typography sx={{
-                    fontWeight: 600,
-                    fontSize: 14,
-                    color: '#333'
-                  }}>
-                    🚛 {selectedBid.vehicle?.number || selectedBid.vehicleNumber || 'N/A'}
-                  </Typography>
+                  <Typography sx={{ fontSize: 12, color: '#666' }}>Professional Driver</Typography>
                 </Box>
 
-                <Box sx={{
-                  background: '#f8f9fa',
-                  borderRadius: 2,
-                  p: 1.5,
-                  border: '1px solid #e9ecef',
-                  textAlign: 'center'
-                }}>
-                  <Typography sx={{
-                    fontWeight: 600,
-                    color: '#1976d2',
-                    fontSize: 12,
-                    mb: 0.5
-                  }}>
-                    Bid Amount
-                  </Typography>
-                  <Typography sx={{
-                    fontWeight: 700,
-                    fontSize: 16,
-                    color: '#4caf50'
-                  }}>
-                    ${selectedBid.intermediateRate?.toLocaleString() || '-'}
-                  </Typography>
-                </Box>
+                <Stack spacing={2}>
+                  <Paper sx={{ p: 2 }} variant="outlined">
+                    <Typography sx={{ fontWeight: 600, fontSize: 12, color: '#666', mb: 0.5 }}>Vehicle</Typography>
+                    <Typography sx={{ fontWeight: 700, fontSize: 15 }}>🚛 {selectedBid.vehicle?.number || selectedBid.vehicleNumber || 'N/A'}</Typography>
+                  </Paper>
+                  <Paper sx={{ p: 2 }} variant="outlined">
+                    <Typography sx={{ fontWeight: 600, fontSize: 12, color: '#2e7d32', mb: 0.5 }}>Bid Amount</Typography>
+                    <Typography sx={{ fontWeight: 800, fontSize: 18, color: '#1b5e20' }}>${selectedBid.intermediateRate?.toLocaleString() || '-'}</Typography>
+                  </Paper>
+                  <Paper sx={{ p: 2 }} variant="outlined">
+                    <Typography sx={{ fontWeight: 600, fontSize: 12, color: '#f57c00', mb: 0.5 }}>Pickup ETA</Typography>
+                    <Typography sx={{ fontWeight: 600, fontSize: 13 }}>
+                      {selectedBid.estimatedPickupDate ? new Date(selectedBid.estimatedPickupDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Not specified'}
+                    </Typography>
+                  </Paper>
+                  <Paper sx={{ p: 2 }} variant="outlined">
+                    <Typography sx={{ fontWeight: 600, fontSize: 12, color: '#1565c0', mb: 0.5 }}>Drop ETA</Typography>
+                    <Typography sx={{ fontWeight: 600, fontSize: 13 }}>
+                      {selectedBid.estimatedDeliveryDate ? new Date(selectedBid.estimatedDeliveryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Not specified'}
+                    </Typography>
+                  </Paper>
+                </Stack>
 
-                <Box sx={{
-                  background: '#fff3e0',
-                  borderRadius: 2,
-                  p: 1.5,
-                  border: '1px solid #ffcc02',
-                  textAlign: 'center'
-                }}>
-                  <Typography sx={{
-                    fontWeight: 600,
-                    color: '#f57c00',
-                    fontSize: 12,
-                    mb: 0.5
-                  }}>
-                    Pickup ETA
-                  </Typography>
-                  <Typography sx={{
-                    fontWeight: 600,
-                    fontSize: 13,
-                    color: '#333'
-                  }}>
-                    {selectedBid.estimatedPickupDate ?
-                      new Date(selectedBid.estimatedPickupDate).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      }) : 'Not specified'}
-                  </Typography>
-                </Box>
-
-                <Box sx={{
-                  background: '#e8f5e8',
-                  borderRadius: 2,
-                  p: 1.5,
-                  border: '1px solid #4caf50',
-                  textAlign: 'center'
-                }}>
-                  <Typography sx={{
-                    fontWeight: 600,
-                    color: '#2e7d32',
-                    fontSize: 12,
-                    mb: 0.5
-                  }}>
-                    Drop ETA
-                  </Typography>
-                  <Typography sx={{
-                    fontWeight: 600,
-                    fontSize: 13,
-                    color: '#333'
-                  }}>
-                    {selectedBid.estimatedDeliveryDate ?
-                      new Date(selectedBid.estimatedDeliveryDate).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      }) : 'Not specified'}
-                  </Typography>
-                </Box>
-              </Box>
-
-              {/* Negotiation Details - Show if bid is in negotiation */}
-              {selectedBid.status === 'Negotiating' && selectedBid.negotiationDetails && (
-                <Box sx={{
-                  background: '#fff3e0',
-                  borderRadius: 2,
-                  p: 2,
-                  border: '2px solid #ff9800',
-                  mt: 2
-                }}>
-                  <Typography sx={{
-                    fontWeight: 700,
-                    fontSize: 14,
-                    color: '#ff9800',
-                    mb: 1,
-                    textAlign: 'center'
-                  }}>
-                    🤝 Negotiation in Progress
-                  </Typography>
-
-                  {selectedBid.negotiationDetails.shipperCounterRate && (
-                    <Box sx={{ mb: 1 }}>
-                      <Typography sx={{
-                        fontWeight: 600,
-                        fontSize: 12,
-                        color: '#333',
-                        mb: 0.5
-                      }}>
-                        Your Counter Offer:
-                      </Typography>
-                      <Typography sx={{
-                        fontWeight: 700,
-                        fontSize: 16,
-                        color: '#ff9800'
-                      }}>
-                        ${selectedBid.negotiationDetails.shipperCounterRate.toLocaleString()}
-                      </Typography>
-                    </Box>
-                  )}
-
-                  {selectedBid.negotiationDetails.shipperNegotiationMessage && (
-                    <Box sx={{ mb: 1 }}>
-                      <Typography sx={{
-                        fontWeight: 600,
-                        fontSize: 12,
-                        color: '#333',
-                        mb: 0.5
-                      }}>
-                        Your Message:
-                      </Typography>
-                      <Typography sx={{
-                        fontWeight: 500,
-                        fontSize: 13,
-                        color: '#333',
-                        fontStyle: 'italic'
-                      }}>
-                        "{selectedBid.negotiationDetails.shipperNegotiationMessage}"
-                      </Typography>
-                    </Box>
-                  )}
-
-                  {selectedBid.negotiationDetails.truckerResponse && selectedBid.negotiationDetails.truckerResponse !== 'Pending' && (
-                    <Box sx={{ mb: 1 }}>
-                      <Typography sx={{
-                        fontWeight: 600,
-                        fontSize: 12,
-                        color: '#333',
-                        mb: 0.5
-                      }}>
-                        Trucker Response:
-                      </Typography>
-                      <Typography sx={{
-                        fontWeight: 600,
-                        fontSize: 13,
-                        color: selectedBid.negotiationDetails.truckerResponse === 'Accepted' ? '#4caf50' :
-                          selectedBid.negotiationDetails.truckerResponse === 'Rejected' ? '#f44336' : '#ff9800'
-                      }}>
-                        {selectedBid.negotiationDetails.truckerResponse}
-                      </Typography>
-                      {selectedBid.negotiationDetails.truckerNegotiationMessage && (
-                        <Typography sx={{
-                          fontWeight: 500,
-                          fontSize: 12,
-                          color: '#333',
-                          fontStyle: 'italic',
-                          mt: 0.5
-                        }}>
-                          "{selectedBid.negotiationDetails.truckerNegotiationMessage}"
+                {selectedBid.status === 'Negotiating' && selectedBid.negotiationDetails && (
+                  <Paper sx={{ p: 2, mt: 2 }} variant="outlined">
+                    <Typography sx={{ fontWeight: 800, fontSize: 14, color: '#ff9800', mb: 1 }}>🤝 Negotiation</Typography>
+                    {selectedBid.negotiationDetails.shipperCounterRate && (
+                      <Box sx={{ mb: 1 }}>
+                        <Typography sx={{ fontWeight: 600, fontSize: 12, color: '#333', mb: 0.5 }}>Your Counter Offer</Typography>
+                        <Typography sx={{ fontWeight: 800, fontSize: 16, color: '#ff9800' }}>${selectedBid.negotiationDetails.shipperCounterRate.toLocaleString()}</Typography>
+                      </Box>
+                    )}
+                    {selectedBid.negotiationDetails.shipperNegotiationMessage && (
+                      <Box sx={{ mb: 1 }}>
+                        <Typography sx={{ fontWeight: 600, fontSize: 12, color: '#333', mb: 0.5 }}>Your Message</Typography>
+                        <Typography sx={{ fontWeight: 500, fontSize: 13, color: '#333', fontStyle: 'italic' }}>
+                          "{selectedBid.negotiationDetails.shipperNegotiationMessage}"
                         </Typography>
-                      )}
-                    </Box>
-                  )}
+                      </Box>
+                    )}
+                    {selectedBid.negotiationDetails.truckerResponse && selectedBid.negotiationDetails.truckerResponse !== 'Pending' && (
+                      <Box sx={{ mb: 1 }}>
+                        <Typography sx={{ fontWeight: 600, fontSize: 12, color: '#333', mb: 0.5 }}>Trucker Response</Typography>
+                        <Typography sx={{
+                          fontWeight: 700,
+                          fontSize: 13,
+                          color: selectedBid.negotiationDetails.truckerResponse === 'Accepted' ? '#4caf50' : selectedBid.negotiationDetails.truckerResponse === 'Rejected' ? '#f44336' : '#ff9800'
+                        }}>
+                          {selectedBid.negotiationDetails.truckerResponse}
+                        </Typography>
+                        {selectedBid.negotiationDetails.truckerNegotiationMessage && (
+                          <Typography sx={{ fontWeight: 500, fontSize: 12, color: '#333', fontStyle: 'italic', mt: 0.5 }}>
+                            "{selectedBid.negotiationDetails.truckerNegotiationMessage}"
+                          </Typography>
+                        )}
+                      </Box>
+                    )}
+                    {selectedBid.negotiationDetails.truckerCounterRate && (
+                      <Box>
+                        <Typography sx={{ fontWeight: 600, fontSize: 12, color: '#333', mb: 0.5 }}>Trucker Counter Offer</Typography>
+                        <Typography sx={{ fontWeight: 800, fontSize: 16, color: '#ff9800' }}>${selectedBid.negotiationDetails.truckerCounterRate.toLocaleString()}</Typography>
+                      </Box>
+                    )}
+                  </Paper>
+                )}
+              </Grid>
 
-                  {selectedBid.negotiationDetails.truckerCounterRate && (
-                    <Box>
-                      <Typography sx={{
-                        fontWeight: 600,
-                        fontSize: 12,
-                        color: '#333',
-                        mb: 0.5
-                      }}>
-                        Trucker Counter Offer:
-                      </Typography>
-                      <Typography sx={{
-                        fontWeight: 700,
-                        fontSize: 16,
-                        color: '#ff9800'
-                      }}>
-                        ${selectedBid.negotiationDetails.truckerCounterRate.toLocaleString()}
-                      </Typography>
-                    </Box>
+              {/* Right Detail Panel */}
+              <Grid item xs={12} md={8} sx={{ p: 3, overflowY: 'auto' }}>
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 800, color: '#1976d2' }}>Overview</Typography>
+                  <Divider sx={{ my: 1 }} />
+                </Box>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <Paper sx={{ p: 2 }} variant="outlined">
+                      <Typography sx={{ fontWeight: 600, fontSize: 12, color: '#666', mb: 0.5 }}>Driver Name</Typography>
+                      <Typography sx={{ fontWeight: 700, fontSize: 14 }}>{selectedBid.driver?.name || selectedBid.driverName || 'N/A'}</Typography>
+                    </Paper>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Paper sx={{ p: 2 }} variant="outlined">
+                      <Typography sx={{ fontWeight: 600, fontSize: 12, color: '#666', mb: 0.5 }}>Vehicle Number</Typography>
+                      <Typography sx={{ fontWeight: 700, fontSize: 14 }}>{selectedBid.vehicle?.number || selectedBid.vehicleNumber || 'N/A'}</Typography>
+                    </Paper>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Paper sx={{ p: 2 }} variant="outlined">
+                      <Typography sx={{ fontWeight: 600, fontSize: 12, color: '#666', mb: 0.5 }}>Bid Amount</Typography>
+                      <Typography sx={{ fontWeight: 800, fontSize: 16, color: '#1b5e20' }}>${selectedBid.intermediateRate?.toLocaleString() || '-'}</Typography>
+                    </Paper>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Paper sx={{ p: 2 }} variant="outlined">
+                      <Typography sx={{ fontWeight: 600, fontSize: 12, color: '#666', mb: 0.5 }}>Status</Typography>
+                      <Chip
+                        label={selectedBid.status}
+                        size="small"
+                        sx={{
+                          fontWeight: 700,
+                          backgroundColor:
+                            selectedBid.status === 'Pending' ? '#e0e0e0' :
+                            selectedBid.status === 'Negotiating' ? '#ffecb3' :
+                            selectedBid.status === 'Accepted' ? '#c8e6c9' :
+                            selectedBid.status === 'Rejected' ? '#ffcdd2' : '#e0e0e0'
+                        }}
+                      />
+                    </Paper>
+                  </Grid>
+                </Grid>
+
+                <Box sx={{ mt: 3 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 800, color: '#1976d2' }}>Negotiation Details</Typography>
+                  <Divider sx={{ my: 1 }} />
+                  {selectedBid.status === 'Negotiating' && selectedBid.negotiationDetails ? (
+                    <Grid container spacing={2}>
+                      {selectedBid.negotiationDetails.shipperCounterRate && (
+                        <Grid item xs={12} sm={6}>
+                          <Paper sx={{ p: 2 }} variant="outlined">
+                            <Typography sx={{ fontWeight: 600, fontSize: 12, color: '#666', mb: 0.5 }}>Your Counter Offer</Typography>
+                            <Typography sx={{ fontWeight: 800, fontSize: 16, color: '#ff9800' }}>${selectedBid.negotiationDetails.shipperCounterRate.toLocaleString()}</Typography>
+                          </Paper>
+                        </Grid>
+                      )}
+                      {selectedBid.negotiationDetails.truckerCounterRate && (
+                        <Grid item xs={12} sm={6}>
+                          <Paper sx={{ p: 2 }} variant="outlined">
+                            <Typography sx={{ fontWeight: 600, fontSize: 12, color: '#666', mb: 0.5 }}>Trucker Counter Offer</Typography>
+                            <Typography sx={{ fontWeight: 800, fontSize: 16, color: '#ff9800' }}>${selectedBid.negotiationDetails.truckerCounterRate.toLocaleString()}</Typography>
+                          </Paper>
+                        </Grid>
+                      )}
+                      {selectedBid.negotiationDetails.shipperNegotiationMessage && (
+                        <Grid item xs={12}>
+                          <Paper sx={{ p: 2 }} variant="outlined">
+                            <Typography sx={{ fontWeight: 600, fontSize: 12, color: '#666', mb: 0.5 }}>Your Message</Typography>
+                            <Typography sx={{ fontWeight: 500, fontSize: 13, color: '#333', fontStyle: 'italic' }}>
+                              "{selectedBid.negotiationDetails.shipperNegotiationMessage}"
+                            </Typography>
+                          </Paper>
+                        </Grid>
+                      )}
+                      {selectedBid.negotiationDetails.truckerNegotiationMessage && (
+                        <Grid item xs={12}>
+                          <Paper sx={{ p: 2 }} variant="outlined">
+                            <Typography sx={{ fontWeight: 600, fontSize: 12, color: '#666', mb: 0.5 }}>Trucker Message</Typography>
+                            <Typography sx={{ fontWeight: 500, fontSize: 13, color: '#333', fontStyle: 'italic' }}>
+                              "{selectedBid.negotiationDetails.truckerNegotiationMessage}"
+                            </Typography>
+                          </Paper>
+                        </Grid>
+                      )}
+                    </Grid>
+                  ) : (
+                    <Typography sx={{ fontSize: 13, color: '#777' }}>No negotiation details available.</Typography>
                   )}
                 </Box>
-              )}
+              </Grid>
+            </Grid>
+          ) : (
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 'calc(100vh - 64px)' }}>
+              <Typography sx={{ color: '#666' }}>No bid selected</Typography>
             </Box>
           )}
         </DialogContent>
-        <DialogActions sx={{ p: 2, background: '#f8fafc', justifyContent: 'center' }}>
-          <Button
-            onClick={handleCloseBidDetailsModal}
-            variant="outlined"
-            sx={{
-              borderRadius: 2,
-              fontWeight: 600,
-              px: 3,
-              py: 1,
-              borderColor: '#1976d2',
-              color: '#1976d2',
-              '&:hover': {
-                borderColor: '#1565c0',
-                color: '#1565c0'
-              }
-            }}
-          >
+
+        <DialogActions sx={{ p: 2, borderTop: '1px solid #e0e0e0', background: '#f8fafc' }}>
+          <Button onClick={handleCloseBidDetailsModal} variant="outlined" sx={{ borderRadius: 2, fontWeight: 600, px: 3, py: 1, borderColor: '#1976d2', color: '#1976d2' }}>
             Close
           </Button>
         </DialogActions>
@@ -5574,10 +5494,10 @@ const handleEditLoad = (load) => {
           sx={{
             px: 4,
             borderRadius: "10px",
-            background: "#2563eb",
+            background: primary,
             textTransform: "none",
             fontWeight: 600,
-            "&:hover": { background: "#1d4ed8" },
+            "&:hover": { opacity: 0.9 },
           }}
         >
           Accept Bid
@@ -5640,7 +5560,7 @@ const handleEditLoad = (load) => {
               <Button
                 type="submit"
                 variant="contained"
-                sx={{ borderRadius: 2, fontWeight: 700, bgcolor: '#ff9800', '&:hover': { bgcolor: '#f57c00' } }}
+                sx={{ borderRadius: 2, fontWeight: 700, bgcolor: primary, '&:hover': { opacity: 0.9 } }}
               >
                 Start Negotiation
               </Button>
@@ -5736,10 +5656,8 @@ const handleEditLoad = (load) => {
               fontWeight: 600,
               px: 3,
               py: 1,
-              bgcolor: '#f44336',
-              '&:hover': {
-                bgcolor: '#d32f2f'
-              }
+              bgcolor: primary,
+              '&:hover': { opacity: 0.9 }
             }}
           >
             Yes, Reject Bid
@@ -6006,16 +5924,16 @@ const handleEditLoad = (load) => {
           }
         }}
       >
-        <DialogTitle className="border-b-0 bg-[#1976d2] flex items-center justify-between gap-3 py-4 px-6 relative rounded-t-lg" sx={{ backgroundColor: '#1976d2' }}>
+        <DialogTitle className="border-b-0 flex items-center justify-between gap-3 py-4 px-6 relative rounded-t-lg" sx={{ background: brand, color: headerTextColor }}>
           <Box className="flex items-center gap-3 flex-1">
             <Box className="bg-white rounded-lg w-12 h-12 flex items-center justify-center border-2 border-blue-300 shadow-sm">
               <LocalShipping className="text-xl text-blue-500" />
             </Box>
             <Box>
-              <Typography variant="h5" className="font-bold text-white mb-0.5 text-xl">
+              <Typography variant="h5" className="font-bold mb-0.5 text-xl" sx={{ color: headerTextColor }}>
                 Edit Load
               </Typography>
-              <Typography variant="body2" className="text-white text-sm opacity-95">
+              <Typography variant="body2" className="text-sm opacity-95" sx={{ color: headerTextColor }}>
                 Update the load details
               </Typography>
             </Box>
@@ -6029,33 +5947,35 @@ const handleEditLoad = (load) => {
                 setEditLoadType('OTR');
                 setEditForm({ ...editForm, loadType: 'OTR', vehicleType: '' });
               }}
-              variant="contained"
-              className={`rounded-lg min-w-[90px] font-semibold normal-case py-1.5 px-3 text-sm transition-all duration-200 ${editLoadType === 'OTR'
-                ? 'bg-white text-[#1976d2] hover:bg-gray-100'
-                : 'bg-transparent text-white border border-white hover:bg-white/10'
-                }`}
+              variant={editLoadType === 'OTR' ? 'contained' : 'outlined'}
+              className={`rounded-lg min-w-[90px] font-semibold normal-case py-1.5 px-3 text-sm transition-all duration-200`}
+              disableRipple
               sx={{
                 textTransform: 'none',
                 ...(editLoadType === 'OTR' ? {
-                  backgroundColor: '#ffffff',
-                  color: '#1976d2',
+                  backgroundColor: '#ffffff !important',
+                  color: primary + ' !important',
                   border: 'none',
                   boxShadow: 'none',
                   '&:hover': {
-                    backgroundColor: '#f3f4f6',
+                    backgroundColor: '#f3f4f6 !important',
+                    color: primary + ' !important',
                     boxShadow: 'none'
-                  }
+                  },
+                  '&:active': { color: primary + ' !important' },
+                  '&:focus': { color: primary + ' !important' }
                 } : {
+                  color: headerTextColor + ' !important',
+                  borderColor: headerTextColor + ' !important',
                   backgroundColor: 'transparent',
-                  color: '#ffffff',
-                  borderColor: '#ffffff',
-                  borderWidth: 1,
-                  borderStyle: 'solid',
                   boxShadow: 'none',
                   '&:hover': {
-                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                    backgroundColor: 'rgba(255, 255, 255, 0.08) !important',
+                    color: headerTextColor + ' !important',
                     boxShadow: 'none'
-                  }
+                  },
+                  '&:active': { color: headerTextColor + ' !important' },
+                  '&:focus': { color: headerTextColor + ' !important' }
                 })
               }}
             >
@@ -6067,33 +5987,35 @@ const handleEditLoad = (load) => {
                 setEditLoadType('DRAYAGE');
                 setEditForm({ ...editForm, loadType: 'DRAYAGE', vehicleType: '' });
               }}
-              variant="contained"
-              className={`rounded-lg min-w-[110px] font-semibold normal-case py-1.5 px-3 text-sm transition-all duration-200 ${editLoadType === 'DRAYAGE'
-                ? 'bg-white text-[#1976d2] hover:bg-gray-100'
-                : 'bg-transparent text-white border border-white hover:bg-white/10'
-                }`}
+              variant={editLoadType === 'DRAYAGE' ? 'contained' : 'outlined'}
+              className={`rounded-lg min-w-[110px] font-semibold normal-case py-1.5 px-3 text-sm transition-all duration-200`}
+              disableRipple
               sx={{
                 textTransform: 'none',
                 ...(editLoadType === 'DRAYAGE' ? {
-                  backgroundColor: '#ffffff',
-                  color: '#1976d2',
+                  backgroundColor: '#ffffff !important',
+                  color: primary + ' !important',
                   border: 'none',
                   boxShadow: 'none',
                   '&:hover': {
-                    backgroundColor: '#f3f4f6',
+                    backgroundColor: '#f3f4f6 !important',
+                    color: primary + ' !important',
                     boxShadow: 'none'
-                  }
+                  },
+                  '&:active': { color: primary + ' !important' },
+                  '&:focus': { color: primary + ' !important' }
                 } : {
+                  color: headerTextColor + ' !important',
+                  borderColor: headerTextColor + ' !important',
                   backgroundColor: 'transparent',
-                  color: '#ffffff',
-                  borderColor: '#ffffff',
-                  borderWidth: 1,
-                  borderStyle: 'solid',
                   boxShadow: 'none',
                   '&:hover': {
-                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                    backgroundColor: 'rgba(255, 255, 255, 0.08) !important',
+                    color: headerTextColor + ' !important',
                     boxShadow: 'none'
-                  }
+                  },
+                  '&:active': { color: headerTextColor + ' !important' },
+                  '&:focus': { color: headerTextColor + ' !important' }
                 })
               }}
             >
@@ -7341,7 +7263,8 @@ const handleEditLoad = (load) => {
             sx={{
               borderRadius: 3,
               fontWeight: 800,
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              background: primary,
+              color: headerTextColor,
               px: 5,
               py: 1.5,
               fontSize: '1rem',
@@ -7349,12 +7272,18 @@ const handleEditLoad = (load) => {
               boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
               transition: 'all 0.3s ease',
               '&:hover': {
-                background: 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)',
+                opacity: 0.9,
                 transform: 'translateY(-2px)',
                 boxShadow: '0 6px 20px rgba(102, 126, 234, 0.5)'
               },
               '&:active': {
                 transform: 'translateY(0px)'
+              },
+              '&.Mui-disabled': {
+                background: primary,
+                color: headerTextColor,
+                opacity: 0.6,
+                boxShadow: 'none'
               }
             }}
           >
@@ -7546,28 +7475,24 @@ const handleEditLoad = (load) => {
 
           {/* Add New Charge Button */}
           <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
-            <Button
-              onClick={handleAddEditCharge}
-              variant="contained"
-              startIcon={<Add />}
-              sx={{
-                background: 'linear-gradient(to right, #4A90E2, #9B59B6)',
-                color: '#fff',
+          <Button
+            onClick={handleAddEditCharge}
+            variant="contained"
+            startIcon={<Add />}
+            sx={{
+                background: primary,
+                color: headerTextColor,
                 borderRadius: 2,
                 px: 3,
                 py: 1.5,
                 fontWeight: 600,
                 textTransform: 'none',
                 fontSize: '0.9375rem',
-                boxShadow: '0 4px 12px rgba(74, 144, 226, 0.3)',
-                '&:hover': {
-                  background: 'linear-gradient(to right, #357ABD, #7B2CBF)',
-                  boxShadow: '0 6px 16px rgba(74, 144, 226, 0.4)'
-                }
+                '&:hover': { opacity: 0.9 }
               }}
-            >
-              + Add New Charge
-            </Button>
+          >
+            + Add New Charge
+          </Button>
           </Box>
         </DialogContent>
 
@@ -7618,14 +7543,12 @@ const handleEditLoad = (load) => {
               sx={{
                 borderRadius: 2,
                 textTransform: 'none',
-                backgroundColor: '#4A90E2',
+                backgroundColor: primary,
                 px: 4,
                 py: 1,
                 fontWeight: 600,
                 fontSize: '0.95rem',
-                '&:hover': {
-                  backgroundColor: '#357ABD',
-                },
+                '&:hover': { opacity: 0.9 },
               }}
             >
               Apply to Carrier Fees
@@ -7636,9 +7559,9 @@ const handleEditLoad = (load) => {
 
       {/* CMT Agent Details Modal */}
       <Dialog open={cmtModalOpen} onClose={handleCloseCmtModal} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700, color: '#1976d2', fontSize: 22, borderBottom: '1px solid #e0e0e0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <DialogTitle sx={{ fontWeight: 700, color: headerTextColor, fontSize: 22, borderBottom: '1px solid #e0e0e0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: brand }}>
           CMT Agent Details
-          <IconButton onClick={handleCloseCmtModal} sx={{ color: '#1976d2' }}>
+          <IconButton onClick={handleCloseCmtModal} sx={{ color: headerTextColor }}>
             <Close />
           </IconButton>
         </DialogTitle>

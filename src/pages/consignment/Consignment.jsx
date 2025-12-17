@@ -27,6 +27,7 @@ import {
 } from '@mui/material';
 import { Receipt, Download, Search, Clear, Close, Visibility, ExpandMore, Print, GetApp, LocationOn, LocalShipping, Assignment, Chat, Info, AttachMoney, Description, TrackChanges } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
+import { useThemeConfig } from '../../context/ThemeContext';
 import { BASE_API_URL } from '../../apiConfig';
 import SearchNavigationFeedback from '../../components/SearchNavigationFeedback';
 import LoadLocationMap from './LoadLocationMap';
@@ -35,6 +36,7 @@ import PageLoader from '../../components/PageLoader';
 const Consignment = () => {
   const location = useLocation();
   const { user, userType } = useAuth();
+  const { themeConfig } = useThemeConfig();
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
@@ -538,10 +540,23 @@ const Consignment = () => {
         </Stack>
       </Box>
 
-      <Paper elevation={3} sx={{ borderRadius: 3, overflow: 'hidden' }}>
+      <Paper elevation={3} sx={{ borderRadius: 3, overflow: 'hidden', backgroundColor: (themeConfig?.content?.bgImage ? 'rgba(255,255,255,0.92)' : (themeConfig?.table?.bg || '#fff')), position: 'relative', boxShadow: '0 10px 30px rgba(0,0,0,0.08)', border: '1px solid rgba(0,0,0,0.06)', backdropFilter: 'blur(2px)' }}>
+        {themeConfig?.table?.bgImage && (
+          <Box sx={{
+            position: 'absolute',
+            inset: 0,
+            backgroundImage: `url(${themeConfig.table.bgImage})`,
+            backgroundSize: 'cover',
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'center',
+            opacity: themeConfig.table?.bgImageOpacity ?? 0,
+            pointerEvents: 'none',
+            zIndex: 0,
+          }} />
+        )}
         <Table>
           <TableHead>
-            <TableRow sx={{ backgroundColor: '#f0f4f8' }}>
+            <TableRow sx={{ backgroundColor: (themeConfig?.table?.headerBg || '#f0f4f8') }}>
               <TableCell sx={{ fontWeight: 600, width: '100px' }}>Load ID</TableCell>
               <TableCell sx={{ fontWeight: 600, width: '120px' }}>Consignment No</TableCell>
               <TableCell sx={{ fontWeight: 600, width: '80px' }}>Weight</TableCell>
@@ -1633,7 +1648,7 @@ const Consignment = () => {
                         </Typography>
                         <Table size="small" sx={{ mb: 2 }}>
                           <TableHead>
-                            <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+                            <TableRow sx={{ backgroundColor: (themeConfig?.table?.headerBg || '#f5f5f5') }}>
                               <TableCell sx={{ fontWeight: 600 }}>Commodity</TableCell>
                               <TableCell sx={{ fontWeight: 600 }}>Description</TableCell>
                               <TableCell sx={{ fontWeight: 600 }}>Pieces</TableCell>

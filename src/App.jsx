@@ -22,6 +22,9 @@ import Completed from './pages/reports/Completed';
 import LoadCalculator from './loadshippertruckercalculator/LoadCalculator';
 import LandingPage from './pages/auth/LandingPage';
 import './App.css';
+import { ThemeProvider, useThemeConfig } from './context/ThemeContext';
+import { ThemeProvider as MuiThemeProvider, createTheme, alpha } from '@mui/material/styles';
+import { useMemo } from 'react';
 
 // Optional: RootGate—agar logged-in hai to dashboard bhej do, warna LandingPage dikhao
 import { useAuth } from './context/AuthContext';
@@ -31,11 +34,132 @@ function RootGate() {
 }
 
 function App() {
+  const UiThemeWrapper = ({ children }) => {
+    const { themeConfig } = useThemeConfig();
+    const muiTheme = useMemo(() => {
+      const brand = themeConfig.tokens?.primary || '#1976d2';
+      const textColor = themeConfig.tokens?.text || '#333333';
+      const headerBg = (themeConfig.header?.bg && themeConfig.header.bg !== 'white') ? themeConfig.header.bg : brand;
+      const headerText = themeConfig.header?.text || '#ffffff';
+      const tableBg = themeConfig.table?.bg || '#ffffff';
+      const tableText = themeConfig.table?.text || textColor;
+      const tableHeaderBg = themeConfig.table?.headerBg || '#f0f4f8';
+      const tableHeaderText = themeConfig.table?.headerText || tableText;
+      const contrastRows = Boolean(themeConfig.content?.bgImage) || Boolean(themeConfig.table?.bgImage);
+      return createTheme({
+        palette: {
+          mode: 'light',
+          primary: { main: brand },
+          text: { primary: textColor },
+          background: { default: themeConfig.content?.bg || '#f8f9fa' },
+        },
+        components: {
+          MuiDialogTitle: {
+            styleOverrides: {
+              root: {
+                color: headerText,
+                backgroundColor: headerBg,
+                borderBottom: `1px solid ${alpha(brand, 0.3)}`,
+              },
+            },
+          },
+          MuiTableCell: {
+            styleOverrides: {
+              root: {
+                color: contrastRows ? '#111' : tableText,
+                fontWeight: contrastRows ? 600 : undefined,
+                letterSpacing: contrastRows ? '0.2px' : undefined,
+                textShadow: 'none',
+                '& .MuiTypography-root': { 
+                  color: contrastRows ? '#111' : tableText,
+                  fontWeight: contrastRows ? 600 : undefined,
+                  letterSpacing: contrastRows ? '0.2px' : undefined,
+                  textShadow: 'none',
+                },
+                '& p, & span': { 
+                  color: contrastRows ? '#111' : tableText,
+                  fontWeight: contrastRows ? 500 : undefined,
+                  letterSpacing: contrastRows ? '0.15px' : undefined,
+                  textShadow: 'none',
+                },
+              },
+              head: {
+                backgroundColor: tableHeaderBg,
+                color: contrastRows ? '#111' : tableHeaderText,
+                fontWeight: contrastRows ? 700 : 600,
+                letterSpacing: contrastRows ? '0.25px' : undefined,
+                textShadow: 'none',
+              },
+            },
+          },
+          MuiTableBody: {
+            styleOverrides: {
+              root: {
+                '& td': { color: tableText },
+              },
+            },
+          },
+          MuiTableRow: {
+            styleOverrides: {
+              root: {
+                '& td, & th': { borderColor: alpha(brand, 0.08) },
+                textShadow: 'none',
+              },
+            },
+          },
+          MuiChip: {
+            styleOverrides: {
+              label: {
+                fontWeight: 600,
+                textShadow: 'none',
+              },
+            },
+          },
+          MuiTableHead: {
+            styleOverrides: {
+              root: {
+                '& th': {
+                  backgroundColor: tableHeaderBg,
+                  color: tableHeaderText,
+                  fontWeight: 600,
+                },
+              },
+            },
+          },
+          MuiButton: {
+            styleOverrides: {
+              containedPrimary: {
+                backgroundImage: `linear-gradient(90deg, ${brand}, ${alpha(brand, 0.85)})`,
+                color: '#111',
+              },
+              outlinedPrimary: {
+                borderColor: brand,
+                color: brand,
+              },
+              textPrimary: { color: brand },
+            },
+          },
+          MuiListItemButton: {
+            styleOverrides: {
+              root: {
+                '&:hover': { backgroundColor: alpha(brand, 0.12) },
+                '&.Mui-selected': { backgroundColor: alpha(brand, 0.25), color: '#fff' },
+              },
+            },
+          },
+        },
+      });
+    }, [themeConfig]);
+    return <MuiThemeProvider theme={muiTheme}>{children}</MuiThemeProvider>;
+  };
+
   return (
     <AuthProvider>
-      <Router>
-        <div className="App">
-          <Routes>
+      <ThemeProvider>
+        <UiThemeWrapper>
+          <Router>
+            <div className="App">
+              <Routes>
             {/* Public Routes */}
             <Route path="/root" element={<RootGate />} />
             <Route path="/landingpage" element={<LandingPage />} />
@@ -68,9 +192,11 @@ function App() {
 
             {/* Fallback: unknown routes -> Landing */}
             <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </div>
-      </Router>
+              </Routes>
+            </div>
+          </Router>
+        </UiThemeWrapper>
+      </ThemeProvider>
     </AuthProvider>
   );
 }

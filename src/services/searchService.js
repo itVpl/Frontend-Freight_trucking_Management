@@ -130,9 +130,6 @@ class SearchService {
         }
       ];
 
-      // Combine API results with mock data for demonstration
-      const allResults = [...apiResults, ...mockShipments];
-      
       // Filter mock data based on query
       const filteredMockResults = mockShipments.filter(shipment =>
         shipment.searchableText.includes(query.toLowerCase()) ||
@@ -397,7 +394,7 @@ class SearchService {
           id: 'RPT001',
           title: 'Monthly Delivery Report',
           subtitle: 'January 2024 - Delivery Performance',
-          type: 'Delivery Report',
+          reportType: 'Delivery Report',
           date: '2024-01-31',
           status: 'Completed',
           type: 'reports',
@@ -407,7 +404,7 @@ class SearchService {
           id: 'RPT002',
           title: 'Fleet Utilization Report',
           subtitle: 'Q1 2024 - Fleet Performance',
-          type: 'Fleet Report',
+          reportType: 'Fleet Report',
           date: '2024-03-31',
           status: 'In Progress',
           type: 'reports',
@@ -417,7 +414,7 @@ class SearchService {
           id: 'RPT003',
           title: 'Financial Summary',
           subtitle: '2024 - Revenue & Expenses',
-          type: 'Financial Report',
+          reportType: 'Financial Report',
           date: '2024-12-31',
           status: 'Pending',
           type: 'reports',
@@ -542,8 +539,6 @@ class SearchService {
         }
       });
 
-      // Find cross-module duplicates
-      const duplicates = this.findCrossModuleDuplicates(allResults);
       
       
       // Create cross-module duplicates for shipments (Loadboard + Consignment)

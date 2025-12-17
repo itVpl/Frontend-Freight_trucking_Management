@@ -48,6 +48,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 import { BASE_API_URL } from '../../apiConfig';
+import { useThemeConfig } from '../../context/ThemeContext';
 import PageLoader from '../../components/PageLoader';
 import group23 from "../../assets/Icons super admin/Group23.png"
 import group22 from "../../assets/Icons super admin/Group22.png"
@@ -70,6 +71,7 @@ const Dashboard = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const navigate = useNavigate();
+  const { themeConfig } = useThemeConfig();
 
   // State for dashboard data
   const [dashboardData, setDashboardData] = useState(null);
@@ -124,34 +126,29 @@ const Dashboard = () => {
 
       const data = await response.json();
       
-      if (data.success && data.data.loads) {
-        // Process shipment data for map markers
+      if (data?.success && Array.isArray(data?.data?.loads)) {
         const processedData = data.data.loads.map(load => {
-          // Get coordinates from city names (you might want to use a geocoding service)
-          const originCoords = getCoordinatesFromCity(load.origin.city, load.origin.state);
-          const destinationCoords = getCoordinatesFromCity(load.destination.city, load.destination.state);
-          
+          const originObj = Array.isArray(load.origin) ? (load.origin[0] || {}) : (load.origin || {});
+          const destinationObj = Array.isArray(load.destination) ? (load.destination[0] || {}) : (load.destination || {});
+          const originCity = originObj.city || '';
+          const originState = originObj.state || '';
+          const destCity = destinationObj.city || '';
+          const destState = destinationObj.state || '';
+          const originCoords = getCoordinatesFromCity(originCity, originState);
+          const destinationCoords = getCoordinatesFromCity(destCity, destState);
           return {
             id: load._id,
             shipmentNumber: load.shipmentNumber,
             status: load.status,
-            origin: {
-              city: load.origin.city,
-              state: load.origin.state,
-              coordinates: originCoords
-            },
-            destination: {
-              city: load.destination.city,
-              state: load.destination.state,
-              coordinates: destinationCoords
-            },
+            origin: { city: originCity, state: originState, coordinates: originCoords },
+            destination: { city: destCity, state: destState, coordinates: destinationCoords },
             pickupDate: load.pickupDate,
             deliveryDate: load.deliveryDate,
             rate: load.rate,
             loadType: load.loadType,
-            weight: load.weight
+            weight: load.weight,
           };
-        }).filter(load => load.origin.coordinates && load.destination.coordinates);
+        }).filter(item => Array.isArray(item.origin.coordinates) && Array.isArray(item.destination.coordinates));
         
         setMapData(processedData);
       }
@@ -180,8 +177,10 @@ const Dashboard = () => {
     };
     
     // Try to find coordinates by city name
+    const cityStr = String(city || '').toLowerCase();
     for (const [key, coords] of Object.entries(cityCoordinates)) {
-      if (city.includes(key) || key.includes(city)) {
+      const keyStr = key.toLowerCase();
+      if (cityStr && (cityStr.includes(keyStr) || keyStr.includes(cityStr))) {
         return coords;
       }
     }
@@ -951,12 +950,25 @@ const Dashboard = () => {
       <Box mt={4} id="dashboard-table">
         <Paper
           elevation={3}
-          sx={{ borderRadius: 3, overflow: 'hidden' }}
+          sx={{ borderRadius: 3, overflow: 'hidden', backgroundColor: (themeConfig?.content?.bgImage ? 'rgba(255,255,255,0.94)' : (themeConfig?.table?.bg || '#fff')), position: 'relative', boxShadow: '0 10px 30px rgba(0,0,0,0.08)', border: '1px solid rgba(0,0,0,0.06)' }}
         >
+          {themeConfig?.table?.bgImage && (
+            <Box sx={{
+              position: 'absolute',
+              inset: 0,
+              backgroundImage: `url(${themeConfig.table.bgImage})`,
+              backgroundSize: 'cover',
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: 'center',
+              opacity: themeConfig.table?.bgImageOpacity ?? 0,
+              pointerEvents: 'none',
+              zIndex: 0,
+            }} />
+          )}
           <Box
             sx={{
-              bgcolor: '#1976d2',
-              color: '#fff',
+              bgcolor: (themeConfig?.table?.headerBg || '#1976d2'),
+              color: (themeConfig?.table?.headerText || '#fff'),
               py: 2,
               textAlign: 'center',
             }}
@@ -967,10 +979,11 @@ const Dashboard = () => {
           </Box>
           
 
+          <Box sx={{ position: 'relative', zIndex: 1 }}>
           <TableContainer>
             <Table>
               <TableHead>
-                <TableRow sx={{ backgroundColor: '#f8f9fa' }}>
+                <TableRow sx={{ backgroundColor: (themeConfig?.table?.headerBg || '#f8f9fa') }}>
                   <TableCell sx={{ fontWeight: 'bold' }}>
                     {selectedCard === 'Bills' ? 'Bill ID' : 'Shipment ID'}
                   </TableCell>
@@ -1053,6 +1066,7 @@ const Dashboard = () => {
               </TableBody>
             </Table>
           </TableContainer>
+          </Box>
 
           {/* Pagination Controls */}
           {tableData.length > itemsPerPage && (

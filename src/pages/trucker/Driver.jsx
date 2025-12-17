@@ -27,6 +27,7 @@ import {
 import { Receipt, Download, Edit } from '@mui/icons-material';
 import axios from 'axios';
 import { BASE_API_URL } from '../../apiConfig';
+import { useThemeConfig } from '../../context/ThemeContext';
 
 const Dashboard = () => {
   const [page, setPage] = useState(0);
@@ -48,7 +49,7 @@ const Dashboard = () => {
         });
         // Assuming response.data is an array of drivers
         setDriverData(Array.isArray(response.data) ? response.data : (response.data.drivers || []));
-      } catch (err) {
+      } catch {
         setDriverData([]);
       } finally {
         setLoading(false);
@@ -81,6 +82,9 @@ const Dashboard = () => {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const { themeConfig } = useThemeConfig();
+  const brand = (themeConfig.header?.bg && themeConfig.header.bg !== 'white') ? themeConfig.header.bg : (themeConfig.tokens?.primary || '#1976d2');
+  const headerTextColor = themeConfig.header?.text || '#ffffff';
   const [editingDriver, setEditingDriver] = useState(null);
   const [form, setForm] = useState({
     fullName: '',
@@ -96,7 +100,7 @@ const Dashboard = () => {
     address: '',
     password: '',
   });
-  const [loadType, setLoadType] = useState('OTR');
+  
   // State me image aur preview bhi add karo agar nahi hai
   const [photo, setPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
@@ -228,7 +232,7 @@ const Dashboard = () => {
           headers: { Authorization: `Bearer ${token}` }
         });
         setDriverData(Array.isArray(response.data) ? response.data : (response.data.drivers || []));
-      } catch (err) {
+      } catch {
         setDriverData([]);
       } finally {
         setLoading(false);
@@ -284,7 +288,7 @@ const Dashboard = () => {
           headers: { Authorization: `Bearer ${token}` }
         });
         setDriverData(Array.isArray(response.data) ? response.data : (response.data.drivers || []));
-      } catch (err) {
+      } catch {
         setDriverData([]);
       } finally {
         setLoading(false);
@@ -297,29 +301,43 @@ const Dashboard = () => {
   return (
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-        <Typography variant="h5" fontWeight={700}>Driver Details</Typography>
+        <Typography variant="h5" fontWeight={700} sx={{ color: (themeConfig.tokens?.text || '#333333'), ...(themeConfig.content?.bgImage ? { backgroundColor: 'rgba(255,255,255,0.88)', borderRadius: 1, px: 1 } : {}) }}>Driver Details</Typography>
         <Stack direction="row" spacing={1} alignItems="center">
           <Button variant="outlined" onClick={exportToCSV} sx={{ borderRadius: 2, fontSize: '0.75rem', px: 2, py: 0.8, fontWeight: 500, textTransform: 'none', color: '#1976d2', borderColor: '#1976d2', '&:hover': { borderColor: '#0d47a1', color: '#0d47a1' } }}>Export CSV</Button>
           <Button variant="contained" startIcon={<Download />} onClick={handleOpenModal} sx={{ borderRadius: 2, fontSize: '0.75rem', px: 2, py: 0.8, fontWeight: 500, textTransform: 'none', backgroundColor: '#1976d2', '&:hover': { backgroundColor: '#1565c0' } }}>Add Driver</Button>
         </Stack>
       </Box>
 
-      <Paper elevation={3} sx={{ borderRadius: 3, overflow: 'hidden' }}>
+      <Paper elevation={3} sx={{ borderRadius: 3, overflow: 'hidden', backgroundColor: ((themeConfig.table?.bgImage || themeConfig.content?.bgImage) ? 'transparent' : (themeConfig.table?.bg || '#fff')), position: 'relative', boxShadow: '0 10px 30px rgba(0,0,0,0.08)', border: '1px solid rgba(0,0,0,0.06)' }}>
+        {themeConfig.table?.bgImage && (
+          <Box sx={{
+            position: 'absolute',
+            inset: 0,
+            backgroundImage: `url(${themeConfig.table.bgImage})`,
+            backgroundSize: 'cover',
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'center',
+            opacity: Number(themeConfig.table?.bgImageOpacity ?? 0),
+            pointerEvents: 'none',
+            zIndex: 0,
+          }} />
+        )}
+        <Box sx={{ position: 'relative', zIndex: 1 }}>
         <Table>
           <TableHead>
-            <TableRow sx={{ backgroundColor: '#f0f4f8' }}>
-              <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>MC/Dot No</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>License No</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Gender</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Phone No</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Email</TableCell> 
-              <TableCell sx={{ fontWeight: 600 }}>Country</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>State</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>City</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Zip Code</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Address</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Action</TableCell>
+            <TableRow sx={{ backgroundColor: (themeConfig.table?.headerBg || '#f0f4f8') }}>
+              <TableCell sx={{ fontWeight: 600, color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Name</TableCell>
+              <TableCell sx={{ fontWeight: 600, color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>MC/Dot No</TableCell>
+              <TableCell sx={{ fontWeight: 600, color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>License No</TableCell>
+              <TableCell sx={{ fontWeight: 600, color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Gender</TableCell>
+              <TableCell sx={{ fontWeight: 600, color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Phone No</TableCell>
+              <TableCell sx={{ fontWeight: 600, color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Email</TableCell> 
+              <TableCell sx={{ fontWeight: 600, color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Country</TableCell>
+              <TableCell sx={{ fontWeight: 600, color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>State</TableCell>
+              <TableCell sx={{ fontWeight: 600, color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>City</TableCell>
+              <TableCell sx={{ fontWeight: 600, color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Zip Code</TableCell>
+              <TableCell sx={{ fontWeight: 600, color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Address</TableCell>
+              <TableCell sx={{ fontWeight: 600, color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Action</TableCell>
 
             </TableRow>
           </TableHead>
@@ -376,12 +394,13 @@ const Dashboard = () => {
             )}
           </TableBody>
         </Table>
+        </Box>
         <TablePagination component="div" count={driverData.length} page={page} onPageChange={handleChangePage} rowsPerPage={rowsPerPage} onRowsPerPageChange={handleChangeRowsPerPage} rowsPerPageOptions={[5, 10, 15, 20]} />
       </Paper>
 
       <Dialog open={modalOpen} onClose={handleCloseModal} maxWidth="sm" fullWidth>
          <DialogTitle sx={{ textAlign: 'left', pb: 0 }}>
-           <Typography variant="h5" color="primary" fontWeight={700} sx={{ textAlign: 'left' }}>
+           <Typography variant="h5" fontWeight={700} sx={{ textAlign: 'left', color: headerTextColor }}>
              Add Driver
            </Typography>
            <Divider sx={{ mt: 1, mb: 0.5, width: '100%', borderColor: '#e0e0e0', borderBottomWidth: 2, borderRadius: 2 }} />
@@ -562,7 +581,7 @@ const Dashboard = () => {
               </Grid>
             </Grid>
             <DialogActions sx={{ mt: 4, justifyContent: 'center', gap: 1 }}>
-               <Button onClick={handleCloseModal} variant="contained" sx={{ borderRadius: 3, backgroundColor: '#f0f0f0', color: '#000', textTransform: 'none', px: 4, '&:hover': { backgroundColor: '#e0e0e0' } }}>Cancel</Button>
+               <Button onClick={handleCloseModal} variant="outlined" sx={{ borderRadius: 3, backgroundColor: '#ffff', color: '#d32f2f', textTransform: 'none', px: 4, borderColor: '#d32f2f' }}>Cancel</Button>
                <Button type="submit" variant="contained" color="primary" sx={{ borderRadius: 3, textTransform: 'none', px: 4 }}>Submit</Button>
             </DialogActions>
           </Box>
@@ -587,19 +606,19 @@ const Dashboard = () => {
            textAlign: 'center', 
            pb: 2, 
            pt: 3,
-           background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)',
-           color: 'white',
+           background: brand,
+           color: headerTextColor,
            position: 'relative'
          }}>
-           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-             <Edit sx={{ fontSize: 28 }} />
-             <Typography variant="h4" fontWeight={700} sx={{ textAlign: 'center' }}>
-               Edit Driver Information
-             </Typography>
-           </Box>
-           <Typography variant="body2" sx={{ mt: 1, opacity: 0.9, textAlign: 'center' }}>
-             Update driver details below
-           </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+            <Edit sx={{ fontSize: 28 }} />
+            <Typography variant="h4" fontWeight={700} sx={{ textAlign: 'center' }}>
+              Edit Driver Information
+            </Typography>
+          </Box>
+          <Typography variant="body2" sx={{ mt: 1, opacity: 0.9, textAlign: 'center', color: headerTextColor }}>
+            Update driver details below
+          </Typography>
          </DialogTitle>
          
          <DialogContent sx={{ 
@@ -979,8 +998,8 @@ const Dashboard = () => {
                  size="large"
                  sx={{ 
                    borderRadius: 3, 
-                   borderColor: '#e0e0e0',
-                   color: '#666',
+                   borderColor: '#d32f2f',
+                   color: '#d32f2f',
                    textTransform: 'none', 
                    px: 4,
                    py: 1.5,
@@ -988,7 +1007,7 @@ const Dashboard = () => {
                    '&:hover': { 
                      borderColor: '#d32f2f',
                      color: '#d32f2f',
-                     backgroundColor: '#ffebee'
+                    //  backgroundColor: '#eba8b2ff'
                    } 
                  }}
                >
@@ -998,19 +1017,8 @@ const Dashboard = () => {
                  type="submit" 
                  variant="contained" 
                  size="large"
-                 sx={{ 
-                   borderRadius: 3, 
-                   textTransform: 'none', 
-                   px: 4,
-                   py: 1.5,
-                   fontWeight: 600,
-                   background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)',
-                   boxShadow: '0 4px 12px rgba(25, 118, 210, 0.3)',
-                   '&:hover': {
-                     background: 'linear-gradient(135deg, #1565c0 0%, #0d47a1 100%)',
-                     boxShadow: '0 6px 16px rgba(25, 118, 210, 0.4)',
-                   }
-                 }}
+                 color="primary" 
+                 sx={{ borderRadius: 3, textTransform: 'none', px: 4 }}
                >
                  Update Driver
                </Button>
