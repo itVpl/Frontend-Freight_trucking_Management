@@ -1114,6 +1114,8 @@ export default function LoadCalculator() {
 
   // Popup 3D View ke liye
   const [open3D, setOpen3D] = useState(false);
+  useEffect(() => { if (open3D) setShowSuggestion(false); }, [open3D]);
+
 
   // ▶ Stuffing playback
   const [timeline, setTimeline] = useState([]);  // place-order list of renderable items
@@ -1162,6 +1164,8 @@ const [weightUnit, setWeightUnit] = useState("kg"); // "kg" | "lb"
   });
   const [freeSpaces, setFreeSpaces] = useState([]);
   const [nextSuggestion, setNextSuggestion] = useState(null);
+  const [showSuggestion, setShowSuggestion] = useState(false); // Toggle for optimization suggestion
+
 
   useEffect(() => {
     if (!freeSpaces.length) {
@@ -1180,22 +1184,28 @@ const [weightUnit, setWeightUnit] = useState("kg"); // "kg" | "lb"
     }
     // Filter out very tiny spaces (e.g. < 1 liter)
     if (best && maxVol > 0.001) { 
-       // User requested 30mm (0.03m) safety clearance on all dimensions to avoid "too small" errors
-       const safeL = Math.max(0, best.L - 0.03);
-       const safeW = Math.max(0, best.W - 0.03);
-       const safeH = Math.max(0, best.H - 0.03);
+       // User requested minimal safety clearance (1mm) to fill space completely
+       const safeL = Math.max(0, best.L - 0.001);
+       const safeW = Math.max(0, best.W - 0.001);
+       const safeH = Math.max(0, best.H - 0.001);
 
        // Must be at least 15cm to be usable
-       if (safeL > 0.15 && safeW > 0.15 && safeH > 0.15) {
-         // Cap dimensions at 2.0m as requested
-         const suggestL = Math.min(2.0, safeL);
-         const suggestW = Math.min(2.0, safeW);
-         const suggestH = safeH; // Height usually dictated by container height, so keep full height (minus buffer)
 
-         // Calculate how many of these fit in the space (if space is huge)
-         const countL = Math.floor(safeL / suggestL);
-         const countW = Math.floor(safeW / suggestW);
-         const qty = Math.max(1, countL * countW);
+       if (safeL > 0.15 && safeW > 0.15 && safeH > 0.15) {
+         // Cap dimensions at 2.0m as requested, but split if necessary to fill space
+         const maxDim = 2.0;
+         
+         // Calculate optimal count to fit in space while keeping dims <= maxDim
+         const countL = Math.max(1, Math.ceil(safeL / maxDim));
+         const countW = Math.max(1, Math.ceil(safeW / maxDim));
+         const countH = Math.max(1, Math.ceil(safeH / maxDim));
+         
+         // Distribute space evenly
+         const suggestL = safeL / countL;
+         const suggestW = safeW / countW;
+         const suggestH = safeH / countH;
+
+         const qty = Math.max(1, countL * countW * countH);
 
          setNextSuggestion({ L: suggestL, W: suggestW, H: suggestH, qty });
        } else {
@@ -1586,6 +1596,7 @@ const weight = toKg(Number(form.weight) || 0, weightUnit); // always kg
           color: palletSpec.color,
           position: [pCenter[0], baseYcenter, pCenter[2]],
           renderGroupId,
+          sortPos: { x: pCenter[0], z: pCenter[2] }, // Lock sort position
         });
 
         // ---- Exact local frame on pallet (no drift) ----
@@ -1624,6 +1635,7 @@ const weight = toKg(Number(form.weight) || 0, weightUnit); // always kg
                 color: form.color,
                 position: [cx, y, cz],
                 renderGroupId,
+                sortPos: { x: pCenter[0], z: pCenter[2] }, // Lock to pallet's sort position
               });
               put++;
             }
@@ -1678,6 +1690,26 @@ const weight = toKg(Number(form.weight) || 0, weightUnit); // always kg
       setNextPosition(temp);
       setTimeline((prev) => {
         const nt = [...prev, ...newRender];
+        // Sort for consistent playback:
+        // Priority: Back (X) -> Left (Z) -> Vertical (Y)
+        // Fills the container "Slice by Slice" (Back wall first)
+        nt.sort((a, b) => {
+          // Use sortPos if available (Pallets), else fallback to center
+          const xA = a.sortPos ? a.sortPos.x : (a.position[0]);
+          const xB = b.sortPos ? b.sortPos.x : (b.position[0]);
+          // 1. Back X (Length-wise depth)
+          if (Math.abs(xA - xB) > 0.001) return xA - xB;
+
+          const zA = a.sortPos ? a.sortPos.z : (a.position[2]);
+          const zB = b.sortPos ? b.sortPos.z : (b.position[2]);
+          // 2. Left Z (Width-wise lanes)
+          if (Math.abs(zA - zB) > 0.001) return zA - zB;
+
+          // 3. Bottom Y (Vertical)
+          const yA = a.position[1] - a.height / 2;
+          const yB = b.position[1] - b.height / 2;
+          return yA - yB;
+        });
         if (!isPlaying) setPlayhead(nt.length);
         return nt;
       });
@@ -1791,8 +1823,29 @@ const repackLargestFirst = useCallback(() => {
       width: res.swapped ? u.length : u.width,
       position: res.position,
       renderGroupId: "repacked",
+      sortPos: { x: res.position[0], z: res.position[2] }, // Lock sort position
     });
   }
+
+  // ✅ SORT TIMELINE FOR ANIMATION: Column-wise (Vertical stacks)
+  // Order: Back-to-Front (X) -> Left-to-Right (Z) -> Bottom-up (Y)
+  // This ensures "Slice by Slice" filling (Back wall first)
+  newTimeline.sort((a, b) => {
+    // 1. Back X (Length-wise depth)
+    const xA = a.sortPos ? a.sortPos.x : a.position[0];
+    const xB = b.sortPos ? b.sortPos.x : b.position[0];
+    if (Math.abs(xA - xB) > 0.001) return xA - xB;
+
+    // 2. Left Z (Width-wise lanes)
+    const zA = a.sortPos ? a.sortPos.z : a.position[2];
+    const zB = b.sortPos ? b.sortPos.z : b.position[2];
+    if (Math.abs(zA - zB) > 0.001) return zA - zB;
+
+    // 3. Bottom Y (floating point tolerance 1mm)
+    const yA = a.position[1] - a.height / 2;
+    const yB = b.position[1] - b.height / 2;
+    return yA - yB;
+  });
 
   setTimeline(newTimeline);
   setPlayhead(0);
@@ -1935,6 +1988,16 @@ const repackLargestFirst = useCallback(() => {
     () => timeline.slice(0, playhead),
     [timeline, playhead]
   );
+
+  // 3D View Stats Calculation
+  const containerVol = container.length * container.width * container.height;
+  const currentFilledVol = useMemo(() => {
+    return visibleItems.reduce((acc, item) => acc + (item.length * item.width * item.height), 0);
+  }, [visibleItems]);
+  
+  const filledPercent = containerVol > 0 ? (currentFilledVol / containerVol) * 100 : 0;
+  const freePercent = Math.max(0, 100 - filledPercent);
+
   // ▶ Auto-advance playhead while playing
   useEffect(() => {
     if (!isPlaying) return;
@@ -2976,12 +3039,12 @@ useEffect(() => {
           <DialogContent dividers>
 
             {/* Suggestion Box for Remaining Space */}
-            {nextSuggestion && (
+            {nextSuggestion && showSuggestion && (
               <Paper elevation={3} sx={{ mb: 2, p: 2, bgcolor: "#e3f2fd", borderLeft: "6px solid #2196f3" }}>
                 <Stack direction="row" alignItems="center" justifyContent="space-between">
                   <Box>
                     <Typography variant="subtitle1" fontWeight="bold" color="primary">
-                      💡 Optimization Suggestion
+                      💡Capacity management
                     </Typography>
                     <Typography variant="body2" sx={{ mt: 0.5 }}>
                       To fill the remaining space, create <b>{nextSuggestion.qty}</b> Custom Pallet(s) with these dimensions:
@@ -2992,13 +3055,13 @@ useEffect(() => {
                     size="small"
                     color="primary"
                     onClick={() => {
-                        // 1. Get raw suggestions (already has 30mm buffer from useEffect)
-                        // Subtract tiny bit more (2mm) to ensure rounding doesn't push it over
-                        const rawL = nextSuggestion.L - 0.002;
-                        const rawW = nextSuggestion.W - 0.002;
-                        const rawH = nextSuggestion.H - 0.002;
+                        // 1. Get raw suggestions (already has 1mm buffer from useEffect)
+                        const rawL = nextSuggestion.L;
+                        const rawW = nextSuggestion.W;
+                        const rawH = nextSuggestion.H;
 
                         // 2. Convert to UI units
+
                         const uiL = toUI(Math.max(0.1, rawL), unit);
                         const uiW = toUI(Math.max(0.1, rawW), unit);
                         
@@ -3120,7 +3183,63 @@ useEffect(() => {
 </Stack>
 
             {/* 3D Canvas */}
-            <Box height="520px" borderRadius={3} overflow="hidden" boxShadow={4} sx={{ background: "#fff" }}>
+            <Box height="520px" borderRadius={3} overflow="hidden" boxShadow={4} sx={{ background: "#fff", position: "relative" }}>
+              {/* Overlay Stats */}
+              <Box
+                sx={{
+                  position: "absolute",
+                  top: 16,
+                  right: 16,
+                  zIndex: 10,
+                  bgcolor: "rgba(255, 255, 255, 0.9)",
+                  backdropFilter: "blur(4px)",
+                  borderRadius: 2,
+                  boxShadow: 3,
+                  p: 1.5,
+                  minWidth: 140,
+                }}
+              >
+                <Stack spacing={1}>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" fontWeight="bold">
+                      FILLED
+                    </Typography>
+                    <Typography variant="h6" color="primary.main" fontWeight="800" lineHeight={1}>
+                      {filledPercent.toFixed(1)}%
+                    </Typography>
+                  </Box>
+                  <Divider />
+                  <Box 
+                    onClick={() => {
+                        if (nextSuggestion) setShowSuggestion(true);
+                    }}
+                    sx={{ 
+                        cursor: nextSuggestion ? "pointer" : "default",
+                        "&:hover": nextSuggestion ? { bgcolor: "rgba(0,0,0,0.04)", borderRadius: 1 } : {}
+                    }}
+                  >
+                    <Stack direction="row" alignItems="center" spacing={0.5}>
+                        <Typography variant="caption" color="text.secondary" fontWeight="bold">
+                        FREE
+                        </Typography>
+                        {nextSuggestion && (
+                            <Tooltip title="Click for Capacity management">
+                                <HelpOutlineIcon sx={{ fontSize: 14, color: "text.secondary" }} />
+                            </Tooltip>
+                        )}
+                    </Stack>
+                    <Typography variant="h6" color="success.main" fontWeight="800" lineHeight={1}>
+                      {freePercent.toFixed(1)}%
+                    </Typography>
+                    {nextSuggestion && !showSuggestion && (
+                        <Typography variant="caption" color="primary" sx={{ display: 'block', fontSize: '0.7rem', mt: 0.5 }}>
+                            Tap for Suggestion
+                        </Typography>
+                    )}
+                  </Box>
+                </Stack>
+              </Box>
+
               <Canvas camera={{ position: [10, 5, 10], fov: 50 }}>
                 <ambientLight intensity={0.7} />
                 <directionalLight position={[5, 8, 5]} intensity={0.9} />

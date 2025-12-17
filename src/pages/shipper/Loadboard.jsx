@@ -2772,7 +2772,7 @@ const handleEditLoad = (load) => {
               <LocalShipping className="text-xl text-blue-500" />
             </Box>
             <Box>
-              <Typography variant="h5" className="font-bold mb-0.5 text-xl" sx={{ color: headerTextColor }}>
+              <Typography variant="h5" className="font-bold mb-0.5 text-xl text-white" sx={{ color: headerTextColor }}>
                 Create New Load
               </Typography>
               <Typography variant="body2" className="text-sm opacity-95" sx={{ color: headerTextColor }}>

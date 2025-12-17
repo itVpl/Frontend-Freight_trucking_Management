@@ -182,7 +182,7 @@ function App() {
               <Route path="/billing" element={<ProtectedRoute userType="trucker"><Billing /></ProtectedRoute>} />
               <Route path="/driver" element={<ProtectedRoute userType="trucker"><Driver /></ProtectedRoute>} />
               <Route path="/bid-management" element={<ProtectedRoute userType="trucker"><BidManagement /></ProtectedRoute>} />
-              <Route path="/add-customer" element={<ProtectedRoute userType="trucker"><AddCustomer /></ProtectedRoute>} />
+              <Route path="/add-customer" element={<ProtectedRoute><AddCustomer /></ProtectedRoute>} />
               <Route path="/add-load" element={<ProtectedRoute userType="trucker"><AddLoad /></ProtectedRoute>} />
 
               {/* Shipper Only Routes */}

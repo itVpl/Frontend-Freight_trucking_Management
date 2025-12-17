@@ -48,8 +48,10 @@ import {
  
 import { BASE_API_URL } from '../../apiConfig';
 import { useThemeConfig } from '../../context/ThemeContext';
-//just for github 
+import { useAuth } from '../../context/AuthContext';
+
 const AddCustomer = () => {
+  const { userType } = useAuth();
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
@@ -94,7 +96,7 @@ const AddCustomer = () => {
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch(`${BASE_API_URL}/api/v1/trucker-customer/all`, {
+      const response = await fetch(`${BASE_API_URL}/api/v1/${userType}-customer/all`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -128,7 +130,7 @@ const AddCustomer = () => {
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch(`${BASE_API_URL}/api/v1/trucker-customer/add`, {
+      const response = await fetch(`${BASE_API_URL}/api/v1/${userType}-customer/add`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -161,7 +163,7 @@ const AddCustomer = () => {
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch(`${BASE_API_URL}/api/v1/trucker-customer/${customerId}`, {
+      const response = await fetch(`${BASE_API_URL}/api/v1/${userType}-customer/${customerId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -194,7 +196,7 @@ const AddCustomer = () => {
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch(`${BASE_API_URL}/api/v1/trucker-customer/${customerId}`, {
+      const response = await fetch(`${BASE_API_URL}/api/v1/${userType}-customer/${customerId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -574,132 +576,300 @@ const AddCustomer = () => {
       </Paper>
 
       {/* Add Customer Dialog */}
-      <Dialog open={addModalOpen} onClose={() => setAddModalOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ textAlign: 'left', pb: 0 }}>
-          <Typography variant="h5" color="primary" fontWeight={700} sx={{ textAlign: 'left', color: headerTextColor }}>
-            Add Customer
-          </Typography>
-          <Divider sx={{ mt: 1, mb: 0.5, width: '100%', borderColor: '#e0e0e0', borderBottomWidth: 2, borderRadius: 2 }} />
+      <Dialog 
+        open={addModalOpen} 
+        onClose={() => setAddModalOpen(false)} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: '16px',
+            boxShadow: '0 24px 48px rgba(0,0,0,0.2)',
+            overflow: 'hidden'
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          p: 0,
+          background: brand,
+          color: headerTextColor,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          px: 3,
+          py: 2
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <PersonAdd sx={{ fontSize: 28 }} />
+            <Typography variant="h6" fontWeight={700}>
+              Add New Customer
+            </Typography>
+          </Box>
+          <IconButton 
+            onClick={() => setAddModalOpen(false)}
+            sx={{ 
+              color: 'inherit',
+              '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' }
+            }}
+          >
+            <Close />
+          </IconButton>
         </DialogTitle>
-        <DialogContent sx={{ pb: 4, maxHeight: '70vh', overflowY: 'auto', background: '#fff', borderRadius: 0 }}>
-          <Box component="form" onSubmit={handleSaveCustomer} sx={{ mt: 1, px: 2 }}>
-            <Grid container spacing={2} sx={{ mb: 2, justifyContent: 'center' }}>
-              {/* Company Name | MC/DOT No */}
-              <Grid item xs={12} sm={6}>
-                <TextField 
-                  label="Company Name" 
-                  name="companyName" 
-                  value={formData.companyName || ''} 
-                  onChange={handleFormInputChange} 
-                  fullWidth
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField 
-                  label="MC/DOT No" 
-                  name="mcDotNo" 
-                  value={formData.mcDotNo || ''} 
-                  onChange={handleFormInputChange} 
-                  fullWidth
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
-                />
-              </Grid>
+        
+        <DialogContent sx={{ p: 0, bgcolor: '#f8f9fa' }}>
+          <Box component="form" onSubmit={handleSaveCustomer}>
+            <Box sx={{ p: 3 }}>
+              <Grid container spacing={3}>
+                {/* Company Information Section */}
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" sx={{ 
+                    color: 'text.secondary', 
+                    fontWeight: 700, 
+                    textTransform: 'uppercase',
+                    fontSize: '0.75rem',
+                    mb: 1.5,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1
+                  }}>
+                    <Business fontSize="small" color="primary" />
+                    Company Information
+                  </Typography>
+                  <Paper elevation={0} sx={{ p: 2, border: '1px solid #e0e0e0', borderRadius: '12px' }}>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} sm={6}>
+                        <TextField 
+                          label="Company Name" 
+                          name="companyName" 
+                          value={formData.companyName || ''} 
+                          onChange={handleFormInputChange} 
+                          fullWidth
+                          required
+                          variant="outlined"
+                          size="medium"
+                          InputProps={{
+                            startAdornment: (
+                              <InputAdornment position="start">
+                                <Business color="action" fontSize="small" />
+                              </InputAdornment>
+                            ),
+                          }}
+                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField 
+                          label="MC/DOT No" 
+                          name="mcDotNo" 
+                          value={formData.mcDotNo || ''} 
+                          onChange={handleFormInputChange} 
+                          fullWidth
+                          required
+                          variant="outlined"
+                          size="medium"
+                          InputProps={{
+                            startAdornment: (
+                              <InputAdornment position="start">
+                                <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary' }}>#</Typography>
+                              </InputAdornment>
+                            ),
+                          }}
+                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                        />
+                      </Grid>
+                    </Grid>
+                  </Paper>
+                </Grid>
 
-              {/* Email | Mobile */}
-              <Grid item xs={12} sm={6}>
-                <TextField 
-                  label="Email" 
-                  name="email" 
-                  value={formData.email || ''} 
-                  onChange={handleFormInputChange} 
-                  fullWidth
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField 
-                  label="Mobile" 
-                  name="mobile" 
-                  value={formData.mobile || ''} 
-                  onChange={handleFormInputChange} 
-                  fullWidth
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
-                />
-              </Grid>
+                {/* Contact Information Section */}
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" sx={{ 
+                    color: 'text.secondary', 
+                    fontWeight: 700, 
+                    textTransform: 'uppercase',
+                    fontSize: '0.75rem',
+                    mb: 1.5,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1
+                  }}>
+                    <Phone fontSize="small" color="primary" />
+                    Contact Details
+                  </Typography>
+                  <Paper elevation={0} sx={{ p: 2, border: '1px solid #e0e0e0', borderRadius: '12px' }}>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} sm={6}>
+                        <TextField 
+                          label="Email Address" 
+                          name="email" 
+                          type="email"
+                          value={formData.email || ''} 
+                          onChange={handleFormInputChange} 
+                          fullWidth
+                          required
+                          variant="outlined"
+                          InputProps={{
+                            startAdornment: (
+                              <InputAdornment position="start">
+                                <Email color="action" fontSize="small" />
+                              </InputAdornment>
+                            ),
+                          }}
+                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField 
+                          label="Phone Number" 
+                          name="mobile" 
+                          value={formData.mobile || ''} 
+                          onChange={handleFormInputChange} 
+                          fullWidth
+                          required
+                          variant="outlined"
+                          InputProps={{
+                            startAdornment: (
+                              <InputAdornment position="start">
+                                <Phone color="action" fontSize="small" />
+                              </InputAdornment>
+                            ),
+                          }}
+                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                        />
+                      </Grid>
+                    </Grid>
+                  </Paper>
+                </Grid>
 
-              {/* Company Address | City */}
-              <Grid item xs={12} sm={6}>
-                <TextField 
-                  label="Company Address" 
-                  name="companyAddress" 
-                  value={formData.companyAddress || ''} 
-                  onChange={handleFormInputChange} 
-                  fullWidth
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField 
-                  label="City" 
-                  name="city" 
-                  value={formData.city || ''} 
-                  onChange={handleFormInputChange} 
-                  fullWidth
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
-                />
-              </Grid>
+                {/* Location Section */}
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" sx={{ 
+                    color: 'text.secondary', 
+                    fontWeight: 700, 
+                    textTransform: 'uppercase',
+                    fontSize: '0.75rem',
+                    mb: 1.5,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1
+                  }}>
+                    <LocationOn fontSize="small" color="primary" />
+                    Location
+                  </Typography>
+                  <Paper elevation={0} sx={{ p: 2, border: '1px solid #e0e0e0', borderRadius: '12px' }}>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12}>
+                        <TextField 
+                          label="Street Address" 
+                          name="companyAddress" 
+                          value={formData.companyAddress || ''} 
+                          onChange={handleFormInputChange} 
+                          fullWidth
+                          variant="outlined"
+                          placeholder="e.g. 123 Logistics Way"
+                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField 
+                          label="City" 
+                          name="city" 
+                          value={formData.city || ''} 
+                          onChange={handleFormInputChange} 
+                          fullWidth
+                          variant="outlined"
+                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField 
+                          label="State/Province" 
+                          name="state" 
+                          value={formData.state || ''} 
+                          onChange={handleFormInputChange} 
+                          fullWidth
+                          variant="outlined"
+                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField 
+                          label="Zip/Postal Code" 
+                          name="zipCode" 
+                          value={formData.zipCode || ''} 
+                          onChange={handleFormInputChange} 
+                          fullWidth
+                          variant="outlined"
+                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField 
+                          label="Country" 
+                          name="country" 
+                          value={formData.country || ''} 
+                          onChange={handleFormInputChange} 
+                          fullWidth
+                          variant="outlined"
+                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                        />
+                      </Grid>
+                    </Grid>
+                  </Paper>
+                </Grid>
 
-              {/* State | Country */}
-              <Grid item xs={12} sm={6}>
-                <TextField 
-                  label="State" 
-                  name="state" 
-                  value={formData.state || ''} 
-                  onChange={handleFormInputChange} 
-                  fullWidth
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
-                />
+                {/* Additional Info Section */}
+                <Grid item xs={12}>
+                  <TextField 
+                    label="Additional Notes" 
+                    name="notes" 
+                    value={formData.notes || ''} 
+                    onChange={handleFormInputChange} 
+                    fullWidth
+                    multiline
+                    rows={3}
+                    variant="outlined"s
+                    placeholder="Any specific requirements or details..."
+                    sx={{ 
+                      '& .MuiOutlinedInput-root': { borderRadius: '12px' },
+                      bgcolor: 'white'
+                    }}
+                  />
+                </Grid>
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField 
-                  label="Country" 
-                  name="country" 
-                  value={formData.country || ''} 
-                  onChange={handleFormInputChange} 
-                  fullWidth
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
-                />
-              </Grid>
+            </Box>
 
-              {/* Zip Code | Notes */}
-              <Grid item xs={12} sm={6}>
-                <TextField 
-                  label="Zip Code" 
-                  name="zipCode" 
-                  value={formData.zipCode || ''} 
-                  onChange={handleFormInputChange} 
-                  fullWidth
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField 
-                  label="Notes" 
-                  name="notes" 
-                  value={formData.notes || ''} 
-                  onChange={handleFormInputChange} 
-                  fullWidth
-                  multiline
-                  rows={3}
-                  placeholder="Additional notes about the customer..."
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
-                />
-              </Grid>
-            </Grid>
-            <DialogActions sx={{ mt: 4, justifyContent: 'center', gap: 1 }}>
-              <Button onClick={() => setAddModalOpen(false)} variant="outlined"sx={{ borderRadius: 3, backgroundColor: '#ffff', color: '#d32f2f', textTransform: 'none', px: 4, borderColor: '#d32f2f' }}>Cancel</Button>
-              <Button type="submit" variant="contained" color="primary" sx={{ borderRadius: 3, textTransform: 'none', px: 4 }}>Submit</Button>
+            <Divider />
+            
+            <DialogActions sx={{ p: 3, bgcolor: '#fff' }}>
+              <Button 
+                onClick={() => setAddModalOpen(false)} 
+                variant="outlined"
+                color="inherit"
+                sx={{ 
+                  borderRadius: '8px', 
+                  textTransform: 'none', 
+                  px: 3,
+                  fontWeight: 600
+                }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="submit" 
+                variant="contained" 
+                disabled={loading}
+                sx={{ 
+                  borderRadius: '8px', 
+                  textTransform: 'none', 
+                  px: 4,
+                  fontWeight: 600,
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                  background: brand
+                }}
+              >
+                {loading ? <CircularProgress size={24} color="inherit" /> : 'Create Customer'}
+              </Button>
             </DialogActions>
           </Box>
         </DialogContent>

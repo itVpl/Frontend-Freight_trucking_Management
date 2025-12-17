@@ -344,6 +344,7 @@ const Layout = () => {
       { text: 'Live Tracker', icon: <LocationOn />, path: '/live-tracker' },
       { text: 'Billing', icon: <Receipt />, path: '/bills' },
       { text: 'Consignment', icon: <Assignment />, path: '/consignment' },
+      { text: 'Add Customer', icon: <PersonAdd />, path: '/add-customer' },
       { text: 'Load Board', icon: <ListAlt />, path: '/loadboard' },
       { text: 'Email', icon: <EmailIcon />, path: '/email' },
       { text: 'Report', icon: <Assessment />, path: '/reports' },
