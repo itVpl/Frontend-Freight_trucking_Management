@@ -1,7 +1,7 @@
 import { Box, CircularProgress, Typography } from '@mui/material';
 import { keyframes } from '@mui/system';
 
-// Premium animations
+// Premium animations test github
 const pulse = keyframes`
   0%, 100% {
     opacity: 1;

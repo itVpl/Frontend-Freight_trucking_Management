@@ -25,6 +25,7 @@ import {
   CardContent,
   CircularProgress,
   Alert,
+  Skeleton,
   Menu,
   MenuItem,
   Tooltip,
@@ -327,8 +328,17 @@ const Email = () => {
       {/* Email List */}
       <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
         {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-            <CircularProgress />
+          <Box sx={{ p: 2 }}>
+            {Array.from({ length: 5 }).map((_, index) => (
+              <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 2, mb: 1 }}>
+                <Skeleton variant="circular" width={40} height={40} />
+                <Box sx={{ flex: 1 }}>
+                  <Skeleton variant="text" width="60%" height={20} />
+                  <Skeleton variant="text" width="40%" height={16} />
+                </Box>
+                <Skeleton variant="text" width={80} height={16} />
+              </Box>
+            ))}
           </Box>
         ) : (
           <List sx={{ p: 0 }}>

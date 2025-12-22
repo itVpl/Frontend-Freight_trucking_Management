@@ -7,6 +7,7 @@ import {
   Paper,
   CircularProgress,
   Alert,
+  Skeleton,
   Card,
   CardContent,
   Chip,
@@ -127,12 +128,37 @@ const Profile = () => {
     }
   };
 
+  // Profile Skeleton Loading Component
+  const ProfileSkeleton = () => (
+    <Box sx={{ p: 3 }}>
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={4}>
+          <Paper sx={{ p: 3, textAlign: 'center' }}>
+            <Skeleton variant="circular" width={120} height={120} sx={{ mx: 'auto', mb: 2 }} />
+            <Skeleton variant="text" width={200} height={32} sx={{ mx: 'auto', mb: 1 }} />
+            <Skeleton variant="text" width={150} height={24} sx={{ mx: 'auto', mb: 2 }} />
+            <Skeleton variant="rectangular" width={100} height={26} sx={{ borderRadius: 1, mx: 'auto' }} />
+          </Paper>
+        </Grid>
+        <Grid item xs={12} md={8}>
+          <Paper sx={{ p: 3 }}>
+            <Skeleton variant="text" width={200} height={32} sx={{ mb: 3 }} />
+            <Grid container spacing={2}>
+              {[1, 2, 3, 4, 5, 6].map((item) => (
+                <Grid item xs={12} sm={6} key={item}>
+                  <Skeleton variant="text" width={120} height={20} />
+                  <Skeleton variant="text" width={180} height={24} />
+                </Grid>
+              ))}
+            </Grid>
+          </Paper>
+        </Grid>
+      </Grid>
+    </Box>
+  );
+
   if (loading) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
-      </Box>
-    );
+    return <ProfileSkeleton />;
   }
 
   if (error) {

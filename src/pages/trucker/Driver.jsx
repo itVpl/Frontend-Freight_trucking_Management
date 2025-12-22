@@ -23,6 +23,7 @@ import {
   Divider,
   Snackbar,
   Alert,
+  Skeleton,
 } from '@mui/material';
 import { Receipt, Download, Edit } from '@mui/icons-material';
 import axios from 'axios';
@@ -343,9 +344,22 @@ const Dashboard = () => {
           </TableHead>
           <TableBody>
             {loading ? (
-              <TableRow>
-                <TableCell colSpan={12} align="center">Loading...</TableCell>
-              </TableRow>
+              Array.from({ length: 5 }).map((_, index) => (
+                <TableRow key={index}>
+                  <TableCell><Skeleton variant="text" width={120} /></TableCell>
+                  <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                  <TableCell><Skeleton variant="text" width={120} /></TableCell>
+                  <TableCell><Skeleton variant="text" width={80} /></TableCell>
+                  <TableCell><Skeleton variant="text" width={120} /></TableCell>
+                  <TableCell><Skeleton variant="text" width={150} /></TableCell>
+                  <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                  <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                  <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                  <TableCell><Skeleton variant="text" width={80} /></TableCell>
+                  <TableCell><Skeleton variant="text" width={150} /></TableCell>
+                  <TableCell><Skeleton variant="rectangular" width={80} height={32} sx={{ borderRadius: 1 }} /></TableCell>
+                </TableRow>
+              ))
             ) : driverData.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={12} align="center">No drivers found</TableCell>
