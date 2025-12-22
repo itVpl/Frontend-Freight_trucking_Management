@@ -991,7 +991,6 @@ const Dashboard = () => {
               backgroundColor: '#fafafa'
             }}
           />
-          </Box>
         </Paper>
 
         {/* Bill Generation Modal */}

@@ -488,20 +488,6 @@ const Dashboard = () => {
           }} />
         )}
         <Box sx={{ position: 'relative', zIndex: 1 }}>
-        <Table>
-          <TableHead>
-            <TableRow sx={{ backgroundColor: (themeConfig?.table?.headerBg || '#f0f4f8') }}>
-              <TableCell sx={{ fontWeight: 600 }}>Vehicle No</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Chassis No</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Engine No</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Model Year</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Vehicle Type</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Make</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Model</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Capacity</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Actions</TableCell>
-      <Paper elevation={3} sx={{ borderRadius: 3, overflow: 'hidden' }}>
         <Table
           sx={{
             borderRadius: 3,

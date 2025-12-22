@@ -36,6 +36,7 @@ import { Wrapper, Status } from '@googlemaps/react-wrapper';
 import { useAuth } from '../../context/AuthContext';
 
 // Fix for Leaflet default icons
+import L from 'leaflet';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
@@ -49,7 +50,7 @@ L.Icon.Default.mergeOptions({
 import { BASE_API_URL } from '../../apiConfig';
 import { useThemeConfig } from '../../context/ThemeContext';
 import PageLoader from '../../components/PageLoader';
-import { BASE_API_URL, GOOGLE_MAPS_API_KEY } from '../../apiConfig';
+import {GOOGLE_MAPS_API_KEY } from '../../apiConfig';
 import GoogleMap from '../../components/maps/GoogleMap';
 import group23 from "../../assets/Icons super admin/Group23.png"
 import group22 from "../../assets/Icons super admin/Group22.png"

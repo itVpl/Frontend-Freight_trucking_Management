@@ -164,9 +164,11 @@ function App() {
     <AuthProvider>
       <ThemeProvider>
         <UiThemeWrapper>
-          <Router>
-            <div className="App">
-              <Routes>
+          <NegotiationProvider>
+            <Router>
+              <div className="App">
+                <UniversalNegotiationPopup />
+                <Routes>
             {/* Public Routes */}
             <Route path="/root" element={<RootGate />} />
             <Route path="/landingpage" element={<LandingPage />} />
@@ -207,6 +209,7 @@ function App() {
               </Routes>
             </div>
           </Router>
+          </NegotiationProvider>
         </UiThemeWrapper>
       </ThemeProvider>
     </AuthProvider>

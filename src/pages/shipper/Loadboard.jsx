@@ -37,7 +37,7 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   Tooltip,
-  Zoom
+  Zoom,
   Skeleton
 } from '@mui/material';
 import { styled } from '@mui/material/styles';

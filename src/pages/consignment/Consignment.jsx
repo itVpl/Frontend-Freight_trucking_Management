@@ -604,17 +604,7 @@ const Consignment = () => {
             zIndex: 0,
           }} />
         )}
-        <Table>
-          <TableHead>
-            <TableRow sx={{ backgroundColor: (themeConfig?.table?.headerBg || '#f0f4f8') }}>
-              <TableCell sx={{ fontWeight: 600, width: '100px' }}>Load ID</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: '120px' }}>Consignment No</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: '80px' }}>Weight</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: '200px' }}>Pick Up</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: '200px' }}>Drop</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: '100px' }}>Load Type</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: '120px' }}>Action</TableCell>
-      <Paper elevation={3} sx={{ borderRadius: 3, overflow: 'hidden' }}>
+
         <Table
           sx={{
             borderRadius: 3,
