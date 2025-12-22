@@ -35,8 +35,12 @@ import {
   Alert,
   IconButton,
   ToggleButton,
-  ToggleButtonGroup
+  ToggleButtonGroup,
+  Tooltip,
+  Zoom
 } from '@mui/material';
+import { styled } from '@mui/material/styles';
+import { tooltipClasses } from '@mui/material/Tooltip';
 import {
   Add,
   Refresh,
@@ -65,6 +69,25 @@ import PersonIcon from '@mui/icons-material/Person';
 import SearchNavigationFeedback from '../../components/SearchNavigationFeedback';
 import PageLoader from '../../components/PageLoader';
 import { useThemeConfig } from '../../context/ThemeContext';
+
+// Premium Dark Tooltip
+const PremiumTooltip = styled(({ className, ...props }) => (
+  <Tooltip {...props} classes={{ popper: className }} />
+))(({ theme }) => ({
+  [`& .${tooltipClasses.tooltip}`]: {
+    backgroundColor: '#263238',
+    color: '#ffffff',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.25)',
+    fontSize: 12,
+    borderRadius: 12,
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    padding: 0,
+    maxWidth: 300
+  },
+  [`& .${tooltipClasses.arrow}`]: {
+    color: '#263238',
+  },
+}));
 
 // US Cities List
 const usCities = [
@@ -240,34 +263,8 @@ const LoadBoard = () => {
     : primary;
   const headerTextColor = themeConfig.header?.text || '#ffffff';
 
-  // Vehicle type options - Separate for DRAYAGE and OTR as per server enum
-  // IMPORTANT: These must match EXACTLY with API enum values
-  const DRAYAGE_VEHICLE_TYPES = [
-    "20' Standard",
-    "40' Standard",
-    "45' Standard",
-    "20' Reefer",
-    "40' Reefer",
-    "Open Top Container",
-    "Flat Rack Container",
-    "Tank Container",
-    "40' High Cube",
-    "45' High Cube"
-  ];
+  // Vehicle type options - Use constants defined outside component
 
-  const OTR_VEHICLE_TYPES = [
-    "Dry Van",
-    "Reefer (Refrigerated Van)",
-    "Step Deck (Drop Deck)",
-    "Double Drop / Lowboy",
-    "Conestoga",
-    "Livestock Trailer",
-    "Car Hauler",
-    "Container Chassis",
-    "End Dump",
-    "Side Dump",
-    "Hopper Bottom"
-  ];
 
   const [form, setForm] = useState({
     // Common fields
@@ -464,29 +461,25 @@ const LoadBoard = () => {
   const getFilteredLoads = () => {
     if (!loadData || loadData.length === 0) return [];
 
-    let filteredLoads = [];
+    const normalize = (status) => status ? status.toLowerCase() : '';
+
     switch (activeTab) {
       case 0: // Pending Approval
-        filteredLoads = loadData.filter(load =>
-          ['Pending', 'Approval', 'Pending Approval', 'pending', 'approval', 'PENDING', 'APPROVAL', 'Posted'].includes(load.status)
+        return loadData.filter(load =>
+          ['pending', 'approval', 'pending approval', 'posted'].includes(normalize(load.status))
         );
-        console.log('Pending Approval tab - Active tab:', activeTab, 'Filtered loads:', filteredLoads.length, 'All loads statuses:', loadData.map(l => ({ id: l._id, status: l.status })));
-        return filteredLoads;
       case 1: // Bidding
-        filteredLoads = loadData.filter(load =>
-          ['Bidding', 'Bid Received', 'Posted'].includes(load.status)
+        return loadData.filter(load =>
+          ['bidding', 'bid received', 'posted'].includes(normalize(load.status))
         );
-        return filteredLoads;
       case 2: // Transit
-        filteredLoads = loadData.filter(load =>
-          ['Assigned', 'In Transit', 'Picked Up'].includes(load.status)
+        return loadData.filter(load =>
+          ['assigned', 'in transit', 'picked up'].includes(normalize(load.status))
         );
-        return filteredLoads;
       case 3: // Delivered
-        filteredLoads = loadData.filter(load =>
-          ['Delivered', 'Completed'].includes(load.status)
+        return loadData.filter(load =>
+          ['delivered', 'completed'].includes(normalize(load.status))
         );
-        return filteredLoads;
       default:
         return loadData;
     }
@@ -876,7 +869,7 @@ const LoadBoard = () => {
 
     // Validate based on load type
     if (form.loadType === 'DRAYAGE') {
-      const requiredFields = ['fromAddress', 'fromCity', 'fromState', 'toAddress', 'toCity', 'toState', 'weight', 'commodity', 'vehicleType', 'pickupDate', 'deliveryDate', 'returnDate', 'returnAddress', 'returnCity', 'returnState', 'returnZip'];
+      const requiredFields = ['fromAddress', 'fromCity', 'fromState', 'fromZip', 'toAddress', 'toCity', 'toState', 'toZip', 'weight', 'commodity', 'vehicleType', 'pickupDate', 'deliveryDate', 'returnDate', 'returnAddress', 'returnCity', 'returnState', 'returnZip'];
       requiredFields.forEach(field => {
         if (!form[field]) newErrors[field] = true;
       });
@@ -4730,36 +4723,132 @@ const handleEditLoad = (load) => {
                       </Box>
 
                       {/* Bid Amount */}
-                      <Box sx={{
-                        background: 'linear-gradient(135deg, #e8f5e8, #c8e6c9)',
-                        borderRadius: 3,
-                        p: 2,
-                        border: '1px solid #4caf50',
-                        textAlign: 'center',
-                        transition: 'all 0.3s ease',
-                        '&:hover': {
-                          transform: 'translateY(-2px)',
-                          boxShadow: '0 4px 12px rgba(76, 175, 80, 0.2)'
+                      <PremiumTooltip
+                        TransitionComponent={Zoom}
+                        title={
+                          <Box sx={{ p: 2 }}>
+                            <Stack direction="row" spacing={2} alignItems="flex-start">
+                              <Avatar sx={{ 
+                                width: 36, 
+                                height: 36, 
+                                bgcolor: 'rgba(76, 175, 80, 0.15)', 
+                                color: '#66bb6a',
+                                border: '1px solid rgba(102, 187, 106, 0.3)'
+                              }}>
+                                <Description sx={{ fontSize: 18 }} />
+                              </Avatar>
+                              <Box>
+                                <Typography sx={{ 
+                                  fontWeight: 700, 
+                                  color: '#a5d6a7', 
+                                  fontSize: '0.75rem',
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.5px',
+                                  mb: 0.5
+                                }}>
+                                  Message
+                                </Typography>
+                                <Typography sx={{ 
+                                  color: '#eceff1', 
+                                  lineHeight: 1.5,
+                                  fontSize: '0.85rem',
+                                  maxWidth: 220,
+                                  fontWeight: 400
+                                }}>
+                                  "{bid.message || 'No details provided.'}"
+                                </Typography>
+                              </Box>
+                            </Stack>
+                          </Box>
                         }
-                      }}>
-                        <Typography sx={{
-                          fontWeight: 600,
-                          fontSize: 11,
-                          color: '#2e7d32',
-                          mb: 1,
-                          textTransform: 'uppercase',
-                          letterSpacing: 0.5
+                        arrow
+                        placement="top"
+                      >
+                        <Box sx={{
+                          position: 'relative',
+                          background: bid.message 
+                            ? 'linear-gradient(135deg, #f1f8e9 0%, #dcedc8 100%)' 
+                            : 'linear-gradient(145deg, #ffffff, #f5f5f5)',
+                          borderRadius: 4,
+                          p: '16px 12px',
+                          border: bid.message ? '1px solid #a5d6a7' : '1px solid #eeeeee',
+                          boxShadow: bid.message 
+                            ? '0 10px 20px -5px rgba(51, 105, 30, 0.15)' 
+                            : '0 2px 8px rgba(0,0,0,0.04)',
+                          textAlign: 'center',
+                          transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                          cursor: 'pointer',
+                          '&:hover': {
+                            transform: 'translateY(-5px) scale(1.02)',
+                            boxShadow: bid.message 
+                              ? '0 20px 30px -10px rgba(51, 105, 30, 0.25)' 
+                              : '0 8px 20px rgba(0,0,0,0.08)',
+                          }
                         }}>
-                          💰 Bid Amount
-                        </Typography>
-                        <Typography sx={{
-                          fontWeight: 700,
-                          fontSize: 16,
-                          color: '#1b5e20'
-                        }}>
-                          ${bid.intermediateRate?.toLocaleString() || '-'}
-                        </Typography>
-                      </Box>
+                          {/* Pulsing Dot Indicator */}
+                          {bid.message && (
+                            <Box sx={{
+                              position: 'absolute',
+                              top: 12,
+                              right: 12,
+                              width: 8,
+                              height: 8,
+                              borderRadius: '50%',
+                              bgcolor: '#43a047',
+                              boxShadow: '0 0 0 0 rgba(67, 160, 71, 0.7)',
+                              animation: 'pulse 2s infinite',
+                              '@keyframes pulse': {
+                                '0%': { transform: 'scale(0.95)', boxShadow: '0 0 0 0 rgba(67, 160, 71, 0.7)' },
+                                '70%': { transform: 'scale(1)', boxShadow: '0 0 0 6px rgba(67, 160, 71, 0)' },
+                                '100%': { transform: 'scale(0.95)', boxShadow: '0 0 0 0 rgba(67, 160, 71, 0)' },
+                              }
+                            }} />
+                          )}
+                          
+                          <Typography sx={{
+                            fontWeight: 700,
+                            fontSize: 10,
+                            color: bid.message ? '#33691e' : '#90a4ae',
+                            textTransform: 'uppercase',
+                            letterSpacing: 1.5,
+                            mb: 0.5
+                          }}>
+                            Bid Amount
+                          </Typography>
+                          
+                          <Typography sx={{
+                            fontWeight: 800,
+                            fontSize: 20,
+                            background: bid.message 
+                              ? 'linear-gradient(45deg, #1b5e20, #4caf50)' 
+                              : 'linear-gradient(45deg, #37474f, #78909c)',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent',
+                            fontFamily: '"Roboto Mono", monospace',
+                            letterSpacing: -0.5
+                          }}>
+                            ${bid.intermediateRate?.toLocaleString() || '-'}
+                          </Typography>
+                          
+                          {bid.message && (
+                            <Typography sx={{
+                              fontSize: 9,
+                              color: '#558b2f',
+                              mt: 1,
+                              fontWeight: 700,
+                              opacity: 0,
+                              transform: 'translateY(5px)',
+                              transition: 'all 0.3s ease',
+                              '.MuiBox-root:hover &': {
+                                opacity: 1,
+                                transform: 'translateY(0)'
+                              }
+                            }}>
+                              VIEW NOTE
+                            </Typography>
+                          )}
+                        </Box>
+                      </PremiumTooltip>
 
                       {/* Pickup ETA */}
                       <Box sx={{

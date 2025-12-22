@@ -10,9 +10,11 @@ import Consignment from './pages/consignment/Consignment';
 import BidManagement from './pages/trucker/BidManagement';
 import AddCustomer from './pages/trucker/AddCustomer';
 import AddLoad from './pages/trucker/AddLoad';
+import AddUserTrucker from './pages/trucker/AddUserTrucker';
 import Reports from './pages/reports/Reports';
 import Bills from './pages/shipper/Bills';
 import Loadboard from './pages/shipper/Loadboard';
+import AddUserShipper from './pages/shipper/AddUserShipper';
 import Profile from './pages/profile/Profile';
 import Email from './pages/email/Email';
 import Layout from './components/layout/Layout';
@@ -23,6 +25,8 @@ import LoadCalculator from './loadshippertruckercalculator/LoadCalculator';
 import LandingPage from './pages/auth/LandingPage';
 import './App.css';
 import { ThemeProvider, useThemeConfig } from './context/ThemeContext';
+import { NegotiationProvider } from './context/NegotiationContext';
+import UniversalNegotiationPopup from './components/UniversalNegotiationPopup';
 import { ThemeProvider as MuiThemeProvider, createTheme, alpha } from '@mui/material/styles';
 import { useMemo } from 'react';
 
@@ -188,6 +192,8 @@ function App() {
               {/* Shipper Only Routes */}
               <Route path="/bills" element={<ProtectedRoute userType="shipper"><Bills /></ProtectedRoute>} />
               <Route path="/loadboard" element={<ProtectedRoute userType="shipper"><Loadboard /></ProtectedRoute>} />
+              <Route path="/add-user-shipper" element={<ProtectedRoute userType="shipper"><AddUserShipper /></ProtectedRoute>} />
+              <Route path="/add-user-trucker" element={<ProtectedRoute userType="trucker"><AddUserTrucker /></ProtectedRoute>} />
             </Route>
 
             {/* Fallback: unknown routes -> Landing */}

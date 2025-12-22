@@ -882,6 +882,19 @@ const AddLoad = () => {
         ? rateDetails.other.reduce((sum, charge) => sum + (parseFloat(charge.total) || 0), 0).toFixed(2)
         : parseFloat(rateDetails.other).toFixed(2)) : '';
 
+      // Extract customer details (could be in loadData or loadDetails)
+      const customerDetails = loadData.customerLoadDetails || loadDetails.customerLoadDetails || {};
+
+      // Helper to format date for input
+      const formatDate = (dateStr) => {
+        if (!dateStr) return '';
+        try {
+          return dateStr.split('T')[0];
+        } catch (e) {
+          return '';
+        }
+      };
+
       // Populate form data
       const formDataToSet = {
         customerId: loadData.customerId || '',
@@ -893,8 +906,8 @@ const AddLoad = () => {
         fsc: fsc,
         other: other,
         total: loadData.rate || '',
-        bidDeadline: loadData.bidDeadline ? loadData.bidDeadline.split('T')[0] : '',
-        // OTR fields
+        bidDeadline: formatDate(loadData.bidDeadline),
+        // OTR fields (single fields for backward compatibility/fallback)
         pickupLocation: loadData.origins?.[0]?.addressLine1 || '',
         pickupCity: loadData.origins?.[0]?.city || '',
         pickupState: loadData.origins?.[0]?.state || '',
@@ -903,8 +916,8 @@ const AddLoad = () => {
         deliveryCity: loadData.destinations?.[0]?.city || '',
         deliveryState: loadData.destinations?.[0]?.state || '',
         deliveryZip: loadData.destinations?.[0]?.zip || '',
-        pickupDate: loadData.origins?.[0]?.pickupDate ? loadData.origins[0].pickupDate.split('T')[0] : '',
-        deliveryDate: loadData.destinations?.[0]?.deliveryDate ? loadData.destinations[0].deliveryDate.split('T')[0] : '',
+        pickupDate: formatDate(loadData.origins?.[0]?.pickupDate),
+        deliveryDate: formatDate(loadData.destinations?.[0]?.deliveryDate),
         weight: loadData.origins?.[0]?.weight || loadData.weight || '',
         commodity: loadData.origins?.[0]?.commodity || loadData.commodity || '',
         // DRAYAGE fields - populate from origins/destinations arrays if loadType is DRAYAGE
@@ -925,17 +938,36 @@ const AddLoad = () => {
         poNumber: loadData.poNumber || '',
         bolNumber: loadData.bolNumber || '',
         shipmentNo: loadData.shipmentNumber || loadData.shipmentNo || '',
-        customerName: loadData.customerLoadDetails?.customerName || '',
-        customerPhone: loadData.customerLoadDetails?.customerPhone || '',
-        customerEmail: loadData.customerLoadDetails?.customerEmail || '',
+        customerName: customerDetails.customerName || '',
+        customerPhone: customerDetails.customerPhone || '',
+        customerEmail: customerDetails.customerEmail || '',
         specialInstructions: loadData.specialInstructions || '',
-        returnDate: loadData.returnDate ? loadData.returnDate.split('T')[0] : '',
+        returnDate: formatDate(loadData.returnDate),
         returnLocation: loadData.returnLocation || '',
-        // OTR arrays
-        origins: loadData.origins || [{
+        // OTR arrays - properly map and format dates
+        origins: (loadData.origins && loadData.origins.length > 0) ? loadData.origins.map(o => ({
+          addressLine1: o.addressLine1 || '',
+          addressLine2: o.addressLine2 || '',
+          city: o.city || '',
+          state: o.state || '',
+          zip: o.zip || '',
+          weight: o.weight || '',
+          commodity: o.commodity || '',
+          pickupDate: formatDate(o.pickupDate),
+          deliveryDate: formatDate(o.deliveryDate)
+        })) : [{
           addressLine1: '', addressLine2: '', city: '', state: '', zip: '', weight: '', commodity: '', pickupDate: '', deliveryDate: ''
         }],
-        destinations: loadData.destinations || [{
+        destinations: (loadData.destinations && loadData.destinations.length > 0) ? loadData.destinations.map(d => ({
+          addressLine1: d.addressLine1 || '',
+          addressLine2: d.addressLine2 || '',
+          city: d.city || '',
+          state: d.state || '',
+          zip: d.zip || '',
+          weight: d.weight || '',
+          commodity: d.commodity || '',
+          deliveryDate: formatDate(d.deliveryDate)
+        })) : [{
           addressLine1: '', addressLine2: '', city: '', state: '', zip: '', weight: '', commodity: '', deliveryDate: ''
         }],
       };

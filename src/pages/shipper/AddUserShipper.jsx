@@ -28,12 +28,14 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Switch,
 } from '@mui/material';
 import { 
   Add, 
   Search, 
   Clear, 
   Close, 
+  AssignmentInd,
   Visibility, 
   Edit, 
   Delete, 
@@ -43,14 +45,79 @@ import {
   Email,
   LocationOn,
   Save,
-  Cancel
+  Cancel,
+  Warning,
+  Lock
 } from '@mui/icons-material';
  
 import { BASE_API_URL } from '../../apiConfig';
 import { useThemeConfig } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 
-const AddCustomer = () => {
+const DUMMY_CUSTOMERS = [
+  {
+    _id: '1',
+    companyInfo: {
+      companyName: 'ABC Logistics',
+      mcDotNo: 'Finance'
+    },
+    contactInfo: {
+      email: 'contact@abclogistics.com',
+      mobile: '123-456-7890'
+    },
+    locationDetails: {
+      companyAddress: '123 Main St',
+      city: 'New York',
+      state: 'NY',
+      country: 'USA',
+      zipCode: '10001'
+    },
+    status: 'active',
+    notes: 'Premium customer'
+  },
+  {
+    _id: '2',
+    companyInfo: {
+      companyName: 'XYZ Freight',
+      mcDotNo: 'IT'
+    },
+    contactInfo: {
+      email: 'info@xyzfreight.com',
+      mobile: '987-654-3210'
+    },
+    locationDetails: {
+      companyAddress: '456 Oak Ave',
+      city: 'Los Angeles',
+      state: 'CA',
+      country: 'USA',
+      zipCode: '90001'
+    },
+    status: 'inactive',
+    notes: 'Payment pending'
+  },
+  {
+    _id: '3',
+    companyInfo: {
+      companyName: 'Global Trans',
+      mcDotNo: 'HR'
+    },
+    contactInfo: {
+      email: 'support@globaltrans.com',
+      mobile: '555-123-4567'
+    },
+    locationDetails: {
+      companyAddress: '789 Pine Rd',
+      city: 'Chicago',
+      state: 'IL',
+      country: 'USA',
+      zipCode: '60601'
+    },
+    status: 'active',
+    notes: ''
+  }
+];
+
+const AddUserShipper = () => {
   const { userType } = useAuth();
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -73,8 +140,28 @@ const AddCustomer = () => {
     state: '',
     country: 'USA',
     zipCode: '',
-    notes: ''
+    notes: '',
+    password: ''
   }));
+
+  const [permissionModalOpen, setPermissionModalOpen] = useState(false);
+  const [selectedUserForPermission, setSelectedUserForPermission] = useState(null);
+  const [userPermissions, setUserPermissions] = useState({});
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [customerToDelete, setCustomerToDelete] = useState(null);
+
+  const sidebarOptions = [
+    { key: 'dashboard', label: 'Dashboard' },
+    { key: 'liveTracker', label: 'Live Tracker' },
+    { key: 'loadBoard', label: 'Load Board' },
+    { key: 'addUser', label: 'Add User' },
+    { key: 'billing', label: 'Billing' },
+    { key: 'consignment', label: 'Consignment' },
+    { key: 'email', label: 'Email' },
+    { key: 'report', label: 'Report' },
+    { key: 'loadCalculator', label: 'Load Calculator' },
+  ];
+
 
   const { themeConfig } = useThemeConfig();
   const brand = (themeConfig.header?.bg && themeConfig.header.bg !== 'white') ? themeConfig.header.bg : (themeConfig.tokens?.primary || '#1976d2');
@@ -91,6 +178,12 @@ const AddCustomer = () => {
       setLoading(true);
       setError(null);
       
+      // Using dummy data as requested since API is not returning data
+      setCustomersData(DUMMY_CUSTOMERS);
+      setLoading(false);
+      return; // Skip API call
+
+      /* 
       const token = localStorage.getItem('token');
       if (!token) {
         throw new Error('No authentication token found');
@@ -115,6 +208,7 @@ const AddCustomer = () => {
       } else {
         throw new Error(result.message || 'Failed to fetch customers');
       }
+      */
     } catch (err) {
       console.error('Error fetching customers:', err);
       setError(err.message || 'Failed to fetch customers');
@@ -245,7 +339,8 @@ const AddCustomer = () => {
       state: '',
       country: 'USA',
       zipCode: '',
-      notes: ''
+      notes: '',
+      password: ''
     });
     setAddModalOpen(true);
   }, []);
@@ -262,7 +357,8 @@ const AddCustomer = () => {
       state: customer.locationDetails?.state || '',
       country: customer.locationDetails?.country || 'USA',
       zipCode: customer.locationDetails?.zipCode || '',
-      notes: customer.notes || ''
+      notes: customer.notes || '',
+      password: ''
     });
     setSelectedCustomer(customer);
     setEditModalOpen(true);
@@ -273,22 +369,56 @@ const AddCustomer = () => {
     setViewModalOpen(true);
   }, []);
 
-  const handleDeleteCustomer = async (customerId) => {
-    if (window.confirm('Are you sure you want to delete this customer?')) {
-      try {
-        setLoading(true);
-        await deleteCustomer(customerId);
-        
-        // Refresh the customer list
-        await fetchAllCustomers();
-        setSuccess('Customer deleted successfully');
-        setTimeout(() => setSuccess(null), 3000);
-      } catch (err) {
-        setError(err.message || 'Failed to delete customer');
-        setTimeout(() => setError(null), 3000);
-      } finally {
-        setLoading(false);
-      }
+  const handleAssignPermission = useCallback((customer) => {
+    setSelectedUserForPermission(customer);
+    // Initialize permissions - in a real app, you'd fetch existing permissions here
+    const initialPermissions = {};
+    sidebarOptions.forEach(option => {
+      initialPermissions[option.key] = false; // Default to false or fetch from backend
+    });
+    setUserPermissions(initialPermissions);
+    setPermissionModalOpen(true);
+  }, []);
+
+  const handlePermissionToggle = (key) => {
+    setUserPermissions(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
+  const savePermissions = () => {
+    // Here you would save the permissions to the backend
+    console.log('Saving permissions for:', selectedUserForPermission?.companyInfo?.companyName, userPermissions);
+    setSuccess('Permissions assigned successfully');
+    setPermissionModalOpen(false);
+    setTimeout(() => setSuccess(null), 3000);
+  };
+
+
+  const handleDeleteCustomer = (customerId) => {
+    setCustomerToDelete(customerId);
+    setDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!customerToDelete) return;
+
+    try {
+      setLoading(true);
+      await deleteCustomer(customerToDelete);
+      
+      // Refresh the customer list
+      await fetchAllCustomers();
+      setSuccess('User deleted successfully');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError(err.message || 'Failed to delete user');
+      setTimeout(() => setError(null), 3000);
+    } finally {
+      setLoading(false);
+      setDeleteModalOpen(false);
+      setCustomerToDelete(null);
     }
   };
 
@@ -450,8 +580,8 @@ const AddCustomer = () => {
         <Table sx={{ backgroundColor: (themeConfig.table?.bgImage || themeConfig.content?.bgImage) ? 'rgba(255,255,255,0.94)' : 'inherit' }}>
           <TableHead>
             <TableRow sx={{ backgroundColor: (themeConfig.table?.headerBg || '#f0f4f8') }}>
-              <TableCell sx={{ fontWeight: 600, width: '150px', color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Company Name</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: '120px', color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>MC/DOT No</TableCell>
+              <TableCell sx={{ fontWeight: 600, width: '150px', color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Name</TableCell>
+              <TableCell sx={{ fontWeight: 600, width: '120px', color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Designation</TableCell>
               <TableCell sx={{ fontWeight: 600, width: '150px', color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Email</TableCell>
               <TableCell sx={{ fontWeight: 600, width: '120px', color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Mobile</TableCell>
               <TableCell sx={{ fontWeight: 600, width: '200px', color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Location</TableCell>
@@ -511,6 +641,27 @@ const AddCustomer = () => {
                           }}
                         >
                           View
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          startIcon={<AssignmentInd />}
+                          onClick={() => handleAssignPermission(customer)}
+                          sx={{
+                            fontSize: '0.75rem',
+                            px: 1,
+                            py: 0.5,
+                            textTransform: 'none',
+                            minWidth: 'auto',
+                            color: 'info.main',
+                            borderColor: 'info.main',
+                            '&:hover': {
+                              backgroundColor: 'info.main',
+                              color: 'white'
+                            }
+                          }}
+                        >
+                          Assign
                         </Button>
                         <Button
                           variant="outlined"
@@ -634,13 +785,13 @@ const AddCustomer = () => {
                     gap: 1
                   }}>
                     <Business fontSize="small" color="primary" />
-                    Company Information
+                    User Information
                   </Typography>
                   <Paper elevation={0} sx={{ p: 2, border: '1px solid #e0e0e0', borderRadius: '12px' }}>
                     <Grid container spacing={2}>
                       <Grid item xs={12} sm={6}>
                         <TextField 
-                          label="Company Name" 
+                          label="Name" 
                           name="companyName" 
                           value={formData.companyName || ''} 
                           onChange={handleFormInputChange} 
@@ -660,7 +811,7 @@ const AddCustomer = () => {
                       </Grid>
                       <Grid item xs={12} sm={6}>
                         <TextField 
-                          label="MC/DOT No" 
+                          label="Designation" 
                           name="mcDotNo" 
                           value={formData.mcDotNo || ''} 
                           onChange={handleFormInputChange} 
@@ -672,6 +823,26 @@ const AddCustomer = () => {
                             startAdornment: (
                               <InputAdornment position="start">
                                 <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary' }}>#</Typography>
+                              </InputAdornment>
+                            ),
+                          }}
+                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                        />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <TextField 
+                          label="Password" 
+                          name="password" 
+                          type="password"
+                          value={formData.password || ''} 
+                          onChange={handleFormInputChange} 
+                          fullWidth
+                          required
+                          variant="outlined"
+                          InputProps={{
+                            startAdornment: (
+                              <InputAdornment position="start">
+                                <Lock color="action" fontSize="small" />
                               </InputAdornment>
                             ),
                           }}
@@ -820,7 +991,7 @@ const AddCustomer = () => {
                 </Grid>
 
                 {/* Additional Info Section jhgjhgj*/}
-                <Grid item xs={12}>
+                {/* <Grid item xs={12}>
                   <TextField 
                     label="Additional Notes" 
                     name="notes" 
@@ -836,7 +1007,7 @@ const AddCustomer = () => {
                       bgcolor: 'white'
                     }}
                   />
-                </Grid>
+                </Grid> */}
               </Grid>
             </Box>
 
@@ -927,7 +1098,7 @@ const AddCustomer = () => {
               {/* Company Name | MC/DOT No */}
               <Grid item xs={12} sm={6}>
                 <TextField 
-                  label="Company Name" 
+                  label="Name" 
                   name="companyName" 
                   value={formData.companyName || ''} 
                   onChange={handleFormInputChange} 
@@ -937,7 +1108,7 @@ const AddCustomer = () => {
               </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField 
-                  label="MC/DOT No" 
+                  label="Designation" 
                   name="mcDotNo" 
                   value={formData.mcDotNo || ''} 
                   onChange={handleFormInputChange} 
@@ -962,6 +1133,19 @@ const AddCustomer = () => {
                   label="Mobile" 
                   name="mobile" 
                   value={formData.mobile || ''} 
+                  onChange={handleFormInputChange} 
+                  fullWidth
+                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
+                />
+              </Grid>
+
+              {/* Password */}
+              <Grid item xs={12} sm={12}>
+                <TextField 
+                  label="Password (Leave empty to keep unchanged)" 
+                  name="password" 
+                  type="password"
+                  value={formData.password || ''} 
                   onChange={handleFormInputChange} 
                   fullWidth
                   sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
@@ -1023,7 +1207,7 @@ const AddCustomer = () => {
                   sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              {/* <Grid item xs={12} sm={6}>
                 <TextField 
                   label="Notes" 
                   name="notes" 
@@ -1035,7 +1219,7 @@ const AddCustomer = () => {
                   placeholder="Additional notes about the customer..."
                   sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
                 />
-              </Grid>
+              </Grid> */}
             </Grid>
             <Box sx={{ 
               display: 'flex', 
@@ -1284,8 +1468,157 @@ const AddCustomer = () => {
           )}
           </DialogContent>
       </Dialog>
+
+      {/* Permission Modal */}
+      <Dialog
+        open={permissionModalOpen}
+        onClose={() => setPermissionModalOpen(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: '16px',
+            boxShadow: '0 24px 48px rgba(0,0,0,0.2)',
+            overflow: 'hidden'
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          p: 0,
+          background: brand,
+          color: headerTextColor,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          px: 3,
+          py: 2
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <AssignmentInd sx={{ fontSize: 28 }} />
+            <Typography variant="h6" fontWeight={700}>
+              User Permission
+            </Typography>
+          </Box>
+          <IconButton 
+            onClick={() => setPermissionModalOpen(false)}
+            sx={{ 
+              color: 'inherit',
+              '&:hover': { backgroundColor: 'rgba(255,255,255,0.1)' }
+            }}
+          >
+            <Close />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ p: 3 }}>
+          {selectedUserForPermission && (
+            <Box>
+              <Box sx={{ mb: 3, p: 2, bgcolor: '#f5f5f5', borderRadius: 2 }}>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">Name</Typography>
+                    <Typography variant="body1" fontWeight={600}>
+                      {selectedUserForPermission.companyInfo?.companyName || 'N/A'}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">Email</Typography>
+                    <Typography variant="body1" fontWeight={600}>
+                      {selectedUserForPermission.contactInfo?.email || 'N/A'}
+                    </Typography>
+                  </Grid>
+                </Grid>
+              </Box>
+
+              <Table size="small" sx={{ minWidth: 650 }}>
+                <TableHead>
+                  <TableRow sx={{ backgroundColor: '#f0f4f8' }}>
+                    <TableCell sx={{ fontWeight: 600 }}>Feature</TableCell>
+                    <TableCell sx={{ fontWeight: 600, width: 100, textAlign: 'center' }}>Action</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {sidebarOptions.map((option) => (
+                    <TableRow key={option.key} hover>
+                      <TableCell>{option.label}</TableCell>
+                      <TableCell sx={{ textAlign: 'center' }}>
+                        <Switch
+                          checked={!!userPermissions[option.key]}
+                          onChange={() => handlePermissionToggle(option.key)}
+                          color="primary"
+                          size="small"
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 3, borderTop: '1px solid #eee' }}>
+          <Button onClick={() => setPermissionModalOpen(false)} sx={{ textTransform: 'none', color: '#666' }}>
+            Cancel
+          </Button>
+          <Button 
+            variant="contained" 
+            onClick={savePermissions}
+            sx={{ 
+              bgcolor: brand,
+              textTransform: 'none',
+              px: 4,
+              '&:hover': { bgcolor: brand }
+            }}
+          >
+            Save Permissions
+          </Button>
+        </DialogActions>
+      </Dialog>
+      {/* Delete Confirmation Modal */}
+      <Dialog
+        open={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            boxShadow: '0 12px 24px rgba(0,0,0,0.1)',
+          }
+        }}
+      >
+        <DialogTitle sx={{ textAlign: 'center', pt: 3 }}>
+          <Warning sx={{ fontSize: 48, color: 'warning.main', mb: 1 }} />
+          <Typography variant="h6" fontWeight={600}>
+            Confirm Deletion
+          </Typography>
+        </DialogTitle>
+        <DialogContent sx={{ textAlign: 'center' }}>
+          <Typography variant="body1" color="text.secondary" marginTop={8}>
+            Are you sure you want to delete this user?
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, justifyContent: 'center', gap: 2 }}>
+          <Button
+            onClick={() => setDeleteModalOpen(false)}
+            variant="outlined"
+            color="inherit"
+            sx={{ borderRadius: 2, textTransform: 'none', px: 3 }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={confirmDelete}
+            variant="contained"
+            color="error"
+            disabled={loading}
+            sx={{ borderRadius: 2, textTransform: 'none', px: 3 }}
+          >
+            {loading ? <CircularProgress size={20} color="inherit" /> : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
 
-export default AddCustomer;
+export default AddUserShipper;
