@@ -1491,23 +1491,7 @@ const AddLoad = () => {
                       },
                     }}
                   >
-                    <TableCell sx={{ fontWeight: 600, color: (themeConfig.table?.text || '#333333') }}>
-                      {load.loadType}
-                    </TableCell>
-                    <TableCell sx={{ color: (themeConfig.table?.text || '#333333') }}>
-                      {load.origins?.[0]?.addressLine1 || 'N/A'}
-                    </TableCell>
-                    <TableCell sx={{ color: (themeConfig.table?.text || '#333333') }}>
-                      {load.destinations?.[0]?.addressLine1 || 'N/A'}
-                    </TableCell>
-                    <TableCell sx={{ color: (themeConfig.table?.text || '#333333') }}>
-                      {load.origins?.[0]?.weight || 'N/A'} lbs
-                    </TableCell>
-                    <TableCell sx={{ color: (themeConfig.table?.text || '#333333') }}>
-                      ${load.rate}
-                    </TableCell>
-                    <TableCell sx={{ color: (themeConfig.table?.text || '#333333') }}>
-                      {load.customerLoadDetails?.customerName || 'N/A'}
+
                     <TableCell sx={{ py: 2 }}>
                       <Chip
                         label={load.loadType || 'N/A'}

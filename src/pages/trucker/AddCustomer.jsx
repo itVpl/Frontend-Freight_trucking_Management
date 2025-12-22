@@ -493,17 +493,6 @@ const AddCustomer = () => {
           }} />
         )}
         <Box sx={{ position: 'relative', zIndex: 1 }}>
-        <Table sx={{ backgroundColor: (themeConfig.table?.bgImage || themeConfig.content?.bgImage) ? 'rgba(255,255,255,0.94)' : 'inherit' }}>
-          <TableHead>
-            <TableRow sx={{ backgroundColor: (themeConfig.table?.headerBg || '#f0f4f8') }}>
-              <TableCell sx={{ fontWeight: 600, width: '150px', color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Company Name</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: '120px', color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>MC/DOT No</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: '150px', color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Email</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: '120px', color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Mobile</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: '200px', color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Location</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: '100px', color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Status</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: '150px', color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Actions</TableCell>
-      <Paper elevation={3} sx={{ borderRadius: 3, overflow: 'hidden' }}>
         <Table
           sx={{
             borderRadius: 3,
@@ -558,19 +547,7 @@ const AddCustomer = () => {
                       },
                     }}
                   >
-                    <TableCell sx={{ width: '150px', fontWeight: 600, color: (themeConfig.table?.text || '#333333') }}>
-                      {customer.companyInfo?.companyName}
-                    </TableCell>
-                    <TableCell sx={{ width: '120px', color: (themeConfig.table?.text || '#333333') }}>
-                      {customer.companyInfo?.mcDotNo}
-                    </TableCell>
-                    <TableCell sx={{ width: '150px', color: (themeConfig.table?.text || '#333333') }}>
-                      {customer.contactInfo?.email}
-                    </TableCell>
-                    <TableCell sx={{ width: '120px', color: (themeConfig.table?.text || '#333333') }}>
-                      {customer.contactInfo?.mobile}
-                    </TableCell>
-                    <TableCell sx={{ width: '200px', wordWrap: 'break-word', color: (themeConfig.table?.text || '#333333') }}>
+
                     <TableCell sx={{ width: '150px', fontWeight: 600, color: '#334155' }}>
                       {customer.companyInfo?.companyName}
                     </TableCell>
@@ -1197,120 +1174,10 @@ const AddCustomer = () => {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
               <Business sx={{ fontSize: 28, color: headerTextColor }} />
               <Typography variant="h5" fontWeight={600} color={headerTextColor}>
-        <DialogTitle sx={{
-          background: 'linear-gradient(to right, #1976d2, #1565c0)',
-          color: '#fff',
-          py: 3,
-          px: 4,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Business sx={{ fontSize: 28 }} />
-            <Box>
-              <Typography variant="h5" sx={{ fontWeight: 700, color: '#fff' }}>
-                Customer Details
-              </Typography>
-              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.9)', mt: 0.5 }}>
-                Complete customer information
-              </Typography>
-            </Box>
-            <Button
-              onClick={() => setViewModalOpen(false)}
-              sx={{
-                color: headerTextColor,
-                minWidth: 'auto',
-                '&:hover': {
-                  background: 'rgba(255, 255, 255, 0.1)',
-                }
-              }}
-            >
-              ✕
-            </Button>
-          </DialogTitle>
-
-          <DialogContent sx={{ pt: 2, overflowY: 'auto', flex: 1 }}>
-          {selectedCustomer && (
-            <Box>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, p: 3 }}>
-                {/* Basic Information Card */}
-                <Paper elevation={0} sx={{ border: '1px solid #e0e0e0', borderRadius: 2, overflow: 'hidden' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, background: '#e3f2fd' }}>
-                    <Box sx={{ width: 32, height: 32, borderRadius: 1, background: '#1976d2', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
-                      i
-                    </Box>
-                    <Typography variant="h6" fontWeight={700} color="#0d47a1">Basic Information</Typography>
-                  </Box>
-                  <Box sx={{ p: 2 }}>
-                    <Table size="small" sx={{ '& td, & th': { border: 0, py: 1.2 } }}>
-                      <TableBody>
-                        <TableRow>
-                          <TableCell sx={{ width: 220, color: 'text.secondary' }}>Company Name</TableCell>
-                          <TableCell sx={{ width: 80, color: '#9e9e9e' }}>-----</TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>{selectedCustomer.companyInfo?.companyName || 'N/A'}</TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell sx={{ color: 'text.secondary' }}>MC/DOT Number</TableCell>
-                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>{selectedCustomer.companyInfo?.mcDotNo || 'N/A'}</TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell sx={{ color: 'text.secondary' }}>Status</TableCell>
-                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
-                          <TableCell>
-                            <Chip 
-                              label={selectedCustomer.status} 
-                              size="small"
-                              sx={{ 
-                                backgroundColor: selectedCustomer.status === 'active' ? '#4caf50' : '#9e9e9e',
-                                color: '#fff',
-                                fontWeight: 600,
-                                fontSize: 11
-                              }}
-                            />
-                          </TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell sx={{ color: 'text.secondary' }}>Created Date</TableCell>
-                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>{new Date(selectedCustomer.createdAt).toLocaleDateString()}</TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
-                  </Box>
-                </Paper>
-
-                {/* Contact Information Card */}
-                <Paper elevation={0} sx={{ border: '1px solid #ffe0b2', borderRadius: 2, overflow: 'hidden' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, background: '#fff8e1' }}>
-                    <Box sx={{ width: 32, height: 32, borderRadius: 1, background: '#ffb300', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
-                      📞
-                    </Box>
-                    <Typography variant="h6" fontWeight={700} color="#e65100">Contact Information</Typography>
-                  </Box>
-                  <Box sx={{ p: 2 }}>
-                    <Table size="small" sx={{ '& td, & th': { border: 0, py: 1.2 } }}>
-                      <TableBody>
-                        <TableRow>
-                          <TableCell sx={{ width: 220, color: 'text.secondary' }}>Email</TableCell>
-                          <TableCell sx={{ width: 80, color: '#9e9e9e' }}>-----</TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>{selectedCustomer.contactInfo?.email || 'N/A'}</TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell sx={{ color: 'text.secondary' }}>Mobile</TableCell>
-                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>{selectedCustomer.contactInfo?.mobile || 'N/A'}</TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
-                  </Box>
-                </Paper>
+              Customer Details
+            </Typography>
           </Box>
-          <IconButton
-            onClick={() => setViewModalOpen(false)}
-            sx={{ color: '#fff' }}
-          >
+          <IconButton onClick={() => setViewModalOpen(false)} sx={{ color: headerTextColor }}>
             <Close />
           </IconButton>
         </DialogTitle>
