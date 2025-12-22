@@ -87,7 +87,7 @@ const AddCustomer = () => {
     fetchAllCustomers();
   }, []);
 
-  // API Functions
+  // API Functionsdgdgdfgdff
   const fetchAllCustomers = async () => {
     try {
       setLoading(true);
