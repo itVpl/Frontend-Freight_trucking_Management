@@ -6,11 +6,14 @@ import LiveTracker from './pages/tracking/LiveTracker';
 import Fleet from './pages/trucker/Fleet';
 import Billing from './pages/trucker/Billing';
 import Driver from './pages/trucker/Driver';
+import Payments from './pages/trucker/Payments';
 import Consignment from './pages/consignment/Consignment';
 import BidManagement from './pages/trucker/BidManagement';
 import AddCustomer from './pages/trucker/AddCustomer';
 import AddLoad from './pages/trucker/AddLoad';
 import AddUserTrucker from './pages/trucker/AddUserTrucker';
+import Yard from './pages/trucker/Yard';
+import YardDropContainer from './pages/trucker/YardDropContainer';
 import Reports from './pages/reports/Reports';
 import Bills from './pages/shipper/Bills';
 import Loadboard from './pages/shipper/Loadboard';
@@ -185,9 +188,12 @@ function App() {
               <Route path="/fleet" element={<ProtectedRoute userType="trucker"><Fleet /></ProtectedRoute>} />
               <Route path="/billing" element={<ProtectedRoute userType="trucker"><Billing /></ProtectedRoute>} />
               <Route path="/driver" element={<ProtectedRoute userType="trucker"><Driver /></ProtectedRoute>} />
+              <Route path="/payments" element={<ProtectedRoute userType="trucker"><Payments /></ProtectedRoute>} />
               <Route path="/bid-management" element={<ProtectedRoute userType="trucker"><BidManagement /></ProtectedRoute>} />
               <Route path="/add-customer" element={<ProtectedRoute><AddCustomer /></ProtectedRoute>} />
               <Route path="/add-load" element={<ProtectedRoute userType="trucker"><AddLoad /></ProtectedRoute>} />
+              <Route path="/yard" element={<ProtectedRoute userType="trucker"><Yard /></ProtectedRoute>} />
+              <Route path="/yard-drop-container" element={<ProtectedRoute userType="trucker"><YardDropContainer /></ProtectedRoute>} />
 
               {/* Shipper Only Routes */}
               <Route path="/bills" element={<ProtectedRoute userType="shipper"><Bills /></ProtectedRoute>} />

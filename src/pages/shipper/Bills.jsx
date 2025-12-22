@@ -31,6 +31,7 @@ import {
   InputAdornment,
   CircularProgress,
   Alert,
+  Skeleton,
 } from '@mui/material';
 import { 
   Receipt, 
@@ -69,7 +70,6 @@ import {
 } from 'recharts';
 import SearchNavigationFeedback from '../../components/SearchNavigationFeedback';
 import { BASE_API_URL } from '../../apiConfig';
-import PageLoader from '../../components/PageLoader';
 
 // API service function to fetch VERIFIED loads
 const fetchVerifiedLoads = async (shipperId) => {
@@ -1015,9 +1015,81 @@ const Bills = () => {
           searchQuery={location.state?.searchQuery} 
         />
         
-        {/* Loading State */}
+        {/* Bills Skeleton Loading Component */}
         {loading && (
-          <PageLoader message="Loading bills data..." />
+          <Box sx={{ p: 3 }}>
+            {/* Summary Cards Skeleton */}
+            <Box sx={{ 
+              display: 'flex', 
+              gap: 2, 
+              mb: 3, 
+              width: '100%',
+              flexWrap: 'nowrap'
+            }}>
+              {Array.from({ length: 4 }).map((_, index) => (
+                <Card key={index} sx={{ flex: 1 }}>
+                  <CardContent sx={{ textAlign: 'center', py: 2 }}>
+                    <Skeleton variant="text" width={120} height={20} sx={{ mx: 'auto', mb: 1 }} />
+                    <Skeleton variant="text" width={100} height={32} sx={{ mx: 'auto' }} />
+                  </CardContent>
+                </Card>
+              ))}
+            </Box>
+
+            {/* Header with Search and Action Buttons Skeleton */}
+            <Box sx={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              mb: 3,
+              flexWrap: 'wrap',
+              gap: 2
+            }}>
+              <Skeleton variant="rectangular" width="100%" height={40} sx={{ borderRadius: 2, maxWidth: 400 }} />
+              <Skeleton variant="rectangular" width={150} height={40} sx={{ borderRadius: 2 }} />
+            </Box>
+
+            {/* Results Count Skeleton */}
+            <Skeleton variant="text" width={120} height={28} sx={{ mb: 2 }} />
+
+            {/* Table Skeleton */}
+            <Paper elevation={3} sx={{ borderRadius: 3, overflow: 'hidden' }}>
+              <Table>
+                <TableHead>
+                  <TableRow sx={{ background: 'linear-gradient(90deg, #f8fafc 0%, #f1f5f9 100%)' }}>
+                    {Array.from({ length: 8 }).map((_, index) => (
+                      <TableCell key={index}>
+                        <Skeleton variant="text" width={100} height={20} />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {Array.from({ length: 5 }).map((_, index) => (
+                    <TableRow key={index}>
+                      <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                      <TableCell><Skeleton variant="text" width={120} /></TableCell>
+                      <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                      <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                      <TableCell><Skeleton variant="text" width={80} /></TableCell>
+                      <TableCell><Skeleton variant="text" width={80} /></TableCell>
+                      <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                      <TableCell><Skeleton variant="rectangular" width={70} height={26} sx={{ borderRadius: 1 }} /></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              {/* Pagination Skeleton */}
+              <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #e0e0e0' }}>
+                <Skeleton variant="text" width={200} />
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Skeleton variant="rectangular" width={80} height={32} sx={{ borderRadius: 1 }} />
+                  <Skeleton variant="text" width={100} />
+                  <Skeleton variant="rectangular" width={80} height={32} sx={{ borderRadius: 1 }} />
+                </Box>
+              </Box>
+            </Paper>
+          </Box>
         )}
 
         {/* Error State */}

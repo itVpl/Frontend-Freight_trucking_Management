@@ -23,6 +23,7 @@ import {
   Tab,
   MenuItem,
   Autocomplete,
+  Skeleton,
 } from '@mui/material';
 import { Receipt, Download, Search, Send } from '@mui/icons-material';
 import alertify from 'alertifyjs';
@@ -485,6 +486,17 @@ const Dashboard = () => {
                     <TableCell colSpan={6} align="center">Loading...</TableCell>
                   </TableRow>
                 ) : filteredData.length === 0 ? (
+                  Array.from({ length: 5 }).map((_, index) => (
+                    <TableRow key={index}>
+                      <TableCell><Skeleton variant="text" width={120} /></TableCell>
+                      <TableCell><Skeleton variant="text" width={150} /></TableCell>
+                      <TableCell><Skeleton variant="text" width={150} /></TableCell>
+                      <TableCell><Skeleton variant="text" width={150} /></TableCell>
+                      <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                      <TableCell><Skeleton variant="rectangular" width={100} height={32} sx={{ borderRadius: 1 }} /></TableCell>
+                    </TableRow>
+                  ))
+                ) : pendingBids.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} align="center">No available loads found</TableCell>
                   </TableRow>
@@ -563,6 +575,18 @@ const Dashboard = () => {
                     <TableCell colSpan={6} align="center">Loading...</TableCell>
                   </TableRow>
                 ) : filteredData.length === 0 ? (
+                  Array.from({ length: 5 }).map((_, index) => (
+                    <TableRow key={index}>
+                      <TableCell><Skeleton variant="text" width={120} /></TableCell>
+                      <TableCell><Skeleton variant="text" width={150} /></TableCell>
+                      <TableCell><Skeleton variant="text" width={150} /></TableCell>
+                      <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                      <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                      <TableCell><Skeleton variant="rectangular" width={80} height={24} sx={{ borderRadius: 1 }} /></TableCell>
+                      <TableCell><Skeleton variant="rectangular" width={100} height={32} sx={{ borderRadius: 1 }} /></TableCell>
+                    </TableRow>
+                  ))
+                ) : acceptedBids.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} align="center">No accepted bids found</TableCell>
                   </TableRow>

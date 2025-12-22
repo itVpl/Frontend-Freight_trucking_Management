@@ -38,6 +38,7 @@ import {
   ToggleButtonGroup,
   Tooltip,
   Zoom
+  Skeleton
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { tooltipClasses } from '@mui/material/Tooltip';
@@ -2596,11 +2597,25 @@ const handleEditLoad = (load) => {
           </TableHead>
           <TableBody>
             {loading ? (
-              <TableRow>
-                <TableCell colSpan={activeTab === 0 || activeTab === 1 ? 7 : 8} align="center">
-                  <PageLoader message="Loading loads..." />
-                </TableCell>
-              </TableRow>
+              Array.from({ length: 5 }).map((_, index) => (
+                <TableRow key={index}>
+                  <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                  {activeTab !== 0 && activeTab !== 1 && (
+                    <TableCell><Skeleton variant="text" width={120} /></TableCell>
+                  )}
+                  <TableCell><Skeleton variant="text" width={80} /></TableCell>
+                  <TableCell><Skeleton variant="text" width={150} /></TableCell>
+                  <TableCell><Skeleton variant="text" width={150} /></TableCell>
+                  <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                  <TableCell><Skeleton variant="rectangular" width={80} height={26} sx={{ borderRadius: 1 }} /></TableCell>
+                  <TableCell>
+                    <Stack direction="row" spacing={1}>
+                      <Skeleton variant="rectangular" width={60} height={28} sx={{ borderRadius: 1 }} />
+                      <Skeleton variant="rectangular" width={60} height={28} sx={{ borderRadius: 1 }} />
+                    </Stack>
+                  </TableCell>
+                </TableRow>
+              ))
             ) : filteredData.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={activeTab === 0 || activeTab === 1 ? 7 : 8} align="center">No data found</TableCell>
@@ -2829,7 +2844,12 @@ const handleEditLoad = (load) => {
               position: 'relative',
               zIndex: 1000
             }}>
-              <PageLoader message="Creating Load..." />
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 8, gap: 2 }}>
+                <CircularProgress size={50} />
+                <Typography variant="h6" color="primary">
+                  Creating Load...
+                </Typography>
+              </Box>
             </Box>
           ) : (
           <Box component="form" onSubmit={handleSubmit} className="p-3">

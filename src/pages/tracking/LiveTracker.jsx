@@ -12,6 +12,8 @@ import {
   Stack,
   Modal,
   Divider,
+  CircularProgress,
+  Alert,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
@@ -25,26 +27,13 @@ import SpeedIcon from "@mui/icons-material/Speed";
 import DirectionsCarIcon from "@mui/icons-material/DirectionsCar";
 import PersonIcon from "@mui/icons-material/Person";
 import { Button } from "@mui/material";
-import { MapContainer, TileLayer, Marker, useMap, Polyline, useMapEvents, Tooltip, Popup } from "react-leaflet";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
-import { Navigation } from 'lucide-react';
+import { Wrapper, Status } from '@googlemaps/react-wrapper';
 import { useAuth } from "../../context/AuthContext";
 import PageLoader from "../../components/PageLoader";
+import LiveTrackerMap from "../../components/maps/LiveTrackerMap";
+import { GOOGLE_MAPS_API_KEY } from "../../apiConfig";
 
-// Fix for Leaflet default icons
-import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
-import markerIcon from 'leaflet/dist/images/marker-icon.png';
-import markerShadow from 'leaflet/dist/images/marker-shadow.png';
-
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: markerIcon2x,
-  iconUrl: markerIcon,
-  shadowUrl: markerShadow,
-});
-
-// Add CSS for spinner animation and truck marker
+// Add CSS for spinner animation
 const customStyles = `
   @keyframes spin {
     0% { transform: rotate(0deg); }
@@ -58,77 +47,6 @@ if (typeof document !== 'undefined') {
   styleSheet.type = "text/css";
   styleSheet.innerText = customStyles;
   document.head.appendChild(styleSheet);
-}
-
-// Function to create dynamic Navigation icon with rotation
-const createNavigationIcon = (heading = 0) => {
-  const iconHtml = ReactDOMServer.renderToString(
-    <Navigation  
-      size={32} 
-      color="red" 
-      className="text-red-900" fill="red"
-      style={{ transform: `rotate(${heading}deg)` }} 
-    />
-  );
-  
-  return new L.DivIcon({
-    html: `<div style="display: flex; align-items: center; justify-content: center;">${iconHtml}</div>`,
-    className: 'custom-navigation-icon',
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
-  });
-};
-
-// Simple origin marker (green circle)
-const originIcon = new L.Icon({
-  iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIxNiIgY3k9IjE2IiByPSIxNCIgZmlsbD0iIzRDQUY1MCIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIzIi8+PGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iNiIgZmlsbD0id2hpdGUiLz48L3N2Zz4=',
-  iconSize: [32, 32],
-  iconAnchor: [16, 16],
-});
-
-// Simple destination marker (red circle)
-const destinationIcon = new L.Icon({
-  iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIxNiIgY3k9IjE2IiByPSIxNCIgZmlsbD0iI0ZGNTcyMiIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIzIi8+PGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iNiIgZmlsbD0id2hpdGUiLz48L3N2Zz4=',
-  iconSize: [32, 32],
-  iconAnchor: [16, 16],
-});
-
-// Function to calculate bearing/direction between two points
-const calculateBearing = (lat1, lon1, lat2, lon2) => {
-  const toRadians = (deg) => deg * (Math.PI / 180);
-  const toDegrees = (rad) => rad * (180 / Math.PI);
-  
-  const dLon = toRadians(lon2 - lon1);
-  const y = Math.sin(dLon) * Math.cos(toRadians(lat2));
-  const x = Math.cos(toRadians(lat1)) * Math.sin(toRadians(lat2)) -
-            Math.sin(toRadians(lat1)) * Math.cos(toRadians(lat2)) * Math.cos(dLon);
-  
-  const bearing = toDegrees(Math.atan2(y, x));
-  return (bearing + 360) % 360; // Normalize to 0-360
-};
-
-
-
-function RecenterMap({ selectedShipment, mapView, routePaths }) {
-  const map = useMap();
-  
-  useEffect(() => {
-    if (!selectedShipment) return;
-    
-    const routeData = routePaths[selectedShipment.id];
-    
-    if (mapView === "route" && routeData && routeData.path && routeData.path.length > 0) {
-      // Fit the entire route in view
-      console.log('🗺️ Fitting bounds for route with', routeData.path.length, 'points');
-      const bounds = L.latLngBounds(routeData.path);
-      map.fitBounds(bounds, { padding: [50, 50] });
-    } else if (selectedShipment.lat && selectedShipment.lng) {
-      // Zoom to current location
-      map.setView([selectedShipment.lat, selectedShipment.lng], 10);
-    }
-  }, [selectedShipment, mapView, routePaths, map]);
-  
-  return null;
 }
 
 export default function LiveTracker() {
@@ -208,6 +126,86 @@ export default function LiveTracker() {
         duration: 0,
         steps: []
       };
+    }
+    return null;
+  };
+
+  // Help button click handler
+  const handleHelpClick = async (truck) => {
+    const token = getAuthToken();
+    if (!token) {
+      alert('Authentication required. Please login first.');
+      return;
+    }
+    
+    // Set loading state for this specific truck
+    setHelpLoading(prev => ({ ...prev, [truck.id]: true }));
+    
+    try {
+      // Make authenticated request to help API based on user type
+      const helpEndpoint = userType === 'trucker' 
+        ? `https://vpl-liveproject-1.onrender.com/api/v1/load/trucker/load/${truck.id}/help-auto`
+        : `https://vpl-liveproject-1.onrender.com/api/v1/load/shipper/load/${truck.id}/help-auto`;
+      
+      const response = await axios.get(helpEndpoint, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      // If successful, open the help page
+      if (response.data) {
+        // Create a new window with the help content
+        const helpWindow = window.open('', '_blank');
+        helpWindow.document.write(response.data);
+        helpWindow.document.close();
+      }
+    } catch (error) {
+      console.error('Help API Error:', error);
+      if (error.response?.status === 401) {
+        alert('Authentication failed. Please login again.');
+      } else if (error.response?.status === 404) {
+        alert('User not found. Please contact support.');
+      } else {
+        alert('Error loading help page. Please try again.');
+      }
+    } finally {
+      // Clear loading state
+      setHelpLoading(prev => ({ ...prev, [truck.id]: false }));
+    }
+  };
+
+  // Render function for Google Maps wrapper
+  const render = (status) => {
+    if (status === Status.LOADING) {
+      return (
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            alignItems: 'center', 
+            height: '100%' 
+          }}
+        >
+          <CircularProgress />
+        </Box>
+      );
+    }
+    if (status === Status.FAILURE) {
+      return (
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            alignItems: 'center', 
+            height: '100%',
+            flexDirection: 'column',
+            gap: 2
+          }}
+        >
+          <Alert severity="error">Error loading Google Maps. Please check your API key.</Alert>
+        </Box>
+      );
     }
     return null;
   };
@@ -946,427 +944,280 @@ export default function LiveTracker() {
   };
 
   return (
-    <Box sx={{ display: "flex", height: "93vh", overflow: "hidden" }}>
+    <Box sx={{ display: "flex", height: "93vh", overflow: "hidden", bgcolor: "#f5f7fa" }}>
       {/* Sidebar */}
       <Paper
-        elevation={3}
-        sx={{ width: 380, p: 2, borderRadius: "0 20px 20px 0", overflowY: "auto", zIndex: 1000 }}
+        elevation={0}
+        sx={{ 
+          width: 420, 
+          p: 0, 
+          borderRadius: 0, 
+          overflowY: "auto", 
+          zIndex: 1000,
+          bgcolor: "#ffffff",
+          borderRight: "1px solid #e5e7eb",
+          boxShadow: "4px 0 24px rgba(0, 0, 0, 0.06)"
+        }}
       >
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-          <Box>
-            <Typography variant="h6" fontWeight={600}>
-              {searchTerm.trim() ? "Consignment" : "In-Transit Loads"}
-            </Typography>
-            <Typography variant="caption" color="GrayText">
-              {consignments.length} loads • {consignments.filter(t => t.lat && t.lng && t.lat !== 0 && t.lng !== 0).length} markers on map
-            </Typography>
-          </Box>
-          <Button
-            size="small"
-            startIcon={<RefreshIcon />}
-            onClick={async () => {
-              await fetchConsignments();
-              // Force fetch routes after loading consignments
-              setTimeout(() => {
-                forceFetchAllRoutes();
-              }, 1000);
-            }}
-            disabled={loading}
-            sx={{ minWidth: 'auto', px: 1 }}
-          >
-            Refresh
-          </Button>
-        </Box>
-        <TextField
-          fullWidth
-          placeholder={searchTerm.trim() ? "Search by Shipment Number..." : "Search by Load Number..."}
-          size="small"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          sx={{ mb: 2, borderRadius: "10px" }}
-        />
 
-        {loading && (
-          <PageLoader message="Loading in-transit loads..." />
-        )}
+        {/* Content Section */}
+        <Box sx={{ p: 1.5 }}>
+          {loading && (
+            <PageLoader message="Loading in-transit loads..." />
+          )}
 
-        {!loading && !hasToken && !searchTerm.trim() && (
-          <Box display="flex" flexDirection="column" justifyContent="center" alignItems="center" py={4}>
-            <Typography color="GrayText" mb={1}>Authentication Required</Typography>
-            <Typography fontSize={12} color="GrayText" textAlign="center">
-              Please login to view in-transit loads
-            </Typography>
-          </Box>
-        )}
-
-        {!loading && hasToken && consignments.length === 0 && !searchTerm.trim() && (
-          <Box display="flex" flexDirection="column" justifyContent="center" alignItems="center" py={4}>
-            <Typography color="GrayText" mb={1}>No in-transit loads found</Typography>
-            <Typography fontSize={12} color="GrayText" textAlign="center">
-              All loads are either completed or not yet started
-            </Typography>
-          </Box>
-        )}
-
-        {consignments.map((item) => (
-          <Paper
-            key={item.id}
-            sx={{ mb: 2, p: 2, backgroundColor: "#fafafa", borderRadius: 3, cursor: "pointer" }}
-            onClick={() => toggleExpand(item)}
-          >
-            <Box display="flex" alignItems="center" gap={1}>
-              {/* <Avatar src={boxIconPng} alt="box" sx={{ width: 36, height: 36 }} /> */}
-              <Box sx={{display:"flex",background: "#AABBCC" , height:"45px", width:"45px", borderRadius:"50%",justifyContent:"center",alignItems:"center",textAlign:"center"}}>
-              <Typography fontSize={32}>📦</Typography>
+          {!loading && !hasToken && !searchTerm.trim() && (
+            <Box display="flex" flexDirection="column" justifyContent="center" alignItems="center" py={8}>
+              <Box
+                sx={{
+                  width: 80,
+                  height: 80,
+                  borderRadius: "50%",
+                  bgcolor: "#f3f4f6",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  mb: 2
+                }}
+              >
+                <LocationOnIcon sx={{ fontSize: 40, color: "#9ca3af" }} />
               </Box>
-
-              <Box flexGrow={1}>
-                <Typography fontWeight={700} fontSize={14}>{item.number}</Typography>
-                <Typography fontSize={12} color="GrayText">{item.location}</Typography>
-              </Box>
-              <IconButton>{expandedId === item.id ? <ExpandLessIcon /> : <ExpandMoreIcon />}</IconButton>
+              <Typography variant="h6" fontWeight={600} color="text.secondary" mb={1}>
+                Authentication Required
+              </Typography>
+              <Typography fontSize={14} color="text.secondary" textAlign="center">
+                Please login to view in-transit loads
+              </Typography>
             </Box>
+          )}
 
-            <Collapse in={expandedId === item.id}>
-              <Box mt={2}>
-                
-                
-                
-                
-                {/* Status Timeline */}
-                <Typography fontSize={12} color="GrayText" mb={1}>Status Timeline</Typography>
-                {item.status.map((step, index) => (
-                  <Box key={index} display="flex" alignItems="flex-start" mb={2}>
-                    <Box mt={0.5}>
-                      {step.done ? (
-                        <CheckCircleIcon sx={{ color: "green" }} fontSize="small" />
-                      ) : index === 2 ? (
-                        <LocationOnIcon sx={{ color: "gray" }} fontSize="small" />
-                      ) : (
-                        <RadioButtonUncheckedIcon sx={{ color: "gray" }} fontSize="small" />
-                      )}
-                    </Box>
-                    <Box ml={1} borderLeft={index !== item.status.length - 1 ? "3px solid #16a34a" : "none"} pl={1}>
-                      <Typography
-                        fontWeight={600}
-                        color={step.done && index !== 2 ? "#16a34a" : "text.primary"}
-                        fontSize={14}
-                      >
-                        {step.label}
-                      </Typography>
-                      <Typography fontSize={13}>{step.name}</Typography>
-                      <Typography fontSize={12} color="GrayText">{step.time}</Typography>
-                    </Box>
-                  </Box>
-                ))}
+          {!loading && hasToken && consignments.length === 0 && !searchTerm.trim() && (
+            <Box display="flex" flexDirection="column" justifyContent="center" alignItems="center" py={8}>
+              <Box
+                sx={{
+                  width: 80,
+                  height: 80,
+                  borderRadius: "50%",
+                  bgcolor: "#f3f4f6",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  mb: 2
+                }}
+              >
+                <DirectionsCarIcon sx={{ fontSize: 40, color: "#9ca3af" }} />
               </Box>
-            </Collapse>
-          </Paper>
-        ))}
+              <Typography variant="h6" fontWeight={600} color="text.secondary" mb={1}>
+                No Active Loads
+              </Typography>
+              <Typography fontSize={14} color="text.secondary" textAlign="center">
+                All loads are either completed or not yet started
+              </Typography>
+            </Box>
+          )}
+
+          {consignments.map((item) => (
+            <Paper
+              key={item.id}
+              elevation={0}
+              sx={{ 
+                mb: 0.5, 
+                p: 0,
+                borderRadius: "10px", 
+                cursor: "pointer",
+                border: expandedId === item.id ? "2px solid #667eea" : "1px solid #e5e7eb",
+                bgcolor: "transparent",
+                background: expandedId === item.id ? "rgba(102, 126, 234, 0.05)" : "transparent",
+                transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                "&:hover": {
+                  borderColor: "#667eea",
+                  background: "rgba(102, 126, 234, 0.05)",
+                  boxShadow: "0 4px 12px rgba(102, 126, 234, 0.12)",
+                  transform: "translateY(-1px)"
+                }
+              }}
+              onClick={() => toggleExpand(item)}
+            >
+              {/* Card Header */}
+              <Box sx={{ p: 1.5, display: "flex", alignItems: "center", gap: 1.5 }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    background: expandedId === item.id 
+                      ? "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+                      : "linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)",
+                    height: "40px",
+                    width: "40px",
+                    borderRadius: "10px",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    textAlign: "center",
+                    boxShadow: expandedId === item.id 
+                      ? "0 2px 8px rgba(102, 126, 234, 0.25)"
+                      : "0 1px 4px rgba(0, 0, 0, 0.06)",
+                    transition: "all 0.3s ease",
+                    flexShrink: 0
+                  }}
+                >
+                  <Typography fontSize={20}>📦</Typography>
+                </Box>
+
+                <Box flexGrow={1} minWidth={0}>
+                  <Typography 
+                    fontWeight={600} 
+                    fontSize={13}
+                    sx={{ 
+                      color: expandedId === item.id ? "#667eea" : "#111827",
+                      mb: 0.25,
+                      letterSpacing: "-0.2px",
+                      lineHeight: 1.3
+                    }}
+                  >
+                    {item.number}
+                  </Typography>
+                  <Typography 
+                    fontSize={12} 
+                    color="text.secondary"
+                    sx={{ 
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 0.5,
+                      lineHeight: 1.4
+                    }}
+                  >
+                    <LocationOnIcon sx={{ fontSize: 12 }} />
+                    {item.location}
+                  </Typography>
+                </Box>
+                <IconButton
+                  size="small"
+                  sx={{
+                    color: expandedId === item.id ? "#667eea" : "#6b7280",
+                    transition: "transform 0.3s ease",
+                    transform: expandedId === item.id ? "rotate(180deg)" : "rotate(0deg)",
+                    p: 0.5
+                  }}
+                >
+                  {expandedId === item.id ? <ExpandLessIcon sx={{ fontSize: 18 }} /> : <ExpandMoreIcon sx={{ fontSize: 18 }} />}
+                </IconButton>
+              </Box>
+
+              {/* Expanded Content */}
+              <Collapse in={expandedId === item.id}>
+                <Box sx={{ px: 1.5, pb: 1.5, pt: 0 }}>
+                  <Divider sx={{ mb: 1.5, borderColor: "#e5e7eb" }} />
+                  
+                  {/* Status Timeline */}
+                  <Typography 
+                    fontSize={10} 
+                    fontWeight={600}
+                    color="text.secondary" 
+                    mb={1.5}
+                    sx={{ textTransform: "uppercase", letterSpacing: "0.5px" }}
+                  >
+                    Status Timeline
+                  </Typography>
+                  {item.status.map((step, index) => (
+                    <Box 
+                      key={index} 
+                      display="flex" 
+                      alignItems="flex-start" 
+                      mb={index !== item.status.length - 1 ? 1.5 : 0}
+                      sx={{
+                        position: "relative",
+                        "&::before": index !== item.status.length - 1 ? {
+                          content: '""',
+                          position: "absolute",
+                          left: "9px",
+                          top: "20px",
+                          bottom: "-12px",
+                          width: "2px",
+                          bgcolor: step.done ? "#10b981" : "#e5e7eb",
+                          zIndex: 0
+                        } : {}
+                      }}
+                    >
+                      <Box 
+                        mt={0.25}
+                        sx={{
+                          position: "relative",
+                          zIndex: 1,
+                          bgcolor: "white",
+                          borderRadius: "50%",
+                          p: 0.25
+                        }}
+                      >
+                        {step.done ? (
+                          <CheckCircleIcon 
+                            sx={{ 
+                              color: "#10b981",
+                              fontSize: 16,
+                              filter: "drop-shadow(0 1px 2px rgba(16, 185, 129, 0.25))"
+                            }} 
+                          />
+                        ) : index === 2 ? (
+                          <LocationOnIcon 
+                            sx={{ 
+                              color: "#667eea",
+                              fontSize: 16,
+                              filter: "drop-shadow(0 1px 2px rgba(102, 126, 234, 0.25))"
+                            }} 
+                          />
+                        ) : (
+                          <RadioButtonUncheckedIcon 
+                            sx={{ 
+                              color: "#d1d5db",
+                              fontSize: 16
+                            }} 
+                          />
+                        )}
+                      </Box>
+                      <Box ml={1.5} flexGrow={1}>
+                        <Typography
+                          fontWeight={600}
+                          color={step.done ? "#10b981" : step.done === false && index === 2 ? "#667eea" : "text.primary"}
+                          fontSize={12}
+                          sx={{ mb: 0.25, lineHeight: 1.4 }}
+                        >
+                          {step.label}
+                        </Typography>
+                        <Typography 
+                          fontSize={11} 
+                          color="text.primary"
+                          fontWeight={500}
+                          sx={{ mb: 0.25, lineHeight: 1.4 }}
+                        >
+                          {step.name}
+                        </Typography>
+                        <Typography 
+                          fontSize={10} 
+                          color="text.secondary"
+                          sx={{ lineHeight: 1.4 }}
+                        >
+                          {step.time}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  ))}
+                </Box>
+              </Collapse>
+            </Paper>
+          ))}
+        </Box>
       </Paper>
 
       {/* Map */}
-      <Box flexGrow={1} position="relative">
-        <MapContainer
-          center={[39.8283, -98.5795]}
-          zoom={4}
-          scrollWheelZoom={true}
-          className="leaflet-container"
-          style={{ height: "93vh", width: "100%", zIndex: 1 }}
-          whenReady={() => console.log('Map is ready')}
-        >
-          <TileLayer
-            attribution="&copy; OpenStreetMap contributors"
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      <Box flexGrow={1} position="relative" sx={{ height: "93vh", width: "100%", zIndex: 1 }}>
+        <Wrapper apiKey={GOOGLE_MAPS_API_KEY} render={render}>
+          <LiveTrackerMap
+            selectedShipment={selectedShipment}
+            expandedId={expandedId}
+            routePaths={routePaths}
+            mapView={mapView}
+            helpLoading={helpLoading}
+            onHelpClick={handleHelpClick}
           />
-          {/* Truck Marker - Show only for selected/expanded shipment */}
-          {selectedShipment && expandedId && (() => {
-            const truck = selectedShipment;
-            
-            // Use fallback coordinates if current location is invalid
-            const markerLat = truck.lat && truck.lat !== 0 ? truck.lat : truck.originLat;
-            const markerLng = truck.lng && truck.lng !== 0 ? truck.lng : truck.originLng;
-            
-            // Only render if we have valid coordinates
-            if (!markerLat || !markerLng || markerLat === 0 || markerLng === 0) {
-              console.warn(`⚠️ No valid coordinates for truck ${truck.number}`);
-              return null;
-            }
-            
-            // Calculate heading based on route direction
-            let heading = 0;
-            const routeData = routePaths[truck.id];
-            
-            if (routeData && routeData.path && routeData.path.length > 1) {
-              // Find the closest point on the route to current position
-              let closestIndex = 0;
-              let minDistance = Infinity;
-              
-              routeData.path.forEach((point, index) => {
-                const distance = Math.sqrt(
-                  Math.pow(point[0] - markerLat, 2) + Math.pow(point[1] - markerLng, 2)
-                );
-                if (distance < minDistance) {
-                  minDistance = distance;
-                  closestIndex = index;
-                }
-              });
-              
-              // Calculate heading from current point to next point on route
-              if (closestIndex < routeData.path.length - 1) {
-                const currentPoint = routeData.path[closestIndex];
-                const nextPoint = routeData.path[closestIndex + 1];
-                heading = calculateBearing(
-                  currentPoint[0], currentPoint[1],
-                  nextPoint[0], nextPoint[1]
-                );
-              }
-            } else if (truck.destLat && truck.destLng && truck.destLat !== 0 && truck.destLng !== 0) {
-              // Fallback: calculate heading from current position to destination
-              heading = calculateBearing(markerLat, markerLng, truck.destLat, truck.destLng);
-            }
-            
-            return (
-              <Marker key={truck.id} position={[markerLat, markerLng]} icon={createNavigationIcon(heading)}>
-              <Popup>
-                <div style={{ padding: '2px', minWidth: '250px' }}>
-                  <div style={{ fontWeight: 'bold', fontSize: '16px', color: '#1976d2', marginBottom: '8px' }}>
-                    {truck.number}
-                  </div>
-                  
-                 
-                  
-                  {/* Vehicle Information */}
-                  <div style={{ marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <DirectionsCarIcon sx={{ fontSize: 16, color: '#666' }} />
-                    <strong>Vehicle:</strong> {truck.vehicleNumber || 'N/A'}
-                  </div>
-                  
-                  {/* Current Location */}
-                  <div style={{ marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <LocationOnIcon sx={{ fontSize: 16, color: '#666' }} />
-                    <strong>Location:</strong> {truck.currentLocation?.address || 'N/A'}
-                  </div>
-                  
-                  {/* Battery Level */}
-                  <div style={{ marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <BatteryFullIcon sx={{ fontSize: 16, color: '#4caf50' }} />
-                    <strong>Battery:</strong> {truck.currentLocation?.deviceInfo?.batteryLevel ? `${truck.currentLocation.deviceInfo.batteryLevel}%` : 'N/A'}
-                  </div>
-                  
-                  {/* Speed */}
-                  <div style={{ marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <SpeedIcon sx={{ fontSize: 16, color: '#ff9800' }} />
-                    <strong>Speed:</strong> {truck.currentLocation?.speed ? `${truck.currentLocation.speed} km/h` : 'N/A'}
-                  </div>
-                  
-                  {/* {truck.weight && (
-                    <div style={{ marginBottom: '4px' }}>
-                      <strong>Weight:</strong> {truck.weight}
-                </div>
-                  )} */}
-                  {truck.commodity && (
-                    <div>
-                      <strong>Commodity:</strong> {truck.commodity}
-                    </div>
-                  )}
-                  
-                  <div style={{ marginTop: '12px', paddingTop: '8px', borderTop: '1px solid #eee' }}>
-                    <button
-                      onClick={async () => {
-                        const token = getAuthToken();
-                        if (!token) {
-                          alert('Authentication required. Please login first.');
-                          return;
-                        }
-                        
-                        // Set loading state for this specific truck
-                        setHelpLoading(prev => ({ ...prev, [truck.id]: true }));
-                        
-                        try {
-                          // Make authenticated request to help API based on user type
-                          const helpEndpoint = userType === 'trucker' 
-                            ? `https://vpl-liveproject-1.onrender.com/api/v1/load/trucker/load/${truck.id}/help-auto`
-                            : `https://vpl-liveproject-1.onrender.com/api/v1/load/shipper/load/${truck.id}/help-auto`;
-                          
-                          const response = await axios.get(helpEndpoint, {
-                            headers: {
-                              'Authorization': `Bearer ${token}`
-                            }
-                          });
-                          
-                          // If successful, open the help page
-                          if (response.data) {
-                            // Create a new window with the help content
-                            const helpWindow = window.open('', '_blank');
-                            helpWindow.document.write(response.data);
-                            helpWindow.document.close();
-                          }
-                        } catch (error) {
-                          console.error('Help API Error:', error);
-                          if (error.response?.status === 401) {
-                            alert('Authentication failed. Please login again.');
-                          } else if (error.response?.status === 404) {
-                            alert('User not found. Please contact support.');
-                          } else {
-                            alert('Error loading help page. Please try again.');
-                          }
-                        } finally {
-                          // Clear loading state
-                          setHelpLoading(prev => ({ ...prev, [truck.id]: false }));
-                        }
-                      }}
-                      disabled={helpLoading[truck.id]}
-                      style={{
-                        width: '100%',
-                        padding: '8px 12px',
-                        backgroundColor: helpLoading[truck.id] ? '#ccc' : '#1976d2',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: helpLoading[truck.id] ? 'not-allowed' : 'pointer',
-                        fontSize: '12px',
-                        fontWeight: '500',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '6px'
-                      }}
-                    >
-                      {helpLoading[truck.id] ? (
-                        <>
-                          <div style={{
-                            width: '12px',
-                            height: '12px',
-                            border: '2px solid #fff',
-                            borderTop: '2px solid transparent',
-                            borderRadius: '50%',
-                            animation: 'spin 1s linear infinite'
-                          }}></div>
-                          Loading...
-                        </>
-                      ) : (
-                        '📧 Help & Support'
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </Popup>
-            </Marker>
-            );
-          })()}
-          
-          {/* Origin and Destination Markers - Show only for selected shipment */}
-          {selectedShipment && expandedId && (
-            <>
-              {/* Origin Marker */}
-              {selectedShipment.originLat && selectedShipment.originLng && 
-               selectedShipment.originLat !== 0 && selectedShipment.originLng !== 0 && (
-                <Marker 
-                  key={`origin-${selectedShipment.id}`} 
-                  position={[selectedShipment.originLat, selectedShipment.originLng]}
-                  icon={originIcon}
-                >
-                  <Tooltip permanent direction="top" offset={[0, -20]}>
-                    <strong>Origin</strong>
-                  </Tooltip>
-                </Marker>
-              )}
-              
-              {/* Destination Marker */}
-              {selectedShipment.destLat && selectedShipment.destLng && 
-               selectedShipment.destLat !== 0 && selectedShipment.destLng !== 0 && (
-                <Marker 
-                  key={`dest-${selectedShipment.id}`} 
-                  position={[selectedShipment.destLat, selectedShipment.destLng]}
-                  icon={destinationIcon}
-                >
-                  <Tooltip permanent direction="top" offset={[0, -20]}>
-                    <strong>Destination</strong>
-                  </Tooltip>
-                </Marker>
-              )}
-            </>
-          )}
-          
-          {/* Route Lines - Show only for selected/expanded shipment */}
-          {(() => {
-            console.log('🔍 Polyline Check:', {
-              hasSelectedShipment: !!selectedShipment,
-              expandedId: expandedId,
-              selectedShipmentId: selectedShipment?.id,
-              selectedShipmentCoords: selectedShipment ? {
-                originLat: selectedShipment.originLat,
-                originLng: selectedShipment.originLng,
-                destLat: selectedShipment.destLat,
-                destLng: selectedShipment.destLng
-              } : null,
-              routePathsKeys: Object.keys(routePaths),
-              hasRouteData: selectedShipment ? !!routePaths[selectedShipment.id] : false
-            });
-            
-            if (!selectedShipment || !expandedId) {
-              console.log('❌ No selected shipment or not expanded');
-              return null;
-            }
-            
-            const routeData = routePaths[selectedShipment.id];
-            
-            // Check if we have valid coordinates (not 0,0)
-            const hasValidOrigin = selectedShipment.originLat && selectedShipment.originLng && 
-                                   selectedShipment.originLat !== 0 && selectedShipment.originLng !== 0;
-            const hasValidDest = selectedShipment.destLat && selectedShipment.destLng && 
-                                 selectedShipment.destLat !== 0 && selectedShipment.destLng !== 0;
-            
-            if (routeData && routeData.path && routeData.path.length > 0) {
-              console.log(`✅ Rendering route with ${routeData.path.length} points for shipment ${selectedShipment.number}`);
-              return (
-                <Polyline
-                  key={`route-${selectedShipment.id}`}
-                  positions={routeData.path}
-                  color="#1976d2"
-                  weight={5}
-                  opacity={0.7}
-                >
-                  <Tooltip permanent={false} direction="center">
-                    Route: {selectedShipment.location}
-                  </Tooltip>
-                </Polyline>
-              );
-            } else if (hasValidOrigin && hasValidDest) {
-              console.log(`⚠️ Showing straight line for shipment ${selectedShipment.number} - route data not available yet`);
-              return (
-                <Polyline
-                  key={`route-fallback-${selectedShipment.id}`}
-                  positions={[
-                    [selectedShipment.originLat, selectedShipment.originLng], 
-                    [selectedShipment.destLat, selectedShipment.destLng]
-                  ]}
-                  color="#ff9800"
-                  weight={4}
-                  opacity={0.6}
-                  dashArray="10, 10"
-                >
-                  <Tooltip permanent={false} direction="center">
-                    Direct Route (Loading...)
-                  </Tooltip>
-                </Polyline>
-              );
-            }
-            
-            console.log('❌ No valid coordinates for route - origin or destination is 0,0');
-            return null;
-          })()}
-          
-          {selectedShipment && (
-            <RecenterMap 
-              selectedShipment={selectedShipment}
-              mapView={mapView}
-              routePaths={routePaths}
-              routeData={routePaths[selectedShipment.id]}
-            />
-          )}
-        </MapContainer>
+        </Wrapper>
       </Box>
     </Box>
   );
