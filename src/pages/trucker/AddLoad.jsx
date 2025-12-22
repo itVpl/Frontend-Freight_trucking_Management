@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, memo, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -30,7 +30,10 @@ import {
   DialogContent,
   DialogActions,
   Autocomplete,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import {
   Add,
   Search,
@@ -52,6 +55,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
 import { BASE_API_URL } from '../../apiConfig';
+import { useThemeConfig } from '../../context/ThemeContext';
 
 const DRAYAGE_VEHICLE_TYPES = [
   "20' Standard (Dry Van)",
@@ -82,6 +86,7 @@ const OTR_VEHICLE_TYPES = [
 
 const AddLoad = () => {
   const { user, userType } = useAuth();
+  const { themeConfig } = useThemeConfig();
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
@@ -589,7 +594,7 @@ const AddLoad = () => {
       const fscPercent = parseFloat(loadData.fsc) || 0;
       const otherChargesAmount = parseFloat(loadData.other) || 0;
       const fscAmount = lineHaul * (fscPercent / 100);
-      const totalRates = lineHaul + fscAmount + otherChargesAmount;
+      
 
       // Prepare other charges array
       // Priority: 1. chargesArray from formData (from Charges Calculator), 2. charges state, 3. other amount
@@ -878,6 +883,19 @@ const AddLoad = () => {
         ? rateDetails.other.reduce((sum, charge) => sum + (parseFloat(charge.total) || 0), 0).toFixed(2)
         : parseFloat(rateDetails.other).toFixed(2)) : '';
 
+      // Extract customer details (could be in loadData or loadDetails)
+      const customerDetails = loadData.customerLoadDetails || loadDetails.customerLoadDetails || {};
+
+      // Helper to format date for input
+      const formatDate = (dateStr) => {
+        if (!dateStr) return '';
+        try {
+          return dateStr.split('T')[0];
+        } catch (e) {
+          return '';
+        }
+      };
+
       // Populate form data
       const formDataToSet = {
         customerId: loadData.customerId || '',
@@ -889,8 +907,8 @@ const AddLoad = () => {
         fsc: fsc,
         other: other,
         total: loadData.rate || '',
-        bidDeadline: loadData.bidDeadline ? loadData.bidDeadline.split('T')[0] : '',
-        // OTR fields
+        bidDeadline: formatDate(loadData.bidDeadline),
+        // OTR fields (single fields for backward compatibility/fallback)
         pickupLocation: loadData.origins?.[0]?.addressLine1 || '',
         pickupCity: loadData.origins?.[0]?.city || '',
         pickupState: loadData.origins?.[0]?.state || '',
@@ -899,8 +917,8 @@ const AddLoad = () => {
         deliveryCity: loadData.destinations?.[0]?.city || '',
         deliveryState: loadData.destinations?.[0]?.state || '',
         deliveryZip: loadData.destinations?.[0]?.zip || '',
-        pickupDate: loadData.origins?.[0]?.pickupDate ? loadData.origins[0].pickupDate.split('T')[0] : '',
-        deliveryDate: loadData.destinations?.[0]?.deliveryDate ? loadData.destinations[0].deliveryDate.split('T')[0] : '',
+        pickupDate: formatDate(loadData.origins?.[0]?.pickupDate),
+        deliveryDate: formatDate(loadData.destinations?.[0]?.deliveryDate),
         weight: loadData.origins?.[0]?.weight || loadData.weight || '',
         commodity: loadData.origins?.[0]?.commodity || loadData.commodity || '',
         // DRAYAGE fields - populate from origins/destinations arrays if loadType is DRAYAGE
@@ -921,17 +939,36 @@ const AddLoad = () => {
         poNumber: loadData.poNumber || '',
         bolNumber: loadData.bolNumber || '',
         shipmentNo: loadData.shipmentNumber || loadData.shipmentNo || '',
-        customerName: loadData.customerLoadDetails?.customerName || '',
-        customerPhone: loadData.customerLoadDetails?.customerPhone || '',
-        customerEmail: loadData.customerLoadDetails?.customerEmail || '',
+        customerName: customerDetails.customerName || '',
+        customerPhone: customerDetails.customerPhone || '',
+        customerEmail: customerDetails.customerEmail || '',
         specialInstructions: loadData.specialInstructions || '',
-        returnDate: loadData.returnDate ? loadData.returnDate.split('T')[0] : '',
+        returnDate: formatDate(loadData.returnDate),
         returnLocation: loadData.returnLocation || '',
-        // OTR arrays
-        origins: loadData.origins || [{
+        // OTR arrays - properly map and format dates
+        origins: (loadData.origins && loadData.origins.length > 0) ? loadData.origins.map(o => ({
+          addressLine1: o.addressLine1 || '',
+          addressLine2: o.addressLine2 || '',
+          city: o.city || '',
+          state: o.state || '',
+          zip: o.zip || '',
+          weight: o.weight || '',
+          commodity: o.commodity || '',
+          pickupDate: formatDate(o.pickupDate),
+          deliveryDate: formatDate(o.deliveryDate)
+        })) : [{
           addressLine1: '', addressLine2: '', city: '', state: '', zip: '', weight: '', commodity: '', pickupDate: '', deliveryDate: ''
         }],
-        destinations: loadData.destinations || [{
+        destinations: (loadData.destinations && loadData.destinations.length > 0) ? loadData.destinations.map(d => ({
+          addressLine1: d.addressLine1 || '',
+          addressLine2: d.addressLine2 || '',
+          city: d.city || '',
+          state: d.state || '',
+          zip: d.zip || '',
+          weight: d.weight || '',
+          commodity: d.commodity || '',
+          deliveryDate: formatDate(d.deliveryDate)
+        })) : [{
           addressLine1: '', addressLine2: '', city: '', state: '', zip: '', weight: '', commodity: '', deliveryDate: ''
         }],
       };
@@ -1222,12 +1259,7 @@ const AddLoad = () => {
     handleCloseChargesCalculator();
   };
 
-  const loadTypes = [
-    'OTR',
-    'Local',
-    'Regional',
-    'Intermodal'
-  ];
+  
 
   // AddLoad Skeleton Loading Component
   const AddLoadSkeleton = () => (
@@ -1293,6 +1325,11 @@ const AddLoad = () => {
     return <AddLoadSkeleton />;
   }
 
+  const brand = (themeConfig.header?.bg && themeConfig.header.bg !== 'white')
+    ? themeConfig.header.bg
+    : (themeConfig.tokens?.primary || '#1976d2');
+  const headerTextColor = themeConfig.header?.text || '#ffffff';
+
   return (
     <Box sx={{ p: 3 }}>
       {error && (
@@ -1317,7 +1354,7 @@ const AddLoad = () => {
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography variant="h5" fontWeight={700}>
+          <Typography variant="h5" fontWeight={700} sx={{ color: (themeConfig.tokens?.text || '#333333'), ...(themeConfig.content?.bgImage ? { backgroundColor: 'rgba(255,255,255,0.88)', borderRadius: 1, px: 1 } : {}) }}>
             Add Load
           </Typography>
           <Chip
@@ -1368,21 +1405,32 @@ const AddLoad = () => {
         </Stack>
       </Box>
 
-      <Paper elevation={3} sx={{ borderRadius: 3, overflow: 'hidden' }}>
+      <Paper elevation={3} sx={{ borderRadius: 3, overflow: 'hidden', backgroundColor: ((themeConfig.table?.bgImage || themeConfig.content?.bgImage) ? 'transparent' : (themeConfig.table?.bg || '#fff')), position: 'relative', boxShadow: '0 10px 30px rgba(0,0,0,0.08)', border: '1px solid rgba(0,0,0,0.06)' }}>
+        {themeConfig.table?.bgImage && (
+          <Box sx={{
+            position: 'absolute',
+            inset: 0,
+            backgroundImage: `url(${themeConfig.table.bgImage})`,
+            backgroundSize: 'cover',
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'center',
+            opacity: Number(themeConfig.table?.bgImageOpacity ?? 0),
+            pointerEvents: 'none',
+            zIndex: 0,
+          }} />
+        )}
+        <Box sx={{ position: 'relative', zIndex: 1 }}>
         <Table
           sx={{
             borderRadius: 3,
             overflow: 'hidden',
             boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
             border: '1px solid #e5e7eb',
+            backgroundColor: (themeConfig.table?.bgImage || themeConfig.content?.bgImage) ? 'rgba(255,255,255,0.88)' : 'inherit'
           }}
         >
           <TableHead>
-            <TableRow
-              sx={{
-                background: 'linear-gradient(90deg, #f8fafc 0%, #f1f5f9 100%)',
-              }}
-            >
+            <TableRow sx={{ backgroundColor: (themeConfig.table?.headerBg || '#f0f4f8') }}>
               {[
                 'Load Type',
                 'Pickup',
@@ -1396,7 +1444,7 @@ const AddLoad = () => {
                   key={header}
                   sx={{
                     fontWeight: 700,
-                    color: '#374151',
+                    color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333'),
                     fontSize: '0.95rem',
                     py: 1.5,
                     borderBottom: '2px solid #e2e8f0',
@@ -1443,6 +1491,23 @@ const AddLoad = () => {
                       },
                     }}
                   >
+                    <TableCell sx={{ fontWeight: 600, color: (themeConfig.table?.text || '#333333') }}>
+                      {load.loadType}
+                    </TableCell>
+                    <TableCell sx={{ color: (themeConfig.table?.text || '#333333') }}>
+                      {load.origins?.[0]?.addressLine1 || 'N/A'}
+                    </TableCell>
+                    <TableCell sx={{ color: (themeConfig.table?.text || '#333333') }}>
+                      {load.destinations?.[0]?.addressLine1 || 'N/A'}
+                    </TableCell>
+                    <TableCell sx={{ color: (themeConfig.table?.text || '#333333') }}>
+                      {load.origins?.[0]?.weight || 'N/A'} lbs
+                    </TableCell>
+                    <TableCell sx={{ color: (themeConfig.table?.text || '#333333') }}>
+                      ${load.rate}
+                    </TableCell>
+                    <TableCell sx={{ color: (themeConfig.table?.text || '#333333') }}>
+                      {load.customerLoadDetails?.customerName || 'N/A'}
                     <TableCell sx={{ py: 2 }}>
                       <Chip
                         label={load.loadType || 'N/A'}
@@ -1645,11 +1710,8 @@ const AddLoad = () => {
           rowsPerPage={rowsPerPage}
           onRowsPerPageChange={handleChangeRowsPerPage}
           rowsPerPageOptions={[5, 10, 25]}
-          sx={{
-            borderTop: '1px solid #e0e0e0',
-            backgroundColor: '#fafafa'
-          }}
         />
+        </Box>
       </Paper>
 
       {/* Modern Add Load Modal */}
@@ -1671,16 +1733,16 @@ const AddLoad = () => {
           }
         }}
       >
-        <DialogTitle className="border-b-0 bg-[#1976d2] flex items-center justify-between gap-3 py-4 px-6 relative rounded-t-lg" sx={{ backgroundColor: '#1976d2' }}>
+        <DialogTitle className="border-b-0 flex items-center justify-between gap-3 py-4 px-6 relative rounded-t-lg" sx={{ backgroundColor: brand, color: headerTextColor }}>
           <Box className="flex items-center gap-3 flex-1">
             <Box className="bg-white rounded-lg w-12 h-12 flex items-center justify-center border-2 border-blue-300 shadow-sm">
               <LocalShipping className="text-xl text-blue-500" />
             </Box>
             <Box>
-              <Typography variant="h5" className="font-bold text-white mb-0.5 text-xl">
+              <Typography variant="h5" className="font-bold mb-0.5 text-xl" sx={{ color: headerTextColor }}>
                 {selectedLoad ? 'Edit Load' : 'Create New Load'}
               </Typography>
-              <Typography variant="body2" className="text-white text-sm opacity-95">
+              <Typography variant="body2" className="text-sm opacity-95" sx={{ color: headerTextColor }}>
                 {selectedLoad ? 'Update the load details below' : 'Fill in the details to create a new shipment'}
               </Typography>
             </Box>
@@ -1688,80 +1750,36 @@ const AddLoad = () => {
 
           {/* Load Type Toggle and Close Button */}
           <Stack direction="row" spacing={1.5} className="items-center">
-            {/* OTR Button */}
-            <Button
-              onClick={() => { setLoadType('OTR'); setFormData(prev => ({ ...prev, loadType: 'OTR' })); }}
-              variant="contained"
+            <ToggleButtonGroup
+              value={loadType}
+              exclusive
+              onChange={(e, val) => {
+                if (!val) return;
+                setLoadType(val);
+                setFormData(prev => ({ ...prev, loadType: val }));
+              }}
               sx={{
-                textTransform: 'none',
-                ...(loadType === 'OTR' ? {
-                  backgroundColor: '#ffffff',
-                  color: '#1976d2',
-                  border: 'none',
-                  boxShadow: 'none',
-                  '&:hover': {
-                    backgroundColor: '#f3f4f6',
-                    boxShadow: 'none'
-                  }
-                } : {
-                  backgroundColor: 'transparent',
-                  color: '#ffffff',
-                  borderColor: '#ffffff',
-                  borderWidth: 1,
-                  borderStyle: 'solid',
-                  boxShadow: 'none',
-                  '&:hover': {
-                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                    boxShadow: 'none'
-                  }
-                }),
-                borderRadius: 2,
-                minWidth: 90,
-                py: 1.5,
-                px: 3,
-                fontSize: '0.875rem',
-                fontWeight: 600,
+                bgcolor: 'transparent',
+                '& .MuiToggleButton-root': {
+                  textTransform: 'none',
+                  borderRadius: 2,
+                  px: 3,
+                  py: 1.5,
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  color: headerTextColor,
+                  borderColor: 'rgba(255,255,255,0.7)',
+                },
+                '& .Mui-selected': {
+                  bgcolor: '#ffffff !important',
+                  color: brand + ' !important',
+                  borderColor: 'transparent',
+                },
               }}
             >
-              OTR
-            </Button>
-            {/* DRAYAGE Button */}
-            <Button
-              onClick={() => { setLoadType('DRAYAGE'); setFormData(prev => ({ ...prev, loadType: 'DRAYAGE' })); }}
-              variant="contained"
-              sx={{
-                textTransform: 'none',
-                ...(loadType === 'DRAYAGE' ? {
-                  backgroundColor: '#ffffff',
-                  color: '#1976d2',
-                  border: 'none',
-                  boxShadow: 'none',
-                  '&:hover': {
-                    backgroundColor: '#f3f4f6',
-                    boxShadow: 'none'
-                  }
-                } : {
-                  backgroundColor: 'transparent',
-                  color: '#ffffff',
-                  borderColor: '#ffffff',
-                  borderWidth: 1,
-                  borderStyle: 'solid',
-                  boxShadow: 'none',
-                  '&:hover': {
-                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                    boxShadow: 'none'
-                  }
-                }),
-                borderRadius: 2,
-                minWidth: 110,
-                py: 1.5,
-                px: 3,
-                fontSize: '0.875rem',
-                fontWeight: 600,
-              }}
-            >
-              DRAYAGE
-            </Button>
+              <ToggleButton value="OTR">OTR</ToggleButton>
+              <ToggleButton value="DRAYAGE">DRAYAGE</ToggleButton>
+            </ToggleButtonGroup>
             {/* Close Button */}
             <IconButton
               onClick={() => {
@@ -1769,7 +1787,7 @@ const AddLoad = () => {
                 setSelectedLoad(null);
               }}
               sx={{
-                color: '#ffffff',
+                color: headerTextColor,
                 '&:hover': {
                   backgroundColor: 'rgba(255, 255, 255, 0.2)'
                 },
@@ -3647,14 +3665,14 @@ const AddLoad = () => {
             sx={{
               borderRadius: 2,
               textTransform: 'none',
-              backgroundColor: '#2F5AA8',
+              backgroundImage: 'none',
+              backgroundColor: brand,
+              '&:hover': { backgroundColor: alpha(brand, 0.85) },
+              color: '#fff',
               px: 4,
               py: 1,
               fontWeight: 600,
               fontSize: '0.95rem',
-              '&:hover': {
-                backgroundColor: '#244A8F',
-              },
             }}
           >
             {loading
@@ -3740,8 +3758,8 @@ const AddLoad = () => {
                       <TableCell sx={{ borderBottom: '1px solid #e0e0e0' }}>{viewLoadData.customerLoadDetails?.customerPhone || 'N/A'}</TableCell>
                     </TableRow>
                   </TableBody>
-                </Table>
-              </Paper>
+        </Table>
+      </Paper>
 
               {/* Load Details Section */}
               <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: 2, backgroundColor: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
@@ -4038,8 +4056,8 @@ const AddLoad = () => {
                     )}
                   </TableBody>
                 </Table>
-              </Paper>
-            </Box>
+      </Paper>
+      </Box>
           ) : (
             <Box sx={{ p: 3, textAlign: 'center' }}>
               <Typography color="text.secondary">No load data available</Typography>
@@ -4439,7 +4457,7 @@ const AddLoad = () => {
                 sx={{ 
                   mb: 1.5, 
                   fontWeight: 600, 
-                  color: '#374151', 
+                  color: (themeConfig.tokens?.text || '#333333'), 
                   fontSize: '0.9rem',
                   display: 'flex',
                   alignItems: 'center',
@@ -4580,7 +4598,7 @@ const AddLoad = () => {
                 sx={{ 
                   mb: 1.5, 
                   fontWeight: 600, 
-                  color: '#374151', 
+                  color: (themeConfig.tokens?.text || '#333333'), 
                   fontSize: '0.9rem',
                   display: 'flex',
                   alignItems: 'center',

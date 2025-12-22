@@ -11,11 +11,13 @@ import Consignment from './pages/consignment/Consignment';
 import BidManagement from './pages/trucker/BidManagement';
 import AddCustomer from './pages/trucker/AddCustomer';
 import AddLoad from './pages/trucker/AddLoad';
+import AddUserTrucker from './pages/trucker/AddUserTrucker';
 import Yard from './pages/trucker/Yard';
 import YardDropContainer from './pages/trucker/YardDropContainer';
 import Reports from './pages/reports/Reports';
 import Bills from './pages/shipper/Bills';
 import Loadboard from './pages/shipper/Loadboard';
+import AddUserShipper from './pages/shipper/AddUserShipper';
 import Profile from './pages/profile/Profile';
 import Email from './pages/email/Email';
 import Layout from './components/layout/Layout';
@@ -25,6 +27,11 @@ import Completed from './pages/reports/Completed';
 import LoadCalculator from './loadshippertruckercalculator/LoadCalculator';
 import LandingPage from './pages/auth/LandingPage';
 import './App.css';
+import { ThemeProvider, useThemeConfig } from './context/ThemeContext';
+import { NegotiationProvider } from './context/NegotiationContext';
+import UniversalNegotiationPopup from './components/UniversalNegotiationPopup';
+import { ThemeProvider as MuiThemeProvider, createTheme, alpha } from '@mui/material/styles';
+import { useMemo } from 'react';
 
 // Optional: RootGate—agar logged-in hai to dashboard bhej do, warna LandingPage dikhao
 import { useAuth } from './context/AuthContext';
@@ -34,11 +41,132 @@ function RootGate() {
 }
 
 function App() {
+  const UiThemeWrapper = ({ children }) => {
+    const { themeConfig } = useThemeConfig();
+    const muiTheme = useMemo(() => {
+      const brand = themeConfig.tokens?.primary || '#1976d2';
+      const textColor = themeConfig.tokens?.text || '#333333';
+      const headerBg = (themeConfig.header?.bg && themeConfig.header.bg !== 'white') ? themeConfig.header.bg : brand;
+      const headerText = themeConfig.header?.text || '#ffffff';
+      const tableBg = themeConfig.table?.bg || '#ffffff';
+      const tableText = themeConfig.table?.text || textColor;
+      const tableHeaderBg = themeConfig.table?.headerBg || '#f0f4f8';
+      const tableHeaderText = themeConfig.table?.headerText || tableText;
+      const contrastRows = Boolean(themeConfig.content?.bgImage) || Boolean(themeConfig.table?.bgImage);
+      return createTheme({
+        palette: {
+          mode: 'light',
+          primary: { main: brand },
+          text: { primary: textColor },
+          background: { default: themeConfig.content?.bg || '#f8f9fa' },
+        },
+        components: {
+          MuiDialogTitle: {
+            styleOverrides: {
+              root: {
+                color: headerText,
+                backgroundColor: headerBg,
+                borderBottom: `1px solid ${alpha(brand, 0.3)}`,
+              },
+            },
+          },
+          MuiTableCell: {
+            styleOverrides: {
+              root: {
+                color: contrastRows ? '#111' : tableText,
+                fontWeight: contrastRows ? 600 : undefined,
+                letterSpacing: contrastRows ? '0.2px' : undefined,
+                textShadow: 'none',
+                '& .MuiTypography-root': { 
+                  color: contrastRows ? '#111' : tableText,
+                  fontWeight: contrastRows ? 600 : undefined,
+                  letterSpacing: contrastRows ? '0.2px' : undefined,
+                  textShadow: 'none',
+                },
+                '& p, & span': { 
+                  color: contrastRows ? '#111' : tableText,
+                  fontWeight: contrastRows ? 500 : undefined,
+                  letterSpacing: contrastRows ? '0.15px' : undefined,
+                  textShadow: 'none',
+                },
+              },
+              head: {
+                backgroundColor: tableHeaderBg,
+                color: contrastRows ? '#111' : tableHeaderText,
+                fontWeight: contrastRows ? 700 : 600,
+                letterSpacing: contrastRows ? '0.25px' : undefined,
+                textShadow: 'none',
+              },
+            },
+          },
+          MuiTableBody: {
+            styleOverrides: {
+              root: {
+                '& td': { color: tableText },
+              },
+            },
+          },
+          MuiTableRow: {
+            styleOverrides: {
+              root: {
+                '& td, & th': { borderColor: alpha(brand, 0.08) },
+                textShadow: 'none',
+              },
+            },
+          },
+          MuiChip: {
+            styleOverrides: {
+              label: {
+                fontWeight: 600,
+                textShadow: 'none',
+              },
+            },
+          },
+          MuiTableHead: {
+            styleOverrides: {
+              root: {
+                '& th': {
+                  backgroundColor: tableHeaderBg,
+                  color: tableHeaderText,
+                  fontWeight: 600,
+                },
+              },
+            },
+          },
+          MuiButton: {
+            styleOverrides: {
+              containedPrimary: {
+                backgroundImage: `linear-gradient(90deg, ${brand}, ${alpha(brand, 0.85)})`,
+                color: '#111',
+              },
+              outlinedPrimary: {
+                borderColor: brand,
+                color: brand,
+              },
+              textPrimary: { color: brand },
+            },
+          },
+          MuiListItemButton: {
+            styleOverrides: {
+              root: {
+                '&:hover': { backgroundColor: alpha(brand, 0.12) },
+                '&.Mui-selected': { backgroundColor: alpha(brand, 0.25), color: '#fff' },
+              },
+            },
+          },
+        },
+      });
+    }, [themeConfig]);
+    return <MuiThemeProvider theme={muiTheme}>{children}</MuiThemeProvider>;
+  };
+
   return (
     <AuthProvider>
-      <Router>
-        <div className="App">
-          <Routes>
+      <ThemeProvider>
+        <UiThemeWrapper>
+          <Router>
+            <div className="App">
+              <Routes>
             {/* Public Routes */}
             <Route path="/root" element={<RootGate />} />
             <Route path="/landingpage" element={<LandingPage />} />
@@ -62,7 +190,7 @@ function App() {
               <Route path="/driver" element={<ProtectedRoute userType="trucker"><Driver /></ProtectedRoute>} />
               <Route path="/payments" element={<ProtectedRoute userType="trucker"><Payments /></ProtectedRoute>} />
               <Route path="/bid-management" element={<ProtectedRoute userType="trucker"><BidManagement /></ProtectedRoute>} />
-              <Route path="/add-customer" element={<ProtectedRoute userType="trucker"><AddCustomer /></ProtectedRoute>} />
+              <Route path="/add-customer" element={<ProtectedRoute><AddCustomer /></ProtectedRoute>} />
               <Route path="/add-load" element={<ProtectedRoute userType="trucker"><AddLoad /></ProtectedRoute>} />
               <Route path="/yard" element={<ProtectedRoute userType="trucker"><Yard /></ProtectedRoute>} />
               <Route path="/yard-drop-container" element={<ProtectedRoute userType="trucker"><YardDropContainer /></ProtectedRoute>} />
@@ -70,13 +198,17 @@ function App() {
               {/* Shipper Only Routes */}
               <Route path="/bills" element={<ProtectedRoute userType="shipper"><Bills /></ProtectedRoute>} />
               <Route path="/loadboard" element={<ProtectedRoute userType="shipper"><Loadboard /></ProtectedRoute>} />
+              <Route path="/add-user-shipper" element={<ProtectedRoute userType="shipper"><AddUserShipper /></ProtectedRoute>} />
+              <Route path="/add-user-trucker" element={<ProtectedRoute userType="trucker"><AddUserTrucker /></ProtectedRoute>} />
             </Route>
 
             {/* Fallback: unknown routes -> Landing */}
             <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </div>
-      </Router>
+              </Routes>
+            </div>
+          </Router>
+        </UiThemeWrapper>
+      </ThemeProvider>
     </AuthProvider>
   );
 }

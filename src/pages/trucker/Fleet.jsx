@@ -42,6 +42,8 @@ import {
   CalendarToday
 } from '@mui/icons-material';
 import { BASE_API_URL } from '../../apiConfig';
+import { useThemeConfig } from '../../context/ThemeContext';
+
 // just for github
 const Dashboard = () => {
   const [page, setPage] = useState(0);
@@ -75,6 +77,7 @@ const Dashboard = () => {
   // Vehicle types and fuel types for dropdowns
   const vehicleTypes = ['Dry Van', 'Flatbed', 'Refrigerated', 'Container', 'Tanker', 'Car Carrier', 'Lowboy'];
   const fuelTypes = ['Diesel', 'Gasoline', 'Electric', 'Hybrid', 'CNG', 'LPG'];
+  const { themeConfig } = useThemeConfig();
 
   // API Helper Functions
   const getAuthToken = () => {
@@ -470,6 +473,34 @@ const Dashboard = () => {
         </Alert>
       )}
 
+      <Paper elevation={3} sx={{ borderRadius: 3, overflow: 'hidden', backgroundColor: (themeConfig?.content?.bgImage ? 'rgba(255,255,255,0.94)' : (themeConfig?.table?.bg || '#fff')), position: 'relative', boxShadow: '0 10px 30px rgba(0,0,0,0.08)', border: '1px solid rgba(0,0,0,0.06)' }}>
+        {themeConfig?.table?.bgImage && (
+          <Box sx={{
+            position: 'absolute',
+            inset: 0,
+            backgroundImage: `url(${themeConfig.table.bgImage})`,
+            backgroundSize: 'cover',
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'center',
+            opacity: themeConfig.table?.bgImageOpacity ?? 0,
+            pointerEvents: 'none',
+            zIndex: 0,
+          }} />
+        )}
+        <Box sx={{ position: 'relative', zIndex: 1 }}>
+        <Table>
+          <TableHead>
+            <TableRow sx={{ backgroundColor: (themeConfig?.table?.headerBg || '#f0f4f8') }}>
+              <TableCell sx={{ fontWeight: 600 }}>Vehicle No</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Chassis No</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Engine No</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Model Year</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Vehicle Type</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Make</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Model</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Capacity</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Actions</TableCell>
       <Paper elevation={3} sx={{ borderRadius: 3, overflow: 'hidden' }}>
         <Table
           sx={{
@@ -713,6 +744,7 @@ const Dashboard = () => {
             )}
           </TableBody>
         </Table>
+        </Box>
         <TablePagination
           component="div"
           count={filteredVehicles.length}
@@ -815,7 +847,7 @@ const Dashboard = () => {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenAddDialog(false)}>Cancel</Button>
+          <Button onClick={() => setOpenAddDialog(false)} sx={{ color: '#d32f2f', '&:hover': { color: '#b71c1c' } }}>Cancel</Button>
           <Button onClick={handleAddVehicle} variant="contained">
             Add Vehicle
           </Button>
@@ -909,7 +941,7 @@ const Dashboard = () => {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenEditDialog(false)}>Cancel</Button>
+          <Button onClick={() => setOpenEditDialog(false)} sx={{ color: '#d32f2f', '&:hover': { color: '#b71c1c' } }}>Cancel</Button>
           <Button onClick={handleEditVehicle} variant="contained">
             Update Vehicle
           </Button>
@@ -1067,6 +1099,9 @@ const Dashboard = () => {
             </Box>
           )}
         </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenViewDialog(false)} sx={{ color: '#d32f2f', '&:hover': { color: '#b71c1c' } }}>Close</Button>
+        </DialogActions>
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
@@ -1086,6 +1121,7 @@ const Dashboard = () => {
               setVehicleToDelete(null);
             }}
             variant="outlined"
+            sx={{ borderColor: '#d32f2f', color: '#d32f2f', '&:hover': { borderColor: '#b71c1c', color: '#b71c1c' } }}
           >
             Cancel
           </Button>

@@ -16,7 +16,6 @@ import {
   InputAdornment,
   CircularProgress,
   Alert,
-  Skeleton,
   Modal,
   IconButton,
   Grid,
@@ -29,12 +28,14 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Switch,
 } from '@mui/material';
 import { 
   Add, 
   Search, 
   Clear, 
   Close, 
+  AssignmentInd,
   Visibility, 
   Edit, 
   Delete, 
@@ -45,14 +46,15 @@ import {
   LocationOn,
   Save,
   Cancel,
-  Description
+  Warning,
+  Lock
 } from '@mui/icons-material';
  
 import { BASE_API_URL } from '../../apiConfig';
 import { useThemeConfig } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 
-const AddCustomer = () => {
+const AddUserTrucker = () => {
   const { userType } = useAuth();
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -75,8 +77,32 @@ const AddCustomer = () => {
     state: '',
     country: 'USA',
     zipCode: '',
-    notes: ''
+    notes: '',
+    password: ''
   }));
+
+  const [permissionModalOpen, setPermissionModalOpen] = useState(false);
+  const [selectedUserForPermission, setSelectedUserForPermission] = useState(null);
+  const [userPermissions, setUserPermissions] = useState({});
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [customerToDelete, setCustomerToDelete] = useState(null);
+
+  const sidebarOptions = [
+    { key: 'dashboard', label: 'Dashboard' },
+    { key: 'liveTracker', label: 'Live Tracker' },
+    { key: 'addLoad', label: 'Add Load' },
+    { key: 'addUsers', label: 'Add Users' },
+    { key: 'addCustomer', label: 'Add Customer' },
+    { key: 'driver', label: 'Driver' },
+    { key: 'fleet', label: 'Fleet' },
+    { key: 'billing', label: 'Billing' },
+    { key: 'consignment', label: 'Consignment' },
+    { key: 'bidManagement', label: 'Bid Management' },
+    { key: 'email', label: 'Email' },
+    { key: 'report', label: 'Report' },
+    { key: 'loadCalculator', label: 'Load Calculator' },
+  ];
+
 
   const { themeConfig } = useThemeConfig();
   const brand = (themeConfig.header?.bg && themeConfig.header.bg !== 'white') ? themeConfig.header.bg : (themeConfig.tokens?.primary || '#1976d2');
@@ -150,7 +176,7 @@ const AddCustomer = () => {
       if (result.success) {
         return result.data;
       } else {
-        throw new Error(result.message || 'Failed to add customer');
+        throw new Error(result.message || 'Failed to add User');
       }
     } catch (err) {
       console.error('Error adding customer:', err);
@@ -247,7 +273,8 @@ const AddCustomer = () => {
       state: '',
       country: 'USA',
       zipCode: '',
-      notes: ''
+      notes: '',
+      password: ''
     });
     setAddModalOpen(true);
   }, []);
@@ -264,7 +291,8 @@ const AddCustomer = () => {
       state: customer.locationDetails?.state || '',
       country: customer.locationDetails?.country || 'USA',
       zipCode: customer.locationDetails?.zipCode || '',
-      notes: customer.notes || ''
+      notes: customer.notes || '',
+      password: ''
     });
     setSelectedCustomer(customer);
     setEditModalOpen(true);
@@ -275,22 +303,56 @@ const AddCustomer = () => {
     setViewModalOpen(true);
   }, []);
 
-  const handleDeleteCustomer = async (customerId) => {
-    if (window.confirm('Are you sure you want to delete this customer?')) {
-      try {
-        setLoading(true);
-        await deleteCustomer(customerId);
-        
-        // Refresh the customer list
-        await fetchAllCustomers();
-        setSuccess('Customer deleted successfully');
-        setTimeout(() => setSuccess(null), 3000);
-      } catch (err) {
-        setError(err.message || 'Failed to delete customer');
-        setTimeout(() => setError(null), 3000);
-      } finally {
-        setLoading(false);
-      }
+  const handleAssignPermission = useCallback((customer) => {
+    setSelectedUserForPermission(customer);
+    // Initialize permissions - in a real app, you'd fetch existing permissions here
+    const initialPermissions = {};
+    sidebarOptions.forEach(option => {
+      initialPermissions[option.key] = false; // Default to false or fetch from backend
+    });
+    setUserPermissions(initialPermissions);
+    setPermissionModalOpen(true);
+  }, []);
+
+  const handlePermissionToggle = (key) => {
+    setUserPermissions(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
+  const savePermissions = () => {
+    // Here you would save the permissions to the backend
+    console.log('Saving permissions for:', selectedUserForPermission?.companyInfo?.companyName, userPermissions);
+    setSuccess('Permissions assigned successfully');
+    setPermissionModalOpen(false);
+    setTimeout(() => setSuccess(null), 3000);
+  };
+
+
+  const handleDeleteCustomer = (customerId) => {
+    setCustomerToDelete(customerId);
+    setDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!customerToDelete) return;
+
+    try {
+      setLoading(true);
+      await deleteCustomer(customerToDelete);
+      
+      // Refresh the customer list
+      await fetchAllCustomers();
+      setSuccess('User deleted successfully');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError(err.message || 'Failed to delete user');
+      setTimeout(() => setError(null), 3000);
+    } finally {
+      setLoading(false);
+      setDeleteModalOpen(false);
+      setCustomerToDelete(null);
     }
   };
 
@@ -348,59 +410,15 @@ const AddCustomer = () => {
     }));
   }, []);
 
-  // AddCustomer Skeleton Loading Component
-  const AddCustomerSkeleton = () => (
-    <Box sx={{ p: 3 }}>
-      {/* Header Skeleton */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Skeleton variant="text" width={150} height={32} />
-          <Skeleton variant="rectangular" width={100} height={32} sx={{ borderRadius: 2 }} />
-        </Box>
-        <Stack direction="row" spacing={1} alignItems="center">
-          <Skeleton variant="rectangular" width={250} height={40} sx={{ borderRadius: 2 }} />
-          <Skeleton variant="rectangular" width={140} height={40} sx={{ borderRadius: 2 }} />
-        </Stack>
-      </Box>
-
-      {/* Table Skeleton */}
-      <Paper elevation={3} sx={{ borderRadius: 3, overflow: 'hidden' }}>
-        <Table>
-          <TableHead>
-            <TableRow sx={{ background: 'linear-gradient(90deg, #f8fafc 0%, #f1f5f9 100%)' }}>
-              {[1, 2, 3, 4, 5, 6, 7].map((col) => (
-                <TableCell key={col}>
-                  <Skeleton variant="text" width={100} height={20} />
-                </TableCell>
-              ))}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {Array.from({ length: 5 }).map((_, index) => (
-              <TableRow key={index}>
-                <TableCell><Skeleton variant="text" width={150} /></TableCell>
-                <TableCell><Skeleton variant="text" width={120} /></TableCell>
-                <TableCell><Skeleton variant="text" width={180} /></TableCell>
-                <TableCell><Skeleton variant="text" width={120} /></TableCell>
-                <TableCell><Skeleton variant="text" width={150} /></TableCell>
-                <TableCell><Skeleton variant="rectangular" width={70} height={26} sx={{ borderRadius: 1 }} /></TableCell>
-                <TableCell>
-                  <Stack direction="row" spacing={1}>
-                    <Skeleton variant="rectangular" width={60} height={28} sx={{ borderRadius: 1 }} />
-                    <Skeleton variant="rectangular" width={60} height={28} sx={{ borderRadius: 1 }} />
-                    <Skeleton variant="rectangular" width={60} height={28} sx={{ borderRadius: 1 }} />
-                  </Stack>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Paper>
-    </Box>
-  );
-
   if (loading && customersData.length === 0) {
-    return <AddCustomerSkeleton />;
+    return (
+      <Box sx={{ p: 3, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+        <CircularProgress />
+        <Typography variant="h6" sx={{ ml: 2 }}>
+          Loading customers...
+        </Typography>
+      </Box>
+    );
   }
 
   return (
@@ -428,7 +446,7 @@ const AddCustomer = () => {
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Typography variant="h5" fontWeight={700} sx={{ color: (themeConfig.tokens?.text || '#333333'), ...(themeConfig.content?.bgImage ? { backgroundColor: 'rgba(255,255,255,0.88)', borderRadius: 1, px: 1 } : {}) }}>
-            Add Customer
+            Add Users
           </Typography>
           <Chip
             label={`${customersData.length} Customer${customersData.length !== 1 ? 's' : ''}`}
@@ -473,7 +491,7 @@ const AddCustomer = () => {
               },
             }}
           >
-            Add Customer
+            Add Users
           </Button>
         </Stack>
       </Box>
@@ -496,50 +514,13 @@ const AddCustomer = () => {
         <Table sx={{ backgroundColor: (themeConfig.table?.bgImage || themeConfig.content?.bgImage) ? 'rgba(255,255,255,0.94)' : 'inherit' }}>
           <TableHead>
             <TableRow sx={{ backgroundColor: (themeConfig.table?.headerBg || '#f0f4f8') }}>
-              <TableCell sx={{ fontWeight: 600, width: '150px', color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Company Name</TableCell>
-              <TableCell sx={{ fontWeight: 600, width: '120px', color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>MC/DOT No</TableCell>
+              <TableCell sx={{ fontWeight: 600, width: '150px', color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Name</TableCell>
+              <TableCell sx={{ fontWeight: 600, width: '120px', color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Designation</TableCell>
               <TableCell sx={{ fontWeight: 600, width: '150px', color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Email</TableCell>
               <TableCell sx={{ fontWeight: 600, width: '120px', color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Mobile</TableCell>
               <TableCell sx={{ fontWeight: 600, width: '200px', color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Location</TableCell>
               <TableCell sx={{ fontWeight: 600, width: '100px', color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Status</TableCell>
               <TableCell sx={{ fontWeight: 600, width: '150px', color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Actions</TableCell>
-      <Paper elevation={3} sx={{ borderRadius: 3, overflow: 'hidden' }}>
-        <Table
-          sx={{
-            borderRadius: 3,
-            overflow: 'hidden',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
-            border: '1px solid #e5e7eb',
-          }}
-        >
-          <TableHead>
-            <TableRow
-              sx={{
-                background: 'linear-gradient(90deg, #f8fafc 0%, #f1f5f9 100%)',
-              }}
-            >
-              {[
-                'Company Name',
-                'MC/DOT No',
-                'Email',
-                'Mobile',
-                'Location',
-                'Status',
-                'Actions',
-              ].map((header) => (
-                <TableCell
-                  key={header}
-                  sx={{
-                    fontWeight: 700,
-                    color: '#374151',
-                    fontSize: '0.95rem',
-                    py: 1.5,
-                    borderBottom: '2px solid #e2e8f0',
-                  }}
-                >
-                  {header}
-                </TableCell>
-              ))}
             </TableRow>
           </TableHead>
           <TableBody>
@@ -551,11 +532,8 @@ const AddCustomer = () => {
                     key={customer._id} 
                     hover 
                     sx={{ 
-                      transition: 'all 0.25s ease',
-                      '&:hover': {
-                        backgroundColor: '#f0f7ff',
-                        transform: 'scale(1.01)',
-                      },
+                      transition: '0.3s', 
+                      '&:hover': { backgroundColor: '#e3f2fd' }
                     }}
                   >
                     <TableCell sx={{ width: '150px', fontWeight: 600, color: (themeConfig.table?.text || '#333333') }}>
@@ -571,19 +549,6 @@ const AddCustomer = () => {
                       {customer.contactInfo?.mobile}
                     </TableCell>
                     <TableCell sx={{ width: '200px', wordWrap: 'break-word', color: (themeConfig.table?.text || '#333333') }}>
-                    <TableCell sx={{ width: '150px', fontWeight: 600, color: '#334155' }}>
-                      {customer.companyInfo?.companyName}
-                    </TableCell>
-                    <TableCell sx={{ width: '120px', color: '#475569' }}>
-                      {customer.companyInfo?.mcDotNo}
-                    </TableCell>
-                    <TableCell sx={{ width: '150px', color: '#475569' }}>
-                      {customer.contactInfo?.email}
-                    </TableCell>
-                    <TableCell sx={{ width: '120px', color: '#475569' }}>
-                      {customer.contactInfo?.mobile}
-                    </TableCell>
-                    <TableCell sx={{ width: '200px', wordWrap: 'break-word', color: '#475569' }}>
                       {customer.locationDetails?.city}, {customer.locationDetails?.state} {customer.locationDetails?.zipCode}
                     </TableCell>
                     <TableCell sx={{ width: '100px' }}>
@@ -603,17 +568,34 @@ const AddCustomer = () => {
                           onClick={() => handleViewCustomer(customer)}
                           sx={{
                             fontSize: '0.75rem',
-                            px: 1.5,
+                            px: 1,
+                            py: 0.5,
                             textTransform: 'none',
-                            color: '#2563eb',
-                            borderColor: '#2563eb',
-                            '&:hover': {
-                              backgroundColor: '#2563eb',
-                              color: '#fff',
-                            },
+                            minWidth: 'auto'
                           }}
                         >
                           View
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          startIcon={<AssignmentInd />}
+                          onClick={() => handleAssignPermission(customer)}
+                          sx={{
+                            fontSize: '0.75rem',
+                            px: 1,
+                            py: 0.5,
+                            textTransform: 'none',
+                            minWidth: 'auto',
+                            color: 'info.main',
+                            borderColor: 'info.main',
+                            '&:hover': {
+                              backgroundColor: 'info.main',
+                              color: 'white'
+                            }
+                          }}
+                        >
+                          Assign
                         </Button>
                         <Button
                           variant="outlined"
@@ -622,14 +604,10 @@ const AddCustomer = () => {
                           onClick={() => handleEditCustomer(customer)}
                           sx={{
                             fontSize: '0.75rem',
-                            px: 1.5,
+                            px: 1,
+                            py: 0.5,
                             textTransform: 'none',
-                            color: '#0284c7',
-                            borderColor: '#0284c7',
-                            '&:hover': {
-                              backgroundColor: '#0284c7',
-                              color: '#fff',
-                            },
+                            minWidth: 'auto'
                           }}
                         >
                           Edit
@@ -642,14 +620,16 @@ const AddCustomer = () => {
                           onClick={() => handleDeleteCustomer(customer._id || customer.customerId)}
                           sx={{
                             fontSize: '0.75rem',
-                            px: 1.5,
+                            px: 1,
+                            py: 0.5,
                             textTransform: 'none',
-                            color: '#dc2626',
-                            borderColor: '#dc2626',
+                            minWidth: 'auto',
+                            color: 'error.main',
+                            borderColor: 'error.main',
                             '&:hover': {
-                              backgroundColor: '#dc2626',
-                              color: '#fff',
-                            },
+                              backgroundColor: 'error.main',
+                              color: 'white'
+                            }
                           }}
                         >
                           Delete
@@ -708,7 +688,7 @@ const AddCustomer = () => {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <PersonAdd sx={{ fontSize: 28 }} />
             <Typography variant="h6" fontWeight={700}>
-              Add New Customer
+              Add New Users
             </Typography>
           </Box>
           <IconButton 
@@ -739,13 +719,13 @@ const AddCustomer = () => {
                     gap: 1
                   }}>
                     <Business fontSize="small" color="primary" />
-                    Company Information
+                    User Information
                   </Typography>
                   <Paper elevation={0} sx={{ p: 2, border: '1px solid #e0e0e0', borderRadius: '12px' }}>
                     <Grid container spacing={2}>
                       <Grid item xs={12} sm={6}>
                         <TextField 
-                          label="Company Name" 
+                          label="Name" 
                           name="companyName" 
                           value={formData.companyName || ''} 
                           onChange={handleFormInputChange} 
@@ -765,7 +745,7 @@ const AddCustomer = () => {
                       </Grid>
                       <Grid item xs={12} sm={6}>
                         <TextField 
-                          label="MC/DOT No" 
+                          label="Designation" 
                           name="mcDotNo" 
                           value={formData.mcDotNo || ''} 
                           onChange={handleFormInputChange} 
@@ -777,6 +757,26 @@ const AddCustomer = () => {
                             startAdornment: (
                               <InputAdornment position="start">
                                 <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary' }}>#</Typography>
+                              </InputAdornment>
+                            ),
+                          }}
+                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                        />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <TextField 
+                          label="Password" 
+                          name="password" 
+                          type="password"
+                          value={formData.password || ''} 
+                          onChange={handleFormInputChange} 
+                          fullWidth
+                          required
+                          variant="outlined"
+                          InputProps={{
+                            startAdornment: (
+                              <InputAdornment position="start">
+                                <Lock color="action" fontSize="small" />
                               </InputAdornment>
                             ),
                           }}
@@ -925,7 +925,7 @@ const AddCustomer = () => {
                 </Grid>
 
                 {/* Additional Info Section jhgjhgj*/}
-                <Grid item xs={12}>
+                {/* <Grid item xs={12}>
                   <TextField 
                     label="Additional Notes" 
                     name="notes" 
@@ -941,7 +941,7 @@ const AddCustomer = () => {
                       bgcolor: 'white'
                     }}
                   />
-                </Grid>
+                </Grid> */}
               </Grid>
             </Box>
 
@@ -974,7 +974,7 @@ const AddCustomer = () => {
                   background: brand
                 }}
               >
-                {loading ? <CircularProgress size={24} color="inherit" /> : 'Create Customer'}
+                {loading ? <CircularProgress size={24} color="inherit" /> : 'Create Users'}
               </Button>
             </DialogActions>
           </Box>
@@ -1011,7 +1011,7 @@ const AddCustomer = () => {
           }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography variant="h6" fontWeight={700} sx={{ color: headerTextColor }}>
-                Edit Customer
+                Edit User
               </Typography>
               <IconButton 
                 onClick={() => setEditModalOpen(false)}
@@ -1032,7 +1032,7 @@ const AddCustomer = () => {
               {/* Company Name | MC/DOT No */}
               <Grid item xs={12} sm={6}>
                 <TextField 
-                  label="Company Name" 
+                  label="Name" 
                   name="companyName" 
                   value={formData.companyName || ''} 
                   onChange={handleFormInputChange} 
@@ -1042,7 +1042,7 @@ const AddCustomer = () => {
               </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField 
-                  label="MC/DOT No" 
+                  label="Designation" 
                   name="mcDotNo" 
                   value={formData.mcDotNo || ''} 
                   onChange={handleFormInputChange} 
@@ -1073,10 +1073,23 @@ const AddCustomer = () => {
                 />
               </Grid>
 
+              {/* Password */}
+              <Grid item xs={12} sm={12}>
+                <TextField 
+                  label="Password" 
+                  name="password" 
+                  type="password"
+                  value={formData.password || ''} 
+                  onChange={handleFormInputChange} 
+                  fullWidth
+                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
+                />
+              </Grid>
+
               {/* Company Address | City */}
               <Grid item xs={12} sm={6}>
                 <TextField 
-                  label="Company Address" 
+                  label="Address" 
                   name="companyAddress" 
                   value={formData.companyAddress || ''} 
                   onChange={handleFormInputChange} 
@@ -1128,7 +1141,7 @@ const AddCustomer = () => {
                   sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              {/* <Grid item xs={12} sm={6}>
                 <TextField 
                   label="Notes" 
                   name="notes" 
@@ -1140,7 +1153,7 @@ const AddCustomer = () => {
                   placeholder="Additional notes about the customer..."
                   sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
                 />
-              </Grid>
+              </Grid> */}
             </Grid>
             <Box sx={{ 
               display: 'flex', 
@@ -1162,7 +1175,7 @@ const AddCustomer = () => {
                 color="primary" 
                 sx={{ borderRadius: 3, textTransform: 'none', px: 4 }}
               >
-                {loading ? <CircularProgress size={20} color="inherit" /> : 'Update Customer'}
+                {loading ? <CircularProgress size={20} color="inherit" /> : 'Update User'}
               </Button>
             </Box>
           </Box>
@@ -1177,8 +1190,12 @@ const AddCustomer = () => {
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: 3,
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
+            borderRadius: 2,
+            maxHeight: '75vh',
+            background: '#ffffff',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+            display: 'flex',
+            flexDirection: 'column',
           }
         }}
       >
@@ -1197,23 +1214,7 @@ const AddCustomer = () => {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
               <Business sx={{ fontSize: 28, color: headerTextColor }} />
               <Typography variant="h5" fontWeight={600} color={headerTextColor}>
-        <DialogTitle sx={{
-          background: 'linear-gradient(to right, #1976d2, #1565c0)',
-          color: '#fff',
-          py: 3,
-          px: 4,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Business sx={{ fontSize: 28 }} />
-            <Box>
-              <Typography variant="h5" sx={{ fontWeight: 700, color: '#fff' }}>
-                Customer Details
-              </Typography>
-              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.9)', mt: 0.5 }}>
-                Complete customer information
+                User Details
               </Typography>
             </Box>
             <Button
@@ -1306,139 +1307,252 @@ const AddCustomer = () => {
                     </Table>
                   </Box>
                 </Paper>
+
+                {/* Location Details Card */}
+                <Paper elevation={0} sx={{ border: '1px solid #c8e6c9', borderRadius: 2, overflow: 'hidden' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, background: '#e8f5e9' }}>
+                    <Box sx={{ width: 32, height: 32, borderRadius: 1, background: '#2e7d32', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                      📍
+                    </Box>
+                    <Typography variant="h6" fontWeight={700} color="#1b5e20">Location Details</Typography>
+                  </Box>
+                  <Box sx={{ p: 2 }}>
+                    <Table size="small" sx={{ '& td, & th': { border: 0, py: 1.2 } }}>
+                      <TableBody>
+                        <TableRow>
+                          <TableCell sx={{ width: 220, color: 'text.secondary' }}>Address</TableCell>
+                          <TableCell sx={{ width: 80, color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{selectedCustomer.locationDetails?.companyAddress || 'N/A'}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell sx={{ color: 'text.secondary' }}>City</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{selectedCustomer.locationDetails?.city || 'N/A'}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell sx={{ color: 'text.secondary' }}>State</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{selectedCustomer.locationDetails?.state || 'N/A'}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell sx={{ color: 'text.secondary' }}>Zip Code</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{selectedCustomer.locationDetails?.zipCode || 'N/A'}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell sx={{ color: 'text.secondary' }}>Country</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{selectedCustomer.locationDetails?.country || 'N/A'}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </Box>
+                </Paper>
+
+                {/* Additional Notes Card */}
+                {selectedCustomer.notes && (
+                  <Paper elevation={0} sx={{ border: '1px solid #b2dfdb', borderRadius: 2, overflow: 'hidden' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, background: '#e0f2f1' }}>
+                      <Box sx={{ width: 32, height: 32, borderRadius: 1, background: '#00897b', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                        📝
+                      </Box>
+                      <Typography variant="h6" fontWeight={700} color="#00695c">Additional Notes</Typography>
+                    </Box>
+                    <Box sx={{ p: 2 }}>
+                      <Table size="small" sx={{ '& td, & th': { border: 0, py: 1.2 } }}>
+                        <TableBody>
+                          <TableRow>
+                            <TableCell sx={{ width: 220, color: 'text.secondary' }}>Notes</TableCell>
+                            <TableCell sx={{ width: 80, color: '#9e9e9e' }}>-----</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontStyle: 'italic' }}>{selectedCustomer.notes}</TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                    </Box>
+                  </Paper>
+                )}
+
+                {/* Added By Card */}
+                <Paper elevation={0} sx={{ border: '1px solid #ce93d8', borderRadius: 2, overflow: 'hidden' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, background: '#f3e5f5' }}>
+                    <Box sx={{ width: 32, height: 32, borderRadius: 1, background: '#6a1b9a', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                      👤
+                    </Box>
+                    <Typography variant="h6" fontWeight={700} color="#4a148c">Added By</Typography>
+                  </Box>
+                  <Box sx={{ p: 2 }}>
+                    <Table size="small" sx={{ '& td, & th': { border: 0, py: 1.2 } }}>
+                      <TableBody>
+                        <TableRow>
+                          <TableCell sx={{ width: 220, color: 'text.secondary' }}>Name</TableCell>
+                          <TableCell sx={{ width: 80, color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{selectedCustomer.addedByTrucker?.truckerName || 'N/A'}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell sx={{ color: 'text.secondary' }}>Email</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{selectedCustomer.addedByTrucker?.truckerEmail || 'N/A'}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </Box>
+                </Paper>
+              </Box>
+            </Box>
+          )}
+          </DialogContent>
+      </Dialog>
+
+      {/* Permission Modal */}
+      <Dialog
+        open={permissionModalOpen}
+        onClose={() => setPermissionModalOpen(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: '16px',
+            boxShadow: '0 24px 48px rgba(0,0,0,0.2)',
+            overflow: 'hidden'
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          p: 0,
+          background: brand,
+          color: headerTextColor,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          px: 3,
+          py: 2
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <AssignmentInd sx={{ fontSize: 28 }} />
+            <Typography variant="h6" fontWeight={700}>
+              User Permission
+            </Typography>
           </Box>
-          <IconButton
-            onClick={() => setViewModalOpen(false)}
-            sx={{ color: '#fff' }}
+          <IconButton 
+            onClick={() => setPermissionModalOpen(false)}
+            sx={{ 
+              color: 'inherit',
+              '&:hover': { backgroundColor: 'rgba(255,255,255,0.1)' }
+            }}
           >
             <Close />
           </IconButton>
         </DialogTitle>
-        <DialogContent sx={{ p: 0, backgroundColor: '#f5f5f5' }}>
-          {selectedCustomer ? (
-            <Box sx={{ p: 3 }}>
-              {/* Basic Information Section */}
-              <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: 2, backgroundColor: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                  <Business sx={{ color: '#1976d2', fontSize: 24 }} />
-                  <Typography variant="h6" sx={{ fontWeight: 600, color: '#2D3748' }}>
-                    Basic Information
-                  </Typography>
-                </Box>
-                <Table size="small">
-                  <TableBody>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 600, width: '40%', borderBottom: '1px solid #e0e0e0' }}>Company Name</TableCell>
-                      <TableCell sx={{ borderBottom: '1px solid #e0e0e0' }}>{selectedCustomer.companyInfo?.companyName || 'N/A'}</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 600, borderBottom: '1px solid #e0e0e0' }}>MC/DOT Number</TableCell>
-                      <TableCell sx={{ borderBottom: '1px solid #e0e0e0' }}>{selectedCustomer.companyInfo?.mcDotNo || 'N/A'}</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 600, borderBottom: '1px solid #e0e0e0' }}>Status</TableCell>
-                      <TableCell sx={{ borderBottom: '1px solid #e0e0e0' }}>
-                        <Chip 
-                          label={selectedCustomer.status} 
+        <DialogContent sx={{ p: 3 }}>
+          {selectedUserForPermission && (
+            <Box>
+              <Box sx={{ mb: 3, p: 2, bgcolor: '#f5f5f5', borderRadius: 2 }}>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">Name</Typography>
+                    <Typography variant="body1" fontWeight={600}>
+                      {selectedUserForPermission.companyInfo?.companyName || 'N/A'}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">Email</Typography>
+                    <Typography variant="body1" fontWeight={600}>
+                      {selectedUserForPermission.contactInfo?.email || 'N/A'}
+                    </Typography>
+                  </Grid>
+                </Grid>
+              </Box>
+
+              <Table size="small" sx={{ minWidth: 650 }}>
+                <TableHead>
+                  <TableRow sx={{ backgroundColor: '#f0f4f8' }}>
+                    <TableCell sx={{ fontWeight: 600 }}>Feature</TableCell>
+                    <TableCell sx={{ fontWeight: 600, width: 100, textAlign: 'center' }}>Action</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {sidebarOptions.map((option) => (
+                    <TableRow key={option.key} hover>
+                      <TableCell>{option.label}</TableCell>
+                      <TableCell sx={{ textAlign: 'center' }}>
+                        <Switch
+                          checked={!!userPermissions[option.key]}
+                          onChange={() => handlePermissionToggle(option.key)}
+                          color="primary"
                           size="small"
-                          color={selectedCustomer.status === 'active' ? 'success' : 'default'}
-                          sx={{ fontWeight: 600 }}
                         />
                       </TableCell>
                     </TableRow>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 600, borderBottom: 'none' }}>Created Date</TableCell>
-                      <TableCell sx={{ borderBottom: 'none' }}>{new Date(selectedCustomer.createdAt).toLocaleDateString()}</TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </Paper>
-
-              {/* Contact Information Section */}
-              <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: 2, backgroundColor: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                  <Phone sx={{ color: '#1976d2', fontSize: 24 }} />
-                  <Typography variant="h6" sx={{ fontWeight: 600, color: '#2D3748' }}>
-                    Contact Information
-                  </Typography>
-                </Box>
-                <Table size="small">
-                  <TableBody>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 600, width: '40%', borderBottom: '1px solid #e0e0e0' }}>Email</TableCell>
-                      <TableCell sx={{ borderBottom: '1px solid #e0e0e0' }}>{selectedCustomer.contactInfo?.email || 'N/A'}</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 600, borderBottom: 'none' }}>Mobile</TableCell>
-                      <TableCell sx={{ borderBottom: 'none' }}>{selectedCustomer.contactInfo?.mobile || 'N/A'}</TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </Paper>
-
-              {/* Location Details Section */}
-              <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: 2, backgroundColor: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                  <LocationOn sx={{ color: '#1976d2', fontSize: 24 }} />
-                  <Typography variant="h6" sx={{ fontWeight: 600, color: '#2D3748' }}>
-                    Location Details
-                  </Typography>
-                </Box>
-                <Table size="small">
-                  <TableBody>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 600, width: '40%', borderBottom: '1px solid #e0e0e0' }}>Address</TableCell>
-                      <TableCell sx={{ borderBottom: '1px solid #e0e0e0' }}>{selectedCustomer.locationDetails?.companyAddress || 'N/A'}</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 600, borderBottom: '1px solid #e0e0e0' }}>City</TableCell>
-                      <TableCell sx={{ borderBottom: '1px solid #e0e0e0' }}>{selectedCustomer.locationDetails?.city || 'N/A'}</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 600, borderBottom: '1px solid #e0e0e0' }}>State</TableCell>
-                      <TableCell sx={{ borderBottom: '1px solid #e0e0e0' }}>{selectedCustomer.locationDetails?.state || 'N/A'}</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 600, borderBottom: '1px solid #e0e0e0' }}>Zip Code</TableCell>
-                      <TableCell sx={{ borderBottom: '1px solid #e0e0e0' }}>{selectedCustomer.locationDetails?.zipCode || 'N/A'}</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 600, borderBottom: 'none' }}>Country</TableCell>
-                      <TableCell sx={{ borderBottom: 'none' }}>{selectedCustomer.locationDetails?.country || 'N/A'}</TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </Paper>
-
-              {/* Additional Notes Section */}
-              {selectedCustomer.notes && (
-                <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: 2, backgroundColor: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                    <Description sx={{ color: '#1976d2', fontSize: 24 }} />
-                    <Typography variant="h6" sx={{ fontWeight: 600, color: '#2D3748' }}>
-                      Additional Notes
-                    </Typography>
-                  </Box>
-                  <Table size="small">
-                    <TableBody>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 600, width: '40%', borderBottom: 'none' }}>Notes</TableCell>
-                        <TableCell sx={{ borderBottom: 'none' }}>{selectedCustomer.notes}</TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
-                </Paper>
-              )}
-            </Box>
-          ) : (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
-              <Typography>No customer details available</Typography>
+                  ))}
+                </TableBody>
+              </Table>
             </Box>
           )}
         </DialogContent>
+        <DialogActions sx={{ p: 3, borderTop: '1px solid #eee' }}>
+          <Button onClick={() => setPermissionModalOpen(false)} sx={{ textTransform: 'none', color: '#666' }}>
+            Cancel
+          </Button>
+          <Button 
+            variant="contained" 
+            onClick={savePermissions}
+            sx={{ 
+              bgcolor: brand,
+              textTransform: 'none',
+              px: 4,
+              '&:hover': { bgcolor: brand }
+            }}
+          >
+            Save Permissions
+          </Button>
+        </DialogActions>
+      </Dialog>
+      {/* Delete Confirmation Modal */}
+      <Dialog
+        open={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            boxShadow: '0 12px 24px rgba(0,0,0,0.1)',
+          }
+        }}
+      >
+        <DialogTitle sx={{ textAlign: 'center', pt: 3 }}>
+          <Warning sx={{ fontSize: 48, color: 'warning.main', mb: 1 }} />
+          <Typography variant="h6" fontWeight={600}>
+            Confirm Deletion
+          </Typography>
+        </DialogTitle>
+        <DialogContent sx={{ textAlign: 'center' }}>
+          <Typography variant="body1" color="text.secondary" marginTop={2}>
+            Are you sure you want to delete this user?
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, justifyContent: 'center', gap: 2 }}>
+          <Button
+            onClick={() => setDeleteModalOpen(false)}
+            variant="outlined"
+            color="inherit"
+            sx={{ borderRadius: 2, textTransform: 'none', px: 3 }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={confirmDelete}
+            variant="contained"
+            color="error"
+            disabled={loading}
+            sx={{ borderRadius: 2, textTransform: 'none', px: 3 }}
+          >
+            {loading ? <CircularProgress size={20} color="inherit" /> : 'Delete'}
+          </Button>
+        </DialogActions>
       </Dialog>
     </Box>
   );
 };
 
-export default AddCustomer;
+export default AddUserTrucker;

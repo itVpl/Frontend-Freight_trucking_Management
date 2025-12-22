@@ -1114,6 +1114,8 @@ export default function LoadCalculator() {
 
   // Popup 3D View ke liye
   const [open3D, setOpen3D] = useState(false);
+  useEffect(() => { if (open3D) setShowSuggestion(false); }, [open3D]);
+
 
   // ▶ Stuffing playback
   const [timeline, setTimeline] = useState([]);  // place-order list of renderable items
@@ -1127,6 +1129,7 @@ export default function LoadCalculator() {
   const [usePallets, setUsePallets] = useState(false);
   const [palletType, setPalletType] = useState("Europe Pallets");
   const [palletSpec, setPalletSpec] = useState({ ...PALLET_PRESETS["Europe Pallets"] });
+  const [autoFitCustomPallet, setAutoFitCustomPallet] = useState(true);
 
   // Suggest dialog
   const [openSuggest, setOpenSuggest] = useState(false);
@@ -1159,6 +1162,59 @@ const [weightUnit, setWeightUnit] = useState("kg"); // "kg" | "lb"
   const [nextPosition, setNextPosition] = useState({
     x: 0, y: 0, z: 0, rowDepth: 0, levelHeight: 0,
   });
+  const [freeSpaces, setFreeSpaces] = useState([]);
+  const [nextSuggestion, setNextSuggestion] = useState(null);
+  const [showSuggestion, setShowSuggestion] = useState(false); // Toggle for optimization suggestion
+
+
+  useEffect(() => {
+    if (!freeSpaces.length) {
+      setNextSuggestion(null);
+      return;
+    }
+    // Find largest contiguous space by volume
+    let best = null;
+    let maxVol = -1;
+    for (const s of freeSpaces) {
+      const vol = s.L * s.W * s.H;
+      if (vol > maxVol) {
+        maxVol = vol;
+        best = s;
+      }
+    }
+    // Filter out very tiny spaces (e.g. < 1 liter)
+    if (best && maxVol > 0.001) { 
+       // User requested minimal safety clearance (1mm) to fill space completely
+       const safeL = Math.max(0, best.L - 0.001);
+       const safeW = Math.max(0, best.W - 0.001);
+       const safeH = Math.max(0, best.H - 0.001);
+
+       // Must be at least 15cm to be usable
+
+       if (safeL > 0.15 && safeW > 0.15 && safeH > 0.15) {
+         // Cap dimensions at 2.0m as requested, but split if necessary to fill space
+         const maxDim = 2.0;
+         
+         // Calculate optimal count to fit in space while keeping dims <= maxDim
+         const countL = Math.max(1, Math.ceil(safeL / maxDim));
+         const countW = Math.max(1, Math.ceil(safeW / maxDim));
+         const countH = Math.max(1, Math.ceil(safeH / maxDim));
+         
+         // Distribute space evenly
+         const suggestL = safeL / countL;
+         const suggestW = safeW / countW;
+         const suggestH = safeH / countH;
+
+         const qty = Math.max(1, countL * countW * countH);
+
+         setNextSuggestion({ L: suggestL, W: suggestW, H: suggestH, qty });
+       } else {
+         setNextSuggestion(null);
+       }
+    } else {
+       setNextSuggestion(null);
+    }
+  }, [freeSpaces]);
 
   // Compute current space (container OR truck)
   const container = mode === "Container"
@@ -1185,6 +1241,7 @@ const [weightUnit, setWeightUnit] = useState("kg"); // "kg" | "lb"
     setTimeline([]);
     setPlayhead(0);
     setIsPlaying(false);
+    setFreeSpaces([{ x: 0, y: 0, z: 0, L: container.length, W: container.width, H: container.height }]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, selectedSize, selectedTruck]);
   useEffect(() => {
@@ -1388,61 +1445,71 @@ const weight = toKg(Number(form.weight) || 0, weightUnit); // always kg
     if (askQty <= 0) { alert("❌ Overweight. Cannot add more items."); return; }
     if (askQty < quantity) alert(`⚠️ Overweight limit. Only ${askQty} of ${quantity} added.`);
 
-    // common placer for any block (pallet or piece)
-    function placeBlock(tempPos, L, H, W) {
-      let { x, y, z, rowDepth, levelHeight } = tempPos;
-      if (x + L > container.length) { x = 0; z += rowDepth; rowDepth = 0; }
-      if (z + W > container.width) { z = 0; y += levelHeight; levelHeight = 0; }
-
-      const maxStackHeight = targetCat === "OT" ? Math.max(container.height, H) : container.height;
-      if (y + H > maxStackHeight) return { ok: false, temp: tempPos, position: null };
-
-      const pos = [
-        x - container.length / 2 + L / 2,
-        y - container.height / 2 + H / 2,
-        z - container.width / 2 + W / 2,
-      ];
-      const next = {
-        x: x + L,
-        y,
-        z,
-        rowDepth: Math.max(rowDepth, W),
-        levelHeight: Math.max(levelHeight, H),
-      };
-      return { ok: true, temp: next, position: pos };
+    function placeInto(fs, L, H, W, cont, category) {
+      const hFit = category === "OT" ? Math.min(H, cont.height) : H;
+      for (let i = 0; i < fs.length; i++) {
+        const s = fs[i];
+        if (L <= s.L && W <= s.W && hFit <= s.H) {
+          const pos = [
+            (s.x + L / 2) - cont.length / 2,
+            (s.y + hFit / 2) - cont.height / 2,
+            (s.z + W / 2) - cont.width / 2,
+          ];
+          const newFs = fs.slice();
+          newFs.splice(i, 1);
+          const right = { x: s.x + L, y: s.y, z: s.z, L: s.L - L, W: s.W, H: s.H };
+          const up = { x: s.x, y: s.y + hFit, z: s.z, L: L, W: s.W, H: s.H - hFit };
+          const front = { x: s.x, y: s.y, z: s.z + W, L: L, W: s.W - W, H: hFit };
+          if (right.L > 0 && right.W > 0 && right.H > 0) newFs.push(right);
+          if (up.L > 0 && up.W > 0 && up.H > 0) newFs.push(up);
+          if (front.L > 0 && front.W > 0 && front.H > 0) newFs.push(front);
+          return { ok: true, position: pos, fs: newFs, swapped: false };
+        }
+        if (W <= s.L && L <= s.W && hFit <= s.H) {
+          const pos = [
+            (s.x + W / 2) - cont.length / 2,
+            (s.y + hFit / 2) - cont.height / 2,
+            (s.z + L / 2) - cont.width / 2,
+          ];
+          const newFs = fs.slice();
+          newFs.splice(i, 1);
+          const right = { x: s.x + W, y: s.y, z: s.z, L: s.L - W, W: s.W, H: s.H };
+          const up = { x: s.x, y: s.y + hFit, z: s.z, L: W, W: s.W, H: s.H - hFit };
+          const front = { x: s.x, y: s.y, z: s.z + L, L: W, W: s.W - L, H: hFit };
+          if (right.L > 0 && right.W > 0 && right.H > 0) newFs.push(right);
+          if (up.L > 0 && up.W > 0 && up.H > 0) newFs.push(up);
+          if (front.L > 0 && front.W > 0 && front.H > 0) newFs.push(front);
+          return { ok: true, position: pos, fs: newFs, swapped: true };
+        }
+      }
+      return { ok: false, position: null, fs };
     }
 
     const renderGroupId = Date.now();
     let temp = { ...nextPosition };
     let added = 0;
     let newRender = [];
-    let totalNewVol = 0;
-    const totalVolume = container.length * container.width * container.height;
-    const usedVolumeNow = items.reduce((s, it) => {
-      if (it.cargoType === "Liquid") return s + (it.liquidM3 || 0);
-      const hCap = targetCat === "OT" ? Math.min(it.height, container.height) : it.height;
-      return s + it.length * it.width * hCap * (it.quantity || 1);
-    }, 0);
+    let fsLocal = freeSpaces.length
+      ? [...freeSpaces]
+      : [{ x: 0, y: 0, z: 0, L: container.length, W: container.width, H: container.height }];
 
     // ---------- NO PALLETS: original per-piece packing ----------
     if (!usePallets) {
       for (let i = 0; i < askQty; i++) {
-        const deltaVol = targetCat === "OT"
-          ? (mLength * mWidth * Math.min(mHeight, container.height))
-          : (mLength * mWidth * mHeight);
-        if (usedVolumeNow + totalNewVol + deltaVol > totalVolume) { alert(`⚠️ Full by volume. Added ${added} piece(s).`); break; }
-
-        const res = placeBlock(temp, mLength, mHeight, mWidth);
+        const res = placeInto(fsLocal, mLength, mHeight, mWidth, container, targetCat);
         if (!res.ok) { alert("⚠️ No stacking space left."); break; }
 
         newRender.push({
           cargoType,
-          length: mLength, width: mWidth, height: mHeight,
+          length: res.swapped ? mWidth : mLength,
+          width: res.swapped ? mLength : mWidth,
+          height: mHeight,
           color: form.color,
           position: res.position,
           renderGroupId,
         });
-        totalNewVol += deltaVol; added++; temp = res.temp;
+        added++;
+        fsLocal = res.fs;
       }
     } else {
       // ================= PALLETIZATION =================
@@ -1451,8 +1518,8 @@ const weight = toKg(Number(form.weight) || 0, weightUnit); // always kg
         return;
       }
 
-      const pL = palletSpec.length;
-      const pW = palletSpec.width;
+      let pL = palletSpec.length;
+      let pW = palletSpec.width;
       const pBase = palletSpec.baseHeight;
       const pMaxH = palletSpec.maxHeight;
 
@@ -1460,14 +1527,35 @@ const weight = toKg(Number(form.weight) || 0, weightUnit); // always kg
       const maxLayersByHeight = Math.max(0, Math.floor((pMaxH - pBase) / mHeight));
       if (maxLayersByHeight <= 0) { alert("❌ Max pallet height too small for this item."); return; }
 
-      // 2D footprint packing on pallet (try both orientations)
-      const perRow1 = Math.floor(pL / mLength), perCol1 = Math.floor(pW / mWidth);
-      const perRow2 = Math.floor(pL / mWidth), perCol2 = Math.floor(pW / mLength);
-      const count1 = perRow1 * perCol1, count2 = perRow2 * perCol2;
-
-      const orient = count2 > count1
-        ? { l: mWidth, w: mLength, perRow: perRow2, perCol: perCol2 }
-        : { l: mLength, w: mWidth, perRow: perRow1, perCol: perCol1 };
+      let orient;
+      if (palletType === "Custom Pallets" && autoFitCustomPallet) {
+        let best = null;
+        const gaps = fsLocal.length ? fsLocal : [{ x: 0, y: 0, z: 0, L: container.length, W: container.width, H: container.height }];
+        for (const s of gaps) {
+          const r1 = Math.floor(s.L / mLength), c1 = Math.floor(s.W / mWidth);
+          const r2 = Math.floor(s.L / mWidth), c2 = Math.floor(s.W / mLength);
+          const n1 = r1 * c1, n2 = r2 * c2;
+          if (n1 > 0) {
+            const score = n1;
+            if (!best || score > best.score) best = { score, perRow: r1, perCol: c1, cellL: mLength, cellW: mWidth };
+          }
+          if (n2 > 0) {
+            const score = n2;
+            if (!best || score > best.score) best = { score, perRow: r2, perCol: c2, cellL: mWidth, cellW: mLength };
+          }
+        }
+        if (!best) { alert("❌ No free gap fits this item footprint."); return; }
+        pL = best.perRow * best.cellL;
+        pW = best.perCol * best.cellW;
+        orient = { l: best.cellL, w: best.cellW, perRow: best.perRow, perCol: best.perCol };
+      } else {
+        const perRow1 = Math.floor(pL / mLength), perCol1 = Math.floor(pW / mWidth);
+        const perRow2 = Math.floor(pL / mWidth), perCol2 = Math.floor(pW / mLength);
+        const count1 = perRow1 * perCol1, count2 = perRow2 * perCol2;
+        orient = count2 > count1
+          ? { l: mWidth, w: mLength, perRow: perRow2, perCol: perCol2 }
+          : { l: mLength, w: mWidth, perRow: perRow1, perCol: perCol1 };
+      }
 
       if (orient.perRow * orient.perCol <= 0) {
         alert("❌ Pallet footprint too small for this item.");
@@ -1487,19 +1575,12 @@ const weight = toKg(Number(form.weight) || 0, weightUnit); // always kg
         const thisLayers = Math.ceil(thisPalletItems / perLayer);
         const stackHeight = pBase + thisLayers * mHeight;
 
-        // volume guard (approximate)
-        const deltaVol = targetCat === "OT"
-          ? (pL * pW * Math.min(stackHeight, container.height))
-          : (pL * pW * stackHeight);
-        if (usedVolumeNow + totalNewVol + deltaVol > totalVolume) {
-          if (added === 0) alert("⚠️ Full by volume. Could not place pallet.");
-          else alert(`⚠️ Full by volume. Added ${added} piece(s) total.`);
-          break;
-        }
-
-        // place the pallet "block"
-        const placed = placeBlock(temp, pL, stackHeight, pW);
+        const placed = placeInto(fsLocal, pL, stackHeight, pW, container, targetCat);
         if (!placed.ok) { alert("⚠️ No stacking space left."); break; }
+
+        const isSwapped = placed.swapped;
+        const finalPL = isSwapped ? pW : pL;
+        const finalPW = isSwapped ? pL : pW;
 
         // ✅ PALLET KO PEHLE LOCAL ARRAY ME BANAO (order lock)
         const palletFrames = [];
@@ -1511,15 +1592,16 @@ const weight = toKg(Number(form.weight) || 0, weightUnit); // always kg
 
         palletFrames.push({
           cargoType: "Pallet",
-          length: pL, width: pW, height: baseH,
+          length: finalPL, width: finalPW, height: baseH,
           color: palletSpec.color,
           position: [pCenter[0], baseYcenter, pCenter[2]],
           renderGroupId,
+          sortPos: { x: pCenter[0], z: pCenter[2] }, // Lock sort position
         });
 
         // ---- Exact local frame on pallet (no drift) ----
-        const pMinX = pCenter[0] - pL / 2;
-        const pMinZ = pCenter[2] - pW / 2;
+        const pMinX = pCenter[0] - finalPL / 2;
+        const pMinZ = pCenter[2] - finalPW / 2;
         const baseY = pCenter[1] - stackHeight / 2; // pallet stack bottom
 
 
@@ -1537,17 +1619,23 @@ const weight = toKg(Number(form.weight) || 0, weightUnit); // always kg
             for (let c = 0; c < orient.perCol; c++) {
               if (put >= thisPalletItems) break;
               // cell center
-              const cx = pMinX + (r + 0.5) * cellL;
-              const cz = pMinZ + (c + 0.5) * cellW;
+              const cx = isSwapped
+                ? pMinX + (c + 0.5) * cellW
+                : pMinX + (r + 0.5) * cellL;
+
+              const cz = isSwapped
+                ? pMinZ + (r + 0.5) * cellL
+                : pMinZ + (c + 0.5) * cellW;
 
               palletFrames.push({
                 cargoType,
-                length: boxL,
-                width: boxW,
+                length: isSwapped ? boxW : boxL,
+                width: isSwapped ? boxL : boxW,
                 height: mHeight,
                 color: form.color,
                 position: [cx, y, cz],
                 renderGroupId,
+                sortPos: { x: pCenter[0], z: pCenter[2] }, // Lock to pallet's sort position
               });
               put++;
             }
@@ -1559,10 +1647,9 @@ const weight = toKg(Number(form.weight) || 0, weightUnit); // always kg
         // ✅ ab poori pallet (base + cartons) KO EK SAATH append karo
         newRender.push(...palletFrames);
 
-        totalNewVol += deltaVol;
         added += thisPalletItems;
         remaining -= thisPalletItems;
-        temp = placed.temp;
+        fsLocal = placed.fs;
       }
 
     }
@@ -1603,9 +1690,30 @@ const weight = toKg(Number(form.weight) || 0, weightUnit); // always kg
       setNextPosition(temp);
       setTimeline((prev) => {
         const nt = [...prev, ...newRender];
+        // Sort for consistent playback:
+        // Priority: Back (X) -> Left (Z) -> Vertical (Y)
+        // Fills the container "Slice by Slice" (Back wall first)
+        nt.sort((a, b) => {
+          // Use sortPos if available (Pallets), else fallback to center
+          const xA = a.sortPos ? a.sortPos.x : (a.position[0]);
+          const xB = b.sortPos ? b.sortPos.x : (b.position[0]);
+          // 1. Back X (Length-wise depth)
+          if (Math.abs(xA - xB) > 0.001) return xA - xB;
+
+          const zA = a.sortPos ? a.sortPos.z : (a.position[2]);
+          const zB = b.sortPos ? b.sortPos.z : (b.position[2]);
+          // 2. Left Z (Width-wise lanes)
+          if (Math.abs(zA - zB) > 0.001) return zA - zB;
+
+          // 3. Bottom Y (Vertical)
+          const yA = a.position[1] - a.height / 2;
+          const yB = b.position[1] - b.height / 2;
+          return yA - yB;
+        });
         if (!isPlaying) setPlayhead(nt.length);
         return nt;
       });
+      setFreeSpaces(fsLocal);
     }
   };
 const repackLargestFirst = useCallback(() => {
@@ -1661,57 +1769,88 @@ const repackLargestFirst = useCallback(() => {
     return b.height - a.height;
   });
 
-  // Local placer (container ke andar row-by-row stacking)
-  const placeBlockLocal = (tempPos, L, H, W) => {
-    let { x, y, z, rowDepth, levelHeight } = tempPos;
-    if (x + L > container.length) { x = 0; z += rowDepth; rowDepth = 0; }
-    if (z + W > container.width) { z = 0; y += levelHeight; levelHeight = 0; }
-    const maxStackHeight = targetCat === "OT" ? Math.max(container.height, H) : container.height;
-    if (y + H > maxStackHeight) return { ok: false, temp: tempPos, position: null };
-
-    const pos = [
-      x - container.length / 2 + L / 2,
-      y - container.height / 2 + H / 2,
-      z - container.width / 2 + W / 2,
-    ];
-    const next = {
-      x: x + L,
-      y,
-      z,
-      rowDepth: Math.max(rowDepth, W),
-      levelHeight: Math.max(levelHeight, H),
-    };
-    return { ok: true, temp: next, position: pos };
-  };
-
   // Timeline rebuild
-  let temp = { x: 0, y: 0, z: 0, rowDepth: 0, levelHeight: 0 };
+  let fs = [{ x: 0, y: 0, z: 0, L: container.length, W: container.width, H: container.height }];
   const newTimeline = [];
-  const totalVol = container.length * container.width * container.height;
-  let usedVol = 0;
 
   for (const u of unitQueue) {
-    const deltaVol = (targetCat === "OT")
-      ? (u.length * u.width * Math.min(u.height, container.height))
-      : (u.length * u.width * u.height);
-    if (usedVol + deltaVol > totalVol) break;
-
-    const res = placeBlockLocal(temp, u.length, u.height, u.width);
+    const res = (function () {
+      const hFit = targetCat === "OT" ? Math.min(u.height, container.height) : u.height;
+      for (let i = 0; i < fs.length; i++) {
+        const s = fs[i];
+        if (u.length <= s.L && u.width <= s.W && hFit <= s.H) {
+          const pos = [
+            (s.x + u.length / 2) - container.length / 2,
+            (s.y + hFit / 2) - container.height / 2,
+            (s.z + u.width / 2) - container.width / 2,
+          ];
+          const newFs = fs.slice();
+          newFs.splice(i, 1);
+          const right = { x: s.x + u.length, y: s.y, z: s.z, L: s.L - u.length, W: s.W, H: s.H };
+          const up = { x: s.x, y: s.y + hFit, z: s.z, L: u.length, W: s.W, H: s.H - hFit };
+          const front = { x: s.x, y: s.y, z: s.z + u.width, L: u.length, W: s.W - u.width, H: hFit };
+          if (right.L > 0 && right.W > 0 && right.H > 0) newFs.push(right);
+          if (up.L > 0 && up.W > 0 && up.H > 0) newFs.push(up);
+          if (front.L > 0 && front.W > 0 && front.H > 0) newFs.push(front);
+          fs = newFs;
+          return { ok: true, position: pos, swapped: false };
+        }
+        if (u.width <= s.L && u.length <= s.W && hFit <= s.H) {
+          const pos = [
+            (s.x + u.width / 2) - container.length / 2,
+            (s.y + hFit / 2) - container.height / 2,
+            (s.z + u.length / 2) - container.width / 2,
+          ];
+          const newFs = fs.slice();
+          newFs.splice(i, 1);
+          const right = { x: s.x + u.width, y: s.y, z: s.z, L: s.L - u.width, W: s.W, H: s.H };
+          const up = { x: s.x, y: s.y + hFit, z: s.z, L: u.width, W: s.W, H: s.H - hFit };
+          const front = { x: s.x, y: s.y, z: s.z + u.length, L: u.width, W: s.W - u.length, H: hFit };
+          if (right.L > 0 && right.W > 0 && right.H > 0) newFs.push(right);
+          if (up.L > 0 && up.W > 0 && up.H > 0) newFs.push(up);
+          if (front.L > 0 && front.W > 0 && front.H > 0) newFs.push(front);
+          fs = newFs;
+          return { ok: true, position: pos, swapped: true };
+        }
+      }
+      return { ok: false, position: null };
+    })();
     if (!res.ok) break;
 
     newTimeline.push({
       ...u,
+      length: res.swapped ? u.width : u.length,
+      width: res.swapped ? u.length : u.width,
       position: res.position,
       renderGroupId: "repacked",
+      sortPos: { x: res.position[0], z: res.position[2] }, // Lock sort position
     });
-    usedVol += deltaVol;
-    temp = res.temp;
   }
+
+  // ✅ SORT TIMELINE FOR ANIMATION: Column-wise (Vertical stacks)
+  // Order: Back-to-Front (X) -> Left-to-Right (Z) -> Bottom-up (Y)
+  // This ensures "Slice by Slice" filling (Back wall first)
+  newTimeline.sort((a, b) => {
+    // 1. Back X (Length-wise depth)
+    const xA = a.sortPos ? a.sortPos.x : a.position[0];
+    const xB = b.sortPos ? b.sortPos.x : b.position[0];
+    if (Math.abs(xA - xB) > 0.001) return xA - xB;
+
+    // 2. Left Z (Width-wise lanes)
+    const zA = a.sortPos ? a.sortPos.z : a.position[2];
+    const zB = b.sortPos ? b.sortPos.z : b.position[2];
+    if (Math.abs(zA - zB) > 0.001) return zA - zB;
+
+    // 3. Bottom Y (floating point tolerance 1mm)
+    const yA = a.position[1] - a.height / 2;
+    const yB = b.position[1] - b.height / 2;
+    return yA - yB;
+  });
 
   setTimeline(newTimeline);
   setPlayhead(0);
   setIsPlaying(false);
-  setNextPosition(temp);
+  setFreeSpaces(fs);
 }, [items, container, mode, selectedSize, selectedTruck, usePallets, setTimeline, setPlayhead, setIsPlaying, setNextPosition]);
 
 
@@ -1849,6 +1988,16 @@ const repackLargestFirst = useCallback(() => {
     () => timeline.slice(0, playhead),
     [timeline, playhead]
   );
+
+  // 3D View Stats Calculation
+  const containerVol = container.length * container.width * container.height;
+  const currentFilledVol = useMemo(() => {
+    return visibleItems.reduce((acc, item) => acc + (item.length * item.width * item.height), 0);
+  }, [visibleItems]);
+  
+  const filledPercent = containerVol > 0 ? (currentFilledVol / containerVol) * 100 : 0;
+  const freePercent = Math.max(0, 100 - filledPercent);
+
   // ▶ Auto-advance playhead while playing
   useEffect(() => {
     if (!isPlaying) return;
@@ -2569,6 +2718,20 @@ useEffect(() => {
                             </Select>
                           </FormControl>
                         </Grid>
+                        {palletType === "Custom Pallets" && (
+                          <Grid item xs={12}>
+                            <Stack direction="row" spacing={1.5} alignItems="center">
+                              <Switch
+                                checked={autoFitCustomPallet}
+                                onChange={(e) => setAutoFitCustomPallet(e.target.checked)}
+                                inputProps={{ "aria-label": "Auto-fit custom pallet to gaps" }}
+                              />
+                              <Typography variant="subtitle2" fontWeight={700}>
+                                Auto-fit custom pallet to remaining gap
+                              </Typography>
+                            </Stack>
+                          </Grid>
+                        )}
 
                         <Grid item xs={6}>
                           <TextField
@@ -2875,6 +3038,88 @@ useEffect(() => {
           <DialogTitle>3D View – Stuffing Playback</DialogTitle>
           <DialogContent dividers>
 
+            {/* Suggestion Box for Remaining Space */}
+            {nextSuggestion && showSuggestion && (
+              <Paper elevation={3} sx={{ mb: 2, p: 2, bgcolor: "#e3f2fd", borderLeft: "6px solid #2196f3" }}>
+                <Stack direction="row" alignItems="center" justifyContent="space-between">
+                  <Box>
+                    <Typography variant="subtitle1" fontWeight="bold" color="primary">
+                      💡Capacity management
+                    </Typography>
+                    <Typography variant="body2" sx={{ mt: 0.5 }}>
+                      To fill the remaining space, create <b>{nextSuggestion.qty}</b> Custom Pallet(s) with these dimensions:
+                    </Typography>
+                  </Box>
+                  <Button 
+                    variant="contained" 
+                    size="small"
+                    color="primary"
+                    onClick={() => {
+                        // 1. Get raw suggestions (already has 1mm buffer from useEffect)
+                        const rawL = nextSuggestion.L;
+                        const rawW = nextSuggestion.W;
+                        const rawH = nextSuggestion.H;
+
+                        // 2. Convert to UI units
+
+                        const uiL = toUI(Math.max(0.1, rawL), unit);
+                        const uiW = toUI(Math.max(0.1, rawW), unit);
+                        
+                        // 3. Convert back to exact meters to ensure Pallet = Product
+                        // This prevents "Pallet footprint too small" error caused by rounding mismatch
+                        const exactL = parseToMeters(uiL, unit);
+                        const exactW = parseToMeters(uiW, unit);
+
+                        // 4. Handle Height (Base + Product)
+                        // Dynamic base: 15cm usually, but if space is tight, shrink base.
+                        const baseH = rawH > 0.3 ? 0.15 : Number((rawH * 0.4).toFixed(3));
+                        
+                        const availProdH = rawH - baseH;
+                        const uiH = toUI(Math.max(0.01, availProdH), unit);
+                        const exactProdH = parseToMeters(uiH, unit);
+
+                        // 5. Apply to State
+                        setUsePallets(true);
+                        setPalletType("Custom Pallets");
+                        setAutoFitCustomPallet(false); // Strict mode
+
+                        setPalletSpec(prev => ({
+                          ...prev,
+                          length: exactL,
+                          width: exactW,
+                          maxHeight: baseH + exactProdH + 0.001, // Add tiny epsilon to ensure floor() > 0
+                          baseHeight: baseH
+                        }));
+
+                        setForm(prev => ({
+                          ...prev,
+                          productName: "Custom Fill",
+                          length: uiL,
+                          width: uiW,
+                          height: uiH,
+                          quantity: nextSuggestion.qty || 1
+                        }));
+                        setTab(1); // Go to Products tab
+                        setOpen3D(false); // Close 3D view
+                    }}
+                  >
+                    Use These Dims
+                  </Button>
+                </Stack>
+                <Grid container spacing={2} sx={{ mt: 1 }}>
+                  <Grid item xs={4}>
+                    <Chip label={`Length: ${toUI(nextSuggestion.L, unit)} ${unitShort(unit)}`} color="primary" variant="outlined" sx={{ fontWeight: "bold" }} />
+                  </Grid>
+                  <Grid item xs={4}>
+                    <Chip label={`Width: ${toUI(nextSuggestion.W, unit)} ${unitShort(unit)}`} color="primary" variant="outlined" sx={{ fontWeight: "bold" }} />
+                  </Grid>
+                  <Grid item xs={4}>
+                    <Chip label={`Height: ${toUI(nextSuggestion.H, unit)} ${unitShort(unit)}`} color="primary" variant="outlined" sx={{ fontWeight: "bold" }} />
+                  </Grid>
+                </Grid>
+              </Paper>
+            )}
+
             {/* ▶ Controls (ye wahi play/pause/next/prev/speed wale controls hain) */}
             <Stack direction="row" spacing={1} alignItems="center" justifyContent="center" sx={{ mb: 2 }}>
               <IconButton
@@ -2938,7 +3183,63 @@ useEffect(() => {
 </Stack>
 
             {/* 3D Canvas */}
-            <Box height="520px" borderRadius={3} overflow="hidden" boxShadow={4} sx={{ background: "#fff" }}>
+            <Box height="520px" borderRadius={3} overflow="hidden" boxShadow={4} sx={{ background: "#fff", position: "relative" }}>
+              {/* Overlay Stats */}
+              <Box
+                sx={{
+                  position: "absolute",
+                  top: 16,
+                  right: 16,
+                  zIndex: 10,
+                  bgcolor: "rgba(255, 255, 255, 0.9)",
+                  backdropFilter: "blur(4px)",
+                  borderRadius: 2,
+                  boxShadow: 3,
+                  p: 1.5,
+                  minWidth: 140,
+                }}
+              >
+                <Stack spacing={1}>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" fontWeight="bold">
+                      FILLED
+                    </Typography>
+                    <Typography variant="h6" color="primary.main" fontWeight="800" lineHeight={1}>
+                      {filledPercent.toFixed(1)}%
+                    </Typography>
+                  </Box>
+                  <Divider />
+                  <Box 
+                    onClick={() => {
+                        if (nextSuggestion) setShowSuggestion(true);
+                    }}
+                    sx={{ 
+                        cursor: nextSuggestion ? "pointer" : "default",
+                        "&:hover": nextSuggestion ? { bgcolor: "rgba(0,0,0,0.04)", borderRadius: 1 } : {}
+                    }}
+                  >
+                    <Stack direction="row" alignItems="center" spacing={0.5}>
+                        <Typography variant="caption" color="text.secondary" fontWeight="bold">
+                        FREE
+                        </Typography>
+                        {nextSuggestion && (
+                            <Tooltip title="Click for Capacity management">
+                                <HelpOutlineIcon sx={{ fontSize: 14, color: "text.secondary" }} />
+                            </Tooltip>
+                        )}
+                    </Stack>
+                    <Typography variant="h6" color="success.main" fontWeight="800" lineHeight={1}>
+                      {freePercent.toFixed(1)}%
+                    </Typography>
+                    {nextSuggestion && !showSuggestion && (
+                        <Typography variant="caption" color="primary" sx={{ display: 'block', fontSize: '0.7rem', mt: 0.5 }}>
+                            Tap for Suggestion
+                        </Typography>
+                    )}
+                  </Box>
+                </Stack>
+              </Box>
+
               <Canvas camera={{ position: [10, 5, 10], fov: 50 }}>
                 <ambientLight intensity={0.7} />
                 <directionalLight position={[5, 8, 5]} intensity={0.9} />

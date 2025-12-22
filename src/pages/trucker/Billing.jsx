@@ -46,6 +46,7 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { format, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import axios from 'axios';
+import { useThemeConfig } from '../../context/ThemeContext';
 
 const BASE_API_URL = 'https://vpl-liveproject-1.onrender.com';
 
@@ -90,6 +91,12 @@ const Dashboard = () => {
   });
   const [billErrors, setBillErrors] = useState({});
   const [isSubmittingBill, setIsSubmittingBill] = useState(false);
+  const { themeConfig } = useThemeConfig();
+  const brand = (themeConfig.header?.bg && themeConfig.header.bg !== 'white') ? themeConfig.header.bg : (themeConfig.tokens?.primary || '#1976d2');
+  const headerTextColor = themeConfig.header?.text || '#ffffff';
+  const textColor = themeConfig.tokens?.text || '#333333';
+  const buttonTextColor = themeConfig.tokens?.buttonText || textColor || '#ffffff';
+  const highlight = themeConfig.tokens?.highlight || '#e3f2fd';
   
   // View bill modal state
   const [viewBillModalOpen, setViewBillModalOpen] = useState(false);
@@ -239,7 +246,7 @@ const Dashboard = () => {
     const csvRows = [headers.join(',')];
 
     filteredData.forEach(row => {
-      const values = [row.billId, row.date, row.amount, row.status];
+      const values = [row.billId, row.billDate, row.amount, row.status];
       csvRows.push(values.join(','));
     });
 
@@ -556,13 +563,13 @@ const Dashboard = () => {
                 py: 0.8,
                 fontWeight: 500,
                 textTransform: 'none',
-                color: '#1976d2',
-                borderColor: '#1976d2',
+                color: brand,
+                borderColor: brand,
                 minWidth: 200,
                 justifyContent: 'space-between',
                 '&:hover': {
-                  borderColor: '#0d47a1',
-                  color: '#0d47a1',
+                  borderColor: brand,
+                  color: brand,
                 },
               }}
             >
@@ -604,7 +611,6 @@ const Dashboard = () => {
                     label="From Date"
                     value={dateRange[0]}
                     onChange={handleDateChange(0)}
-                    renderInput={(params) => <TextField {...params} size="small" />}
                     slotProps={{
                       textField: {
                         size: 'small',
@@ -616,7 +622,6 @@ const Dashboard = () => {
                     label="To Date"
                     value={dateRange[1]}
                     onChange={handleDateChange(1)}
-                    renderInput={(params) => <TextField {...params} size="small" />}
                     slotProps={{
                       textField: {
                         size: 'small',
@@ -670,11 +675,11 @@ const Dashboard = () => {
                 py: 0.8,
                 fontWeight: 500,
                 textTransform: 'none',
-                color: '#1976d2',
-                borderColor: '#1976d2',
+                color: brand,
+                borderColor: brand,
                 '&:hover': {
-                  borderColor: '#0d47a1',
-                  color: '#0d47a1',
+                  borderColor: brand,
+                  color: brand,
                 },
               }}
             >
@@ -986,6 +991,7 @@ const Dashboard = () => {
               backgroundColor: '#fafafa'
             }}
           />
+          </Box>
         </Paper>
 
         {/* Bill Generation Modal */}
@@ -1432,11 +1438,11 @@ const Dashboard = () => {
                 textTransform: 'none',
                 px: 3,
                 py: 1,
-                borderColor: '#1976d2',
-                color: '#1976d2',
+                borderColor: brand,
+                color: brand,
                 '&:hover': {
-                  borderColor: '#0d47a1',
-                  color: '#0d47a1',
+                  borderColor: brand,
+                  color: brand,
                 },
               }}
             >
@@ -1451,10 +1457,9 @@ const Dashboard = () => {
                  textTransform: 'none',
                  px: 3,
                  py: 1,
-                 backgroundColor: '#1976d2',
-                 '&:hover': {
-                   backgroundColor: '#1565c0',
-                 },
+                 background: brand,
+                 color: buttonTextColor,
+                 '&:hover': { opacity: 0.9 },
                  '&:disabled': {
                    backgroundColor: '#ccc',
                    color: '#666'
@@ -1860,11 +1865,11 @@ const Dashboard = () => {
                 textTransform: 'none',
                 px: 3,
                 py: 1,
-                borderColor: '#1976d2',
-                color: '#1976d2',
+                borderColor: brand,
+                color: brand,
                 '&:hover': {
-                  borderColor: '#0d47a1',
-                  color: '#0d47a1',
+                  borderColor: brand,
+                  color: brand,
                 },
               }}
             >
@@ -1880,9 +1885,8 @@ const Dashboard = () => {
                 px: 3,
                 py: 1,
                 backgroundColor: '#2e7d32',
-                '&:hover': {
-                  backgroundColor: '#1b5e20',
-                },
+                color: '#fff',
+                '&:hover': { backgroundColor: '#1b5e20' },
                 '&:disabled': {
                   backgroundColor: '#ccc',
                   color: '#666'

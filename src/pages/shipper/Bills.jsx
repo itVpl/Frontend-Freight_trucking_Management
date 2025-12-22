@@ -48,6 +48,7 @@ import {
   AttachMoney,
   LocalShipping
 } from '@mui/icons-material';
+import { useThemeConfig } from '../../context/ThemeContext';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { format, isWithinInterval, startOfDay, endOfDay, differenceInDays } from 'date-fns';
@@ -140,6 +141,10 @@ const Bills = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [apiData, setApiData] = useState(null);
+
+  const { themeConfig } = useThemeConfig();
+  const brand = (themeConfig.header?.bg && themeConfig.header.bg !== 'white') ? themeConfig.header.bg : (themeConfig.tokens?.primary || '#1976d2');
+  const headerTextColor = themeConfig.header?.text || '#ffffff';
 
   // Fetch API data on component mount
   useEffect(() => {
@@ -1513,18 +1518,32 @@ const Bills = () => {
 
         {/* Data Table */}
         {displayData.length > 0 && (
-          <Paper elevation={3} sx={{ borderRadius: 3, overflow: 'hidden' }}>
+          <Paper elevation={3} sx={{ borderRadius: 3, overflow: 'hidden', backgroundColor: ((themeConfig.table?.bgImage || themeConfig.content?.bgImage) ? 'transparent' : (themeConfig.table?.bg || '#fff')), position: 'relative', boxShadow: '0 10px 30px rgba(0,0,0,0.08)', border: '1px solid rgba(0,0,0,0.06)' }}>
+            {themeConfig.table?.bgImage && (
+              <Box sx={{
+                position: 'absolute',
+                inset: 0,
+                backgroundImage: `url(${themeConfig.table.bgImage})`,
+                backgroundSize: 'cover',
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: 'center',
+                opacity: Number(themeConfig.table?.bgImageOpacity ?? 0),
+                pointerEvents: 'none',
+                zIndex: 0,
+              }} />
+            )}
+          <Box sx={{ position: 'relative', zIndex: 1 }}>
           <Table>
             <TableHead>
-              <TableRow sx={{ backgroundColor: '#f0f4f8' }}>
-                <TableCell sx={{ fontWeight: 600 }}>Shipment #</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>PO Number</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Container #</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>BOL Number</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Pickup Location</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Drop Location</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Rate ($)</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Actions</TableCell>
+            <TableRow sx={{ backgroundColor: (themeConfig.table?.headerBg || '#f0f4f8') }}>
+                <TableCell sx={{ fontWeight: 600, color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Shipment #</TableCell>
+                <TableCell sx={{ fontWeight: 600, color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>PO Number</TableCell>
+                <TableCell sx={{ fontWeight: 600, color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Container #</TableCell>
+                <TableCell sx={{ fontWeight: 600, color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>BOL Number</TableCell>
+                <TableCell sx={{ fontWeight: 600, color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Pickup Location</TableCell>
+                <TableCell sx={{ fontWeight: 600, color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Drop Location</TableCell>
+                <TableCell sx={{ fontWeight: 600, color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Rate ($)</TableCell>
+                <TableCell sx={{ fontWeight: 600, color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -1592,6 +1611,7 @@ const Bills = () => {
                 })}
             </TableBody>
           </Table>
+          </Box>
           <TablePagination
             component="div"
             count={displayData.length}
@@ -1953,12 +1973,12 @@ const Bills = () => {
                      </DialogActions>
        </Dialog>
 
-       {/* View Bill Dialog */}
-       <Dialog 
-         open={viewBillOpen} 
-         onClose={handleViewBillClose}
-         maxWidth="lg"
-         fullWidth
+      {/* View Bill Dialog */}
+      <Dialog 
+        open={viewBillOpen} 
+        onClose={handleViewBillClose}
+        maxWidth="lg"
+        fullWidth
          PaperProps={{
            sx: {
              borderRadius: 2,
@@ -1970,37 +1990,37 @@ const Bills = () => {
            }
          }}
        >
-         <DialogTitle sx={{ 
-           display: 'flex', 
-           justifyContent: 'space-between', 
-           alignItems: 'center',
-           pb: 2,
-           pt: 2,
-           px: 3,
-           background: '#1976d2',
-           color: 'white',
-           borderRadius: '8px 8px 0 0',
-           minHeight: 64
-         }}>
-           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-             <LocalShipping sx={{ fontSize: 28, color: 'white' }} />
-             <Typography variant="h5" fontWeight={600} color="white">
-               Consignment Details
-             </Typography>
-           </Box>
-           <IconButton 
-             onClick={handleViewBillClose} 
-             size="small"
-             sx={{
-               color: 'white',
-               '&:hover': {
-                 background: 'rgba(255, 255, 255, 0.1)',
-               }
-             }}
-           >
-             <Close />
-           </IconButton>
-         </DialogTitle>
+        <DialogTitle sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          pb: 2,
+          pt: 2,
+          px: 3,
+          background: brand,
+          color: headerTextColor,
+          borderRadius: '8px 8px 0 0',
+          minHeight: 64
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <LocalShipping sx={{ fontSize: 28, color: headerTextColor }} />
+            <Typography variant="h5" fontWeight={600} color={headerTextColor}>
+              Consignment Details
+            </Typography>
+          </Box>
+          <IconButton 
+            onClick={handleViewBillClose} 
+            size="small"
+            sx={{
+              color: headerTextColor,
+              '&:hover': {
+                background: 'rgba(255, 255, 255, 0.1)',
+              }
+            }}
+          >
+            <Close />
+          </IconButton>
+        </DialogTitle>
        
        <Divider />
        

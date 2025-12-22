@@ -9,6 +9,7 @@ import {
 } from '@mui/material';
 import { Bar } from 'react-chartjs-2';
 import { CalendarMonth, TrendingUp, Assessment, Visibility, Close, LocalShipping, LocationOn, AttachMoney, Scale, Description, Person, DirectionsCar, DateRange, Business, CheckCircle, Photo, Note, Verified, Assignment } from '@mui/icons-material';
+import { useThemeConfig } from '../../context/ThemeContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { format } from 'date-fns';
 import { BASE_API_URL } from '../../apiConfig';
@@ -109,6 +110,9 @@ const Reports = () => {
   const [reportsData, setReportsData] = useState([]);
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [selectedConsignment, setSelectedConsignment] = useState(null);
+  const { themeConfig } = useThemeConfig();
+  const brand = (themeConfig.header?.bg && themeConfig.header.bg !== 'white') ? themeConfig.header.bg : (themeConfig.tokens?.primary || '#1976d2');
+  const headerTextColor = themeConfig.header?.text || '#ffffff';
 
   // Fetch API data on component mount
   useEffect(() => {
@@ -838,11 +842,25 @@ const handleCloseModal = () => {
 
       {/* Table */}
       {!loading && !error && (
-        <Paper elevation={3}>
+        <Paper elevation={3} sx={{ backgroundColor: (themeConfig.content?.bgImage ? 'rgba(255,255,255,0.94)' : (themeConfig.table?.bg || '#fff')), position: 'relative', boxShadow: '0 10px 30px rgba(0,0,0,0.08)', border: '1px solid rgba(0,0,0,0.06)' }}>
+        {themeConfig.table?.bgImage && (
+          <Box sx={{
+            position: 'absolute',
+            inset: 0,
+            backgroundImage: `url(${themeConfig.table.bgImage})`,
+            backgroundSize: 'cover',
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'center',
+            opacity: themeConfig.table?.bgImageOpacity ?? 0,
+            pointerEvents: 'none',
+            zIndex: 0,
+          }} />
+        )}
+        <Box sx={{ position: 'relative', zIndex: 1 }}>
         <TableContainer>
           <Table>
             <TableHead>
-              <TableRow>
+              <TableRow sx={{ backgroundColor: (themeConfig.table?.headerBg || 'inherit') }}>
                 <TableCell>Consignment ID</TableCell>
                 <TableCell>Driver Name</TableCell>
                 <TableCell>Load Type</TableCell>
@@ -873,11 +891,11 @@ const handleCloseModal = () => {
                       startIcon={<Visibility />}
                       onClick={(e) => handleViewClick(e, row)}
                       sx={{
-                        backgroundColor: '#1976d2',
-                        color: 'white',
+                        backgroundColor: (themeConfig.table?.buttonBg || '#1976d2'),
+                        color: (themeConfig.table?.buttonText || 'white'),
                         textTransform: 'none',
                         '&:hover': {
-                          backgroundColor: '#1565c0',
+                          opacity: 0.9,
                         },
                       }}
                     >
@@ -889,6 +907,7 @@ const handleCloseModal = () => {
             </TableBody>
           </Table>
         </TableContainer>
+        </Box>
       </Paper>
       )}
 
@@ -916,14 +935,14 @@ const handleCloseModal = () => {
           pb: 2,
           pt: 2,
           px: 3,
-          background: '#1976d2',
-          color: 'white',
+          background: brand,
+          color: headerTextColor,
           borderRadius: '8px 8px 0 0',
           minHeight: 64
         }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <LocalShipping sx={{ fontSize: 28, color: 'white' }} />
-            <Typography variant="h5" fontWeight={600} color="white">
+            <LocalShipping sx={{ fontSize: 28, color: headerTextColor }} />
+            <Typography variant="h5" fontWeight={600} color={headerTextColor}>
               Consignment Details
             </Typography>
           </Box>
@@ -931,7 +950,7 @@ const handleCloseModal = () => {
             onClick={handleCloseModal} 
             size="small"
             sx={{
-              color: 'white',
+              color: headerTextColor,
               '&:hover': {
                 background: 'rgba(255, 255, 255, 0.1)',
               }
