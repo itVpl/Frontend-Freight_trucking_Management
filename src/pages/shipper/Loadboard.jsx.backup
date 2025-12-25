@@ -1,8 +1,9 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { BASE_API_URL } from '../../apiConfig';
 import alertify from 'alertifyjs';
+
 import {
   Box,
   Typography,
@@ -69,9 +70,11 @@ import { Download, Search } from '@mui/icons-material';
 import PersonIcon from '@mui/icons-material/Person';
 import SearchNavigationFeedback from '../../components/SearchNavigationFeedback';
 import PageLoader from '../../components/PageLoader';
-import MessageTester from '../../components/MessageTester';
 import { useThemeConfig } from '../../context/ThemeContext';
+import { useNegotiation } from '../../context/NegotiationContext';
 import { useSocket } from '../../context/SocketContext';
+import NegotiationMessageNotification from '../../components/NegotiationMessageNotification';
+import MessageNotificationTester from '../../components/MessageNotificationTester';
 
 // Premium Dark Tooltip
 const PremiumTooltip = styled(({ className, ...props }) => (
@@ -260,7 +263,9 @@ const LoadBoard = () => {
   const [charges, setCharges] = useState([]);
 
   const { themeConfig } = useThemeConfig();
+  const { addNotification, unreadBids } = useNegotiation();
   const { socket } = useSocket();
+
   const primary = themeConfig.tokens?.primary || '#1976d2';
   const brand = (themeConfig.header?.bg && themeConfig.header.bg !== 'white')
     ? themeConfig.header.bg
@@ -365,9 +370,87 @@ const LoadBoard = () => {
   const [negotiationHistoryError, setNegotiationHistoryError] = useState(null);
   const [viewBidId, setViewBidId] = useState(null);
   const [viewBidData, setViewBidData] = useState(null);
-  
-  // Ref for auto-scrolling negotiation history
-  const negotiationHistoryRef = useRef(null);
+
+  // Socket logic for real-time updates in the negotiation modal
+  useEffect(() => {
+    // Safety check: ensure dependencies are ready
+    if (!socket || !viewBidId || !negotiationHistoryModalOpen) return;
+
+    socket.emit('join_bid_negotiation', viewBidId);
+
+    const handleNegotiationUpdate = (data) => {
+        if (data.bidId === viewBidId && data.internalNegotiation) {
+            setNegotiationHistory(prev => ({
+                ...prev,
+                internalNegotiation: data.internalNegotiation
+            }));
+        }
+    };
+
+    socket.on('bid_negotiation_update', handleNegotiationUpdate);
+
+    return () => {
+        socket.emit('leave_bid_negotiation', viewBidId);
+        socket.off('bid_negotiation_update', handleNegotiationUpdate);
+    };
+  }, [socket, viewBidId, negotiationHistoryModalOpen]);
+
+
+  useEffect(() => {
+    if (!socket) return;
+
+    // Request permission
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+
+    // Listen for messages
+    socket.on('new_negotiation_message', (data) => {
+      console.log('🔔 New negotiation message received:', data);
+      
+      // Show popup notification
+      setMessageNotificationData({
+        sender: data.sender || data.senderName || 'Driver',
+        senderType: data.senderType || 'Driver',
+        message: data.message,
+        loadId: data.loadId,
+        bidId: data.bidId,
+        rate: data.rate,
+        timestamp: new Date()
+      });
+      setMessageNotificationOpen(true);
+
+      // Browser notification
+      if (Notification.permission === 'granted') {
+        new Notification(`💬 ${data.sender}`, {
+          body: data.message.length > 50 ? data.message.substring(0, 50) + '...' : data.message,
+          icon: '/favicon.ico'
+        });
+      }
+      
+      // Show alert
+      alertify.success(`New message from ${data.sender}`);
+    });
+
+    socket.on('new_bid', (data) => {
+      if (Notification.permission === 'granted') {
+        new Notification('🚚 New Bid', {
+          body: `${data.driverName}: $${data.rate}`,
+          icon: '/favicon.ico'
+        });
+      }
+      
+      // Refresh if viewing that load
+      if (selectedLoadId === data.loadId) {
+        handleViewBids(data.loadId);
+      }
+    });
+
+    return () => {
+      socket.off('new_negotiation_message');
+      socket.off('new_bid');
+    };
+  }, [socket, selectedLoadId]);
 
   // Reject confirmation modal state
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
@@ -457,6 +540,10 @@ const LoadBoard = () => {
 
   // Tab state management
   const [activeTab, setActiveTab] = useState(0);
+
+  // Message notification state
+  const [messageNotificationOpen, setMessageNotificationOpen] = useState(false);
+  const [messageNotificationData, setMessageNotificationData] = useState(null);
 
   // Tab change handler
   const handleTabChange = (event, newValue) => {
@@ -579,82 +666,6 @@ const LoadBoard = () => {
     // Cleanup interval on component unmount
     return () => clearInterval(refreshInterval);
   }, []);
-
-  // Socket listener for real-time negotiation updates
-  useEffect(() => {
-    if (!socket) return;
-
-    const handleNegotiationUpdate = async (data) => {
-      console.log('🔄 Real-time negotiation update received:', data);
-      
-      // If negotiation history modal is open and this update is for the current bid
-      if (negotiationHistoryModalOpen && viewBidId && 
-          (data.bidId === viewBidId || data._id === viewBidId)) {
-        
-        console.log('📱 Refreshing negotiation history for open modal');
-        
-        try {
-          const token = localStorage.getItem('token');
-          const response = await axios.get(`${BASE_API_URL}/api/v1/bid/${viewBidId}/internal-negotiation-thread`, {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          });
-
-          if (response.data.success && response.data.data?.internalNegotiation) {
-            setNegotiationHistory(response.data.data);
-            console.log('✅ Negotiation history updated in real-time');
-          }
-        } catch (err) {
-          console.error('❌ Error refreshing negotiation history:', err);
-        }
-      }
-      
-      // Also refresh bids if bids modal is open for the same load
-      if (bidsModalOpen && selectedLoadId && data.loadId === selectedLoadId) {
-        console.log('📱 Refreshing bids for open modal');
-        handleViewBids(selectedLoadId);
-      }
-    };
-
-    // Listen for various negotiation events
-    const negotiationEvents = [
-      'internal_negotiation_update',
-      'negotiation_thread_update', 
-      'bid_negotiation_update',
-      'shipper_internal_negotiate',
-      'inhouse_internal_negotiate',
-      'new_negotiation_message',
-      'negotiation_message_received',
-      'internal_negotiation_message'
-    ];
-
-    negotiationEvents.forEach(event => {
-      socket.on(event, handleNegotiationUpdate);
-    });
-
-    console.log('🎧 Socket listeners registered for negotiation updates');
-
-    // Cleanup
-    return () => {
-      negotiationEvents.forEach(event => {
-        socket.off(event, handleNegotiationUpdate);
-      });
-      console.log('🧹 Socket listeners cleaned up');
-    };
-  }, [socket, negotiationHistoryModalOpen, viewBidId, bidsModalOpen, selectedLoadId]);
-
-  // Auto-scroll to bottom when negotiation history updates
-  useEffect(() => {
-    if (negotiationHistory?.internalNegotiation?.history && negotiationHistoryRef.current) {
-      setTimeout(() => {
-        negotiationHistoryRef.current?.scrollTo({
-          top: negotiationHistoryRef.current.scrollHeight,
-          behavior: 'smooth'
-        });
-      }, 100);
-    }
-  }, [negotiationHistory?.internalNegotiation?.history]);
 
 
   const handleChangePage = (event, newPage) => setPage(newPage);
@@ -1486,7 +1497,40 @@ const LoadBoard = () => {
     setAcceptFilePreview(null);
   };
 
- // Edit handlers
+  // Polling for negotiation history updates when modal is open
+  useEffect(() => {
+    let interval;
+    if (negotiationHistoryModalOpen && viewBidId) {
+      interval = setInterval(async () => {
+        try {
+          const token = localStorage.getItem('token');
+          const response = await axios.get(`${BASE_API_URL}/api/v1/bid/${viewBidId}/internal-negotiation-thread`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+
+          if (response.data.success && response.data.data?.internalNegotiation) {
+            setNegotiationHistory(prev => {
+              // Check for new messages
+              const newHistory = response.data.data.internalNegotiation.history || [];
+              const prevHistory = prev?.internalNegotiation?.history || [];
+              
+              if (newHistory.length > prevHistory.length) {
+                // New messages found - just update the UI state
+                // Notification is handled globally by NegotiationContext
+                return response.data.data;
+              }
+              return prev;
+            });
+          }
+        } catch (err) {
+          console.error('Error polling negotiation history:', err);
+        }
+      }, 3000); // Poll every 3 seconds for near real-time updates
+    }
+    return () => clearInterval(interval);
+  }, [negotiationHistoryModalOpen, viewBidId, addNotification, viewBidData]);
+
+  // Edit handlers
 const handleEditLoad = (load) => {
   setSelectedLoad(load);
   const loadType = load.loadType || 'OTR';
@@ -2296,6 +2340,34 @@ const handleEditLoad = (load) => {
 
   // Handle refresh load created-at
   const handleRefreshLoad = async (loadId) => {
+    // Implementation for refresh load functionality
+    console.log('Refreshing load:', loadId);
+  };
+
+  // Message notification handlers
+  const handleCloseMessageNotification = () => {
+    setMessageNotificationOpen(false);
+    setMessageNotificationData(null);
+  };
+
+  const handleViewNegotiationFromNotification = () => {
+    if (messageNotificationData?.bidId) {
+      // Find the bid and open negotiation history
+      const loadId = messageNotificationData.loadId;
+      const bidId = messageNotificationData.bidId;
+      
+      // First open the bids modal for the load
+      if (loadId) {
+        handleViewBids(loadId);
+        
+        // Then try to find and open the specific bid's negotiation
+        setTimeout(() => {
+          const bidData = { _id: bidId, bidId: bidId };
+          handleViewNegotiationHistory(bidData);
+        }, 500);
+      }
+    }
+  };
     try {
       const token = localStorage.getItem('token');
       const response = await axios.put(
@@ -2457,6 +2529,9 @@ const handleEditLoad = (load) => {
 
   return (
     <Box sx={{ p: 3 }}>
+      {/* Temporary Message Notification Tester - Remove in production */}
+      <MessageNotificationTester />
+      
       <SearchNavigationFeedback
         searchResult={location.state?.selectedShipment}
         searchQuery={location.state?.searchQuery}
@@ -5192,11 +5267,27 @@ const handleEditLoad = (load) => {
                             transform: 'translateY(-2px)',
                             boxShadow: '0 6px 16px rgba(255, 152, 0, 0.4)'
                           },
-                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                          position: 'relative'
                         }}
                         onClick={() => handleViewNegotiationHistory(bid)}
                       >
                         🤝 Negotiate
+                        {unreadBids.has(bid._id) && (
+                            <Box
+                              sx={{
+                                position: 'absolute',
+                                top: -4,
+                                right: -4,
+                                width: 10,
+                                height: 10,
+                                bgcolor: 'error.main',
+                                borderRadius: '50%',
+                                border: '2px solid white',
+                                zIndex: 1
+                              }}
+                            />
+                        )}
                       </Button>
                       <Button
                         variant="contained"
@@ -5889,45 +5980,12 @@ const handleEditLoad = (load) => {
         }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Typography sx={{ fontWeight: 700 }}>Negotiation History</Typography>
-            {socket && (
-              <Box sx={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: 0.5,
-                background: 'rgba(255,255,255,0.2)',
-                borderRadius: '12px',
-                px: 1,
-                py: 0.5
-              }}>
-                <Box sx={{ 
-                  width: 6, 
-                  height: 6, 
-                  borderRadius: '50%', 
-                  backgroundColor: '#4caf50',
-                  animation: 'pulse 2s infinite',
-                  '@keyframes pulse': {
-                    '0%': { transform: 'scale(1)', opacity: 1 },
-                    '50%': { transform: 'scale(1.2)', opacity: 0.7 },
-                    '100%': { transform: 'scale(1)', opacity: 1 }
-                  }
-                }} />
-                <Typography sx={{ 
-                  fontSize: '0.7rem', 
-                  color: '#fff',
-                  fontWeight: 500
-                }}>
-                  Live
-                </Typography>
-              </Box>
-            )}
           </Box>
           <IconButton onClick={handleCloseNegotiationHistoryModal} size="small" sx={{ color: '#fff' }}>
             <Close fontSize="small" />
           </IconButton>
         </DialogTitle>
-        <DialogContent 
-          ref={negotiationHistoryRef}
-          sx={{
+        <DialogContent sx={{
           px: 2,
           py: 2,
           background: '#f0f2f5',
@@ -5954,7 +6012,7 @@ const handleEditLoad = (load) => {
             <Alert severity="error" sx={{ fontSize: '0.875rem' }}>
               {negotiationHistoryError}
             </Alert>
-          ) : negotiationHistory?.internalNegotiation?.history ? (
+          ) : negotiationHistory && negotiationHistory.internalNegotiation && Array.isArray(negotiationHistory.internalNegotiation.history) ? (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
               {negotiationHistory.internalNegotiation.history.length > 0 ? (
                 negotiationHistory.internalNegotiation.history.map((item, index) => {
@@ -5988,7 +6046,7 @@ const handleEditLoad = (load) => {
                               textTransform: 'capitalize'
                             }}
                           >
-                            {item.by === 'shipper' ? 'You' : (viewBidData?.driver?.name || viewBidData?.driverName || 'Driver')}
+                            {item.by === 'shipper' ? 'You' : (item.sender?.name || item.senderName || item.sender?.username || viewBidData?.driver?.name || viewBidData?.driverName || 'Driver')}
                           </Typography>
                           <Typography
                             variant="caption"
@@ -6107,11 +6165,19 @@ const handleEditLoad = (load) => {
                 <TextField
                   fullWidth
                   multiline
-                  rows={1}
+                  maxRows={4}
                   size="small"
                   placeholder="Type your message..."
                   value={negotiationForm.shipperNegotiationMessage}
                   onChange={(e) => setNegotiationForm({ ...negotiationForm, shipperNegotiationMessage: e.target.value })}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        if (viewBidId) {
+                            handleNegotiationSubmit(e, viewBidId);
+                        }
+                    }
+                  }}
                   sx={{
                     '& .MuiInputBase-root': {
                       borderRadius: '8px',
@@ -8911,9 +8977,14 @@ const handleEditLoad = (load) => {
           </Box>
         </Box>
       </Dialog>
-      
-      {/* Message Tester for Development */}
-      <MessageTester />
+
+      {/* Message Notification Popup */}
+      <NegotiationMessageNotification
+        open={messageNotificationOpen}
+        onClose={handleCloseMessageNotification}
+        messageData={messageNotificationData}
+        onViewNegotiation={handleViewNegotiationFromNotification}
+      />
     </Box>
   );
 };

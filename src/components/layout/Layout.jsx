@@ -54,6 +54,9 @@ import ContainerIcon from '../icons/ContainerIcon';
 import { useAuth } from '../../context/AuthContext';
 import UniversalSearch from '../UniversalSearch';
 import { useThemeConfig } from '../../context/ThemeContext';
+import { useNegotiation } from '../../context/NegotiationContext';
+import { Badge } from '@mui/material';
+import LatestMessageAlert from '../LatestMessageAlert';
 
 const drawerWidth = 280;
 const collapsedDrawerWidth = 70;
@@ -100,8 +103,33 @@ const Layout = () => {
   const [tableBgImageOpacity, setTableBgImageOpacity] = useState(0);
   const { user, logout, userType } = useAuth();
   const { themeConfig, updateTokens, updateSectionColors, resetSection, resetThemeAll, resetTokens } = useThemeConfig();
+  const { notifications, unreadCount, markAsRead, addNotification } = useNegotiation();
+  const [notificationAnchorEl, setNotificationAnchorEl] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    // Demo notification on first load
+    const hasSeenWelcome = localStorage.getItem('hasSeenWelcomeNotification');
+    if (!hasSeenWelcome) {
+      setTimeout(() => {
+        addNotification({
+          sender: 'System',
+          content: 'Notification system is active. You will receive alerts here.',
+          timestamp: new Date().toISOString()
+        });
+        localStorage.setItem('hasSeenWelcomeNotification', 'true');
+      }, 2000);
+    }
+  }, []);
+
+  const handleNotificationClick = (event) => {
+    setNotificationAnchorEl(event.currentTarget);
+  };
+
+  const handleNotificationClose = () => {
+    setNotificationAnchorEl(null);
+  };
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -570,9 +598,186 @@ const Layout = () => {
       <IconButton sx={{ mr: 1, '&:hover': { backgroundColor: themeConfig.mainHeader?.hoverBg || themeConfig.header?.hoverBg || '#e0e0e0' } }} onClick={openThemeMenu} aria-label="theme settings">
         <Palette />
       </IconButton>
-          <IconButton sx={{ mr: 2, '&:hover': { backgroundColor: themeConfig.mainHeader?.hoverBg || themeConfig.header?.hoverBg || '#e0e0e0' } }}>
-            <Notifications />
+          <IconButton 
+            sx={{ mr: 2, '&:hover': { backgroundColor: themeConfig.mainHeader?.hoverBg || themeConfig.header?.hoverBg || '#e0e0e0' } }}
+            onClick={handleNotificationClick}
+          >
+            <Badge badgeContent={unreadCount} color="error">
+              <Notifications />
+            </Badge>
           </IconButton>
+          <Menu
+            anchorEl={notificationAnchorEl}
+            open={Boolean(notificationAnchorEl)}
+            onClose={handleNotificationClose}
+            transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+            anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+            PaperProps={{
+              elevation: 0,
+              sx: {
+                overflow: 'visible',
+                filter: 'drop-shadow(0px 20px 30px rgba(0,0,0,0.15))',
+                mt: 1.5,
+                width: 380,
+                maxHeight: 500,
+                borderRadius: 3,
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                background: themeConfig.mainSidebar?.bg || '#fff',
+                '&:before': {
+                  content: '""',
+                  display: 'block',
+                  position: 'absolute',
+                  top: 0,
+                  right: 14,
+                  width: 10,
+                  height: 10,
+                  bgcolor: themeConfig.mainSidebar?.bg || '#fff',
+                  transform: 'translateY(-50%) rotate(45deg)',
+                  zIndex: 0,
+                },
+              },
+            }}
+          >
+            <Box sx={{ 
+              p: 2, 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between',
+              borderBottom: '1px solid rgba(0, 0, 0, 0.06)',
+              background: 'rgba(0,0,0,0.02)'
+            }}>
+              <Typography variant="h6" fontWeight={700} sx={{ fontSize: '1.1rem' }}>
+                Notifications
+              </Typography>
+              {notifications.length > 0 && (
+                <Typography 
+                  variant="caption" 
+                  sx={{ 
+                    cursor: 'pointer', 
+                    color: 'primary.main', 
+                    fontWeight: 600,
+                    '&:hover': { textDecoration: 'underline' }
+                  }}
+                  onClick={() => {
+                    // Mark all as read logic could go here
+                    handleNotificationClose();
+                  }}
+                >
+                  Mark all as read
+                </Typography>
+              )}
+            </Box>
+            
+            <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
+              {notifications.length === 0 ? (
+                    <Box sx={{ p: 4, textAlign: 'center', color: 'text.secondary' }}>
+                      <Notifications sx={{ fontSize: 40, opacity: 0.2, mb: 1 }} />
+                      <Typography variant="body2">No new notifications</Typography>
+                    </Box>
+                  ) : (
+                    notifications.map((notification) => {
+                      const loadId = notification.negotiationData?.loadId || notification.negotiationData?.load?.loadId || notification.negotiationData?.shipmentNumber;
+                      return (
+                      <MenuItem 
+                        key={notification.id} 
+                        onClick={() => {
+                          markAsRead(notification.id);
+                          if (notification.negotiationData) {
+                              // openNegotiation(notification.negotiationData); // If available
+                          }
+                          handleNotificationClose();
+                        }}
+                        sx={{ 
+                          py: 2, 
+                          px: 2.5,
+                          borderBottom: '1px solid rgba(0, 0, 0, 0.04)',
+                          backgroundColor: notification.read ? 'transparent' : 'rgba(25, 118, 210, 0.04)',
+                          transition: 'all 0.2s',
+                          '&:hover': {
+                            backgroundColor: 'rgba(0, 0, 0, 0.02)',
+                          },
+                          gap: 2,
+                          whiteSpace: 'normal', // Allow text wrapping
+                          alignItems: 'flex-start'
+                        }}
+                      >
+                        <Badge 
+                            variant="dot" 
+                            color="primary" 
+                            invisible={notification.read}
+                            sx={{ 
+                                mt: 0.5,
+                                '& .MuiBadge-badge': { 
+                                    top: 5, 
+                                    right: 5, 
+                                    boxShadow: '0 0 0 2px #fff' 
+                                } 
+                            }}
+                        >
+                            <Avatar 
+                                src={notification.senderImage} 
+                                alt={notification.sender}
+                                sx={{ 
+                                    width: 45, 
+                                    height: 45,
+                                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)' 
+                                }}
+                            >
+                                {notification.sender ? notification.sender.charAt(0) : 'S'}
+                            </Avatar>
+                        </Badge>
+                        
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                              {notification.title || (loadId ? `Load ID: ${loadId}` : 'New Message')}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: 'text.disabled', fontSize: '0.7rem' }}>
+                              {new Date(notification.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </Typography>
+                          </Box>
+                          {/* Show sender name if available and different from title */}
+                          {notification.sender && notification.title !== notification.sender && (
+                              <Typography variant="caption" sx={{ display: 'block', color: 'primary.main', fontWeight: 600, mb: 0.5, fontSize: '0.75rem' }}>
+                                  {notification.sender}
+                              </Typography>
+                          )}
+                          <Typography 
+                            variant="body2" 
+                            color="text.secondary" 
+                            sx={{ 
+                                display: '-webkit-box',
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: 'vertical',
+                                overflow: 'hidden',
+                                fontSize: '0.85rem',
+                                lineHeight: 1.4
+                            }}
+                          >
+                            {notification.body || notification.content || notification.message}
+                          </Typography>
+                        </Box>
+                      </MenuItem>
+                    )})
+                  )}
+            </Box>
+            
+            <Box sx={{ p: 1.5, borderTop: '1px solid rgba(0, 0, 0, 0.06)', textAlign: 'center' }}>
+                <Button 
+                    fullWidth 
+                    size="small" 
+                    sx={{ 
+                        textTransform: 'none', 
+                        fontWeight: 600,
+                        color: 'primary.main',
+                        borderRadius: 2
+                    }}
+                    onClick={handleNotificationClose}
+                >
+                    View All Notifications
+                </Button>
+            </Box>
+          </Menu>
           <IconButton
             size="large"
             edge="end"
@@ -663,6 +868,9 @@ const Layout = () => {
           }} />
         )}
         <Outlet />
+        
+        {/* Latest Message Alert Component */}
+        <LatestMessageAlert />
         
         {/* Powered by V Power Footer */}
         <Box
