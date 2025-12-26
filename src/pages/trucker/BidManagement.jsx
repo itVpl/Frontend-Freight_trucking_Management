@@ -30,6 +30,8 @@ import alertify from 'alertifyjs';
 import axios from 'axios';
 import { BASE_API_URL } from '../../apiConfig';
 import { useThemeConfig } from '../../context/ThemeContext';
+import { useNegotiation } from '../../context/NegotiationContext';
+import { useSocket } from '../../context/SocketContext';
 
 const Dashboard = () => {
   const [page, setPage] = useState(0);
@@ -63,6 +65,11 @@ const Dashboard = () => {
   const [viewDetailsModalOpen, setViewDetailsModalOpen] = useState(false);
   const [selectedBidDetails, setSelectedBidDetails] = useState(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const { addNotification, unreadBids, pollNegotiations } = useNegotiation();
+  const { socket } = useSocket();
+  const [negotiationHistory, setNegotiationHistory] = useState(null);
+  const [negotiationMessage, setNegotiationMessage] = useState('');
+  const [negotiationLoading, setNegotiationLoading] = useState(false);
 
   const formatCityState = (obj) => {
     if (!obj) return '';
@@ -118,6 +125,9 @@ const Dashboard = () => {
   const handleViewDetails = async (bid) => {
     setLoadingDetails(true);
     setViewDetailsModalOpen(true);
+    setNegotiationHistory(null);
+    setNegotiationMessage('');
+
     try {
       const token = localStorage.getItem('token');
       const bidId = bid.bidId || bid._id;
@@ -128,13 +138,24 @@ const Dashboard = () => {
       });
       
       // Find the specific bid from the response
+      let specificBid = bid;
       if (Array.isArray(response.data.acceptedBids)) {
-        const specificBid = response.data.acceptedBids.find(
+        specificBid = response.data.acceptedBids.find(
           b => (b.bidId || b._id) === bidId
-        );
-        setSelectedBidDetails(specificBid || bid);
-      } else {
-        setSelectedBidDetails(bid);
+        ) || bid;
+      }
+      setSelectedBidDetails(specificBid);
+
+      // Fetch Negotiation History
+      try {
+        const negotiationResponse = await axios.get(`${BASE_API_URL}/api/v1/bid/${bidId}/internal-negotiation-thread`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (negotiationResponse.data.success && negotiationResponse.data.data?.internalNegotiation) {
+          setNegotiationHistory(negotiationResponse.data.data);
+        }
+      } catch (err) {
+        console.error('Error fetching negotiation history:', err);
       }
     } catch (err) {
       console.error('Error fetching bid details:', err);
@@ -277,6 +298,9 @@ const Dashboard = () => {
       fetchAvailableLoads();
     } else if (tab === 1) {
       fetchAcceptedBids();
+      if (pollNegotiations) {
+        pollNegotiations();
+      }
     }
     fetchDrivers();
   }, [tab]);
@@ -402,6 +426,78 @@ const Dashboard = () => {
     link.click();
     window.URL.revokeObjectURL(url);
   };
+
+  const handleSendNegotiation = async () => {
+    if (!negotiationMessage.trim()) return;
+    
+    setNegotiationLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const bidId = selectedBidDetails.bidId || selectedBidDetails._id;
+      
+      const response = await axios.put(`${BASE_API_URL}/api/v1/bid/${bidId}/trucker-internal-negotiate`, {
+        message: negotiationMessage
+      }, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.data.success) {
+        alertify.success('Message sent');
+
+        setNegotiationMessage('');
+        // Refresh history immediately
+        const historyResponse = await axios.get(`${BASE_API_URL}/api/v1/bid/${bidId}/internal-negotiation-thread`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (historyResponse.data.success && historyResponse.data.data?.internalNegotiation) {
+          setNegotiationHistory(historyResponse.data.data);
+        }
+      }
+    } catch (err) {
+      console.error('Error sending message:', err);
+      alertify.error(err.response?.data?.message || 'Failed to send message');
+    } finally {
+      setNegotiationLoading(false);
+    }
+  };
+
+  // Polling for negotiation history updates
+  useEffect(() => {
+    let interval;
+    if (viewDetailsModalOpen && selectedBidDetails) {
+      interval = setInterval(async () => {
+        try {
+          const token = localStorage.getItem('token');
+          const bidId = selectedBidDetails.bidId || selectedBidDetails._id;
+          const response = await axios.get(`${BASE_API_URL}/api/v1/bid/${bidId}/internal-negotiation-thread`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+
+          if (response.data.success && response.data.data?.internalNegotiation) {
+            setNegotiationHistory(prev => {
+              const newHistory = response.data.data.internalNegotiation.history || [];
+              const prevHistory = prev?.internalNegotiation?.history || [];
+              
+              if (newHistory.length > prevHistory.length) {
+                // New messages found
+                const newMessages = newHistory.slice(prevHistory.length);
+                // Note: Notification is now handled globally in NegotiationContext
+                // We just return the new data to update the UI
+                return response.data.data;
+              }
+              return prev;
+            });
+          }
+        } catch (err) {
+          console.error('Error polling negotiation history:', err);
+        }
+      }, 3000);
+    }
+    return () => clearInterval(interval);
+  }, [viewDetailsModalOpen, selectedBidDetails, addNotification]);
 
   return (
     <Box sx={{ p: 3 }}>
@@ -612,10 +708,24 @@ const Dashboard = () => {
                             size="small"
                             variant="outlined"
                             color="primary"
-                            sx={{ textTransform: 'none', fontSize: '0.75rem', px: 2, mr: 1 }}
+                            sx={{ textTransform: 'none', fontSize: '0.75rem', px: 2, mr: 1, position: 'relative' }}
                             onClick={() => handleViewDetails(row)}
                           >
                             View Details
+                            {unreadBids.has(row._id || row.bidId) && (
+                                <Box
+                                  sx={{
+                                    position: 'absolute',
+                                    top: -4,
+                                    right: -4,
+                                    width: 10,
+                                    height: 10,
+                                    bgcolor: 'error.main',
+                                    borderRadius: '50%',
+                                    border: '2px solid white'
+                                  }}
+                                />
+                            )}
                           </Button>
                           <Button
                             size="small"
@@ -1164,6 +1274,49 @@ const Dashboard = () => {
                   </Box>
                 </Paper>
               )}
+
+              {/* Negotiation History Card */}
+              <Paper elevation={0} sx={{ border: '1px solid #90caf9', borderRadius: 2, overflow: 'hidden' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, background: '#e3f2fd' }}>
+                  <Box sx={{ width: 32, height: 32, borderRadius: 1, background: '#1976d2', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                    💬
+                  </Box>
+                  <Typography variant="h6" fontWeight={700} color="#0d47a1">Negotiation History</Typography>
+                </Box>
+                <Box sx={{ p: 2, maxHeight: 300, overflowY: 'auto' }}>
+                  {negotiationHistory?.internalNegotiation?.history?.length > 0 ? (
+                    negotiationHistory.internalNegotiation.history.map((msg, index) => (
+                      <Box key={index} sx={{ mb: 1.5, p: 1.5, bgcolor: (msg.by || '').toLowerCase().includes('shipper') ? '#f5f5f5' : '#e3f2fd', borderRadius: 2, maxWidth: '90%', ml: (msg.by || '').toLowerCase().includes('shipper') ? 0 : 'auto' }}>
+                        <Typography variant="subtitle2" color="text.secondary" sx={{ fontSize: '0.75rem', mb: 0.5 }}>
+                          {msg.by} • {new Date(msg.at).toLocaleString()}
+                        </Typography>
+                        <Typography variant="body2">{msg.message}</Typography>
+                      </Box>
+                    ))
+                  ) : (
+                    <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+                      No negotiation history found.
+                    </Typography>
+                  )}
+                </Box>
+                <Box sx={{ p: 2, borderTop: '1px solid #e0e0e0', display: 'flex', gap: 1 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    placeholder="Type your message..."
+                    value={negotiationMessage}
+                    onChange={(e) => setNegotiationMessage(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSendNegotiation()}
+                  />
+                  <Button
+                    variant="contained"
+                    onClick={handleSendNegotiation}
+                    disabled={negotiationLoading || !negotiationMessage.trim()}
+                  >
+                    Send
+                  </Button>
+                </Box>
+              </Paper>
             </Box>
           ) : (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>

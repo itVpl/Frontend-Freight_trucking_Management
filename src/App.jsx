@@ -29,9 +29,15 @@ import LandingPage from './pages/auth/LandingPage';
 import './App.css';
 import { ThemeProvider, useThemeConfig } from './context/ThemeContext';
 import { NegotiationProvider } from './context/NegotiationContext';
-import UniversalNegotiationPopup from './components/UniversalNegotiationPopup';
+import { SocketProvider } from './context/SocketContext';
 import { ThemeProvider as MuiThemeProvider, createTheme, alpha } from '@mui/material/styles';
 import { useMemo } from 'react';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import RealDataDebugger from './components/RealDataDebugger';
+import ChatWidgetManager from './components/ChatWidgetManager';
+import NegotiationThreadAlert from './components/NegotiationThreadAlert';
+import NegotiationThreadTester from './components/NegotiationThreadTester';
 
 // Optional: RootGate—agar logged-in hai to dashboard bhej do, warna LandingPage dikhao
 import { useAuth } from './context/AuthContext';
@@ -48,7 +54,6 @@ function App() {
       const textColor = themeConfig.tokens?.text || '#333333';
       const headerBg = (themeConfig.header?.bg && themeConfig.header.bg !== 'white') ? themeConfig.header.bg : brand;
       const headerText = themeConfig.header?.text || '#ffffff';
-      const tableBg = themeConfig.table?.bg || '#ffffff';
       const tableText = themeConfig.table?.text || textColor;
       const tableHeaderBg = themeConfig.table?.headerBg || '#f0f4f8';
       const tableHeaderText = themeConfig.table?.headerText || tableText;
@@ -164,52 +169,75 @@ function App() {
     <AuthProvider>
       <ThemeProvider>
         <UiThemeWrapper>
-          <NegotiationProvider>
-            <Router>
-              <div className="App">
-                <UniversalNegotiationPopup />
-                <Routes>
-            {/* Public Routes */}
-            <Route path="/root" element={<RootGate />} />
-            <Route path="/landingpage" element={<LandingPage />} />
-            <Route path="/login" element={<Login />} />
+          <SocketProvider>
+            <NegotiationProvider>
+              <ToastContainer 
+                position="top-right" 
+                autoClose={5000} 
+                hideProgressBar={false} 
+                newestOnTop={false} 
+                closeOnClick 
+                rtl={false} 
+                pauseOnFocusLoss 
+                draggable 
+                pauseOnHover 
+                theme="light" 
+              />
+              <Router>
+                <div className="App">
+                  <Routes>
+                    {/* Public Routes */}
+                    <Route path="/root" element={<RootGate />} />
+                    <Route path="/landingpage" element={<LandingPage />} />
+                    <Route path="/login" element={<Login />} />
 
-            {/* Protected Layout wrapper with no path */}
-            <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-              {/* Keep absolute paths as-is so URLs don't change */}
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/live-tracker" element={<LiveTracker />} />
-              <Route path="/consignment" element={<ErrorBoundary><Consignment /></ErrorBoundary>} />
-              <Route path="/reports" element={<Reports />} />
-              <Route path="/reports/complete" element={<Completed />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/loadcalculator" element={<LoadCalculator />} />
-              <Route path="/email" element={<Email />} />
+                    {/* Protected Layout wrapper with no path */}
+                    <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+                      {/* Keep absolute paths as-is so URLs don't change */}
+                      <Route path="/" element={<Dashboard />} />
+                      <Route path="/live-tracker" element={<LiveTracker />} />
+                      <Route path="/consignment" element={<ErrorBoundary><Consignment /></ErrorBoundary>} />
+                      <Route path="/reports" element={<Reports />} />
+                      <Route path="/reports/complete" element={<Completed />} />
+                      <Route path="/profile" element={<Profile />} />
+                      <Route path="/loadcalculator" element={<LoadCalculator />} />
+                      <Route path="/email" element={<Email />} />
+                      <Route path="/debug-real-data" element={<RealDataDebugger />} />
 
-              {/* Trucker Only Routes */}
-              <Route path="/fleet" element={<ProtectedRoute userType="trucker"><Fleet /></ProtectedRoute>} />
-              <Route path="/billing" element={<ProtectedRoute userType="trucker"><Billing /></ProtectedRoute>} />
-              <Route path="/driver" element={<ProtectedRoute userType="trucker"><Driver /></ProtectedRoute>} />
-              <Route path="/payments" element={<ProtectedRoute userType="trucker"><Payments /></ProtectedRoute>} />
-              <Route path="/bid-management" element={<ProtectedRoute userType="trucker"><BidManagement /></ProtectedRoute>} />
-              <Route path="/add-customer" element={<ProtectedRoute><AddCustomer /></ProtectedRoute>} />
-              <Route path="/add-load" element={<ProtectedRoute userType="trucker"><AddLoad /></ProtectedRoute>} />
-              <Route path="/yard" element={<ProtectedRoute userType="trucker"><Yard /></ProtectedRoute>} />
-              <Route path="/yard-drop-container" element={<ProtectedRoute userType="trucker"><YardDropContainer /></ProtectedRoute>} />
+                      {/* Trucker Only Routes */}
+                      <Route path="/fleet" element={<ProtectedRoute userType="trucker"><Fleet /></ProtectedRoute>} />
+                      <Route path="/billing" element={<ProtectedRoute userType="trucker"><Billing /></ProtectedRoute>} />
+                      <Route path="/driver" element={<ProtectedRoute userType="trucker"><Driver /></ProtectedRoute>} />
+                      <Route path="/payments" element={<ProtectedRoute userType="trucker"><Payments /></ProtectedRoute>} />
+                      <Route path="/bid-management" element={<ProtectedRoute userType="trucker"><BidManagement /></ProtectedRoute>} />
+                      <Route path="/add-customer" element={<ProtectedRoute><AddCustomer /></ProtectedRoute>} />
+                      <Route path="/add-load" element={<ProtectedRoute userType="trucker"><AddLoad /></ProtectedRoute>} />
+                      <Route path="/yard" element={<ProtectedRoute userType="trucker"><Yard /></ProtectedRoute>} />
+                      <Route path="/yard-drop-container" element={<ProtectedRoute userType="trucker"><YardDropContainer /></ProtectedRoute>} />
 
-              {/* Shipper Only Routes */}
-              <Route path="/bills" element={<ProtectedRoute userType="shipper"><Bills /></ProtectedRoute>} />
-              <Route path="/loadboard" element={<ProtectedRoute userType="shipper"><Loadboard /></ProtectedRoute>} />
-              <Route path="/add-user-shipper" element={<ProtectedRoute userType="shipper"><AddUserShipper /></ProtectedRoute>} />
-              <Route path="/add-user-trucker" element={<ProtectedRoute userType="trucker"><AddUserTrucker /></ProtectedRoute>} />
-            </Route>
+                      {/* Shipper Only Routes */}
+                      <Route path="/bills" element={<ProtectedRoute userType="shipper"><Bills /></ProtectedRoute>} />
+                      <Route path="/loadboard" element={<ProtectedRoute userType="shipper"><Loadboard /></ProtectedRoute>} />
+                      <Route path="/add-user-shipper" element={<ProtectedRoute userType="shipper"><AddUserShipper /></ProtectedRoute>} />
+                      <Route path="/add-user-trucker" element={<ProtectedRoute userType="trucker"><AddUserTrucker /></ProtectedRoute>} />
+                    </Route>
 
-            {/* Fallback: unknown routes -> Landing */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            </div>
-          </Router>
-          </NegotiationProvider>
+                    {/* Fallback: unknown routes -> Landing */}
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                  </Routes>
+                </div>
+                
+                {/* Chat Widget Manager - Handles opening chats from notifications */}
+                <ChatWidgetManager />
+                
+                {/* Negotiation Thread Alert - Shows alerts for negotiation_thread_accessed events */}
+                <NegotiationThreadAlert />
+                
+                {/* Temporary Tester - Remove in production */}
+                <NegotiationThreadTester />
+              </Router>
+            </NegotiationProvider>
+          </SocketProvider>
         </UiThemeWrapper>
       </ThemeProvider>
     </AuthProvider>
