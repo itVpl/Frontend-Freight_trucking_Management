@@ -1172,26 +1172,33 @@ const [weightUnit, setWeightUnit] = useState("kg"); // "kg" | "lb"
       setNextSuggestion(null);
       return;
     }
-    // Find largest contiguous space by volume
+    // Prioritize Bottom-First (Low Y), then Volume to ensure bottom fills before top
     let best = null;
-    let maxVol = -1;
-    for (const s of freeSpaces) {
-      const vol = s.L * s.W * s.H;
-      if (vol > maxVol) {
-        maxVol = vol;
-        best = s;
-      }
+    const sorted = [...freeSpaces].sort((a, b) => {
+        const yA = Math.round(a.y * 1000);
+        const yB = Math.round(b.y * 1000);
+        if (yA !== yB) return yA - yB; // Lower Y first
+        return (b.L * b.W * b.H) - (a.L * a.W * a.H); // Larger Volume next
+    });
+
+    // Pick first usable space
+    for (const s of sorted) {
+       const sl = Math.max(0, s.L - 0.001);
+       const sw = Math.max(0, s.W - 0.001);
+       const sh = Math.max(0, s.H - 0.001);
+       // Must be at least 1cm to be usable
+       if (sl > 0.01 && sw > 0.01 && sh > 0.01) {
+           best = s;
+           break;
+       }
     }
-    // Filter out very tiny spaces (e.g. < 1 liter)
-    if (best && maxVol > 0.001) { 
-       // User requested minimal safety clearance (1mm) to fill space completely
+
+    if (best) { 
        const safeL = Math.max(0, best.L - 0.001);
        const safeW = Math.max(0, best.W - 0.001);
        const safeH = Math.max(0, best.H - 0.001);
 
-       // Must be at least 15cm to be usable
-
-       if (safeL > 0.15 && safeW > 0.15 && safeH > 0.15) {
+       if (safeL > 0.01 && safeW > 0.01 && safeH > 0.01) {
          // Cap dimensions at 2.0m as requested, but split if necessary to fill space
          const maxDim = 2.0;
          
@@ -1446,6 +1453,14 @@ const weight = toKg(Number(form.weight) || 0, weightUnit); // always kg
     if (askQty < quantity) alert(`⚠️ Overweight limit. Only ${askQty} of ${quantity} added.`);
 
     function placeInto(fs, L, H, W, cont, category) {
+      // Sort to prioritize Bottom (Y) -> Back (X) -> Left (Z)
+      // This ensures we fill the container from bottom-up, back-to-front.
+      fs.sort((a, b) => {
+        if (Math.abs(a.y - b.y) > 0.001) return a.y - b.y;
+        if (Math.abs(a.x - b.x) > 0.001) return a.x - b.x;
+        return a.z - b.z;
+      });
+
       const hFit = category === "OT" ? Math.min(H, cont.height) : H;
       for (let i = 0; i < fs.length; i++) {
         const s = fs[i];
@@ -1596,7 +1611,7 @@ const weight = toKg(Number(form.weight) || 0, weightUnit); // always kg
           color: palletSpec.color,
           position: [pCenter[0], baseYcenter, pCenter[2]],
           renderGroupId,
-          sortPos: { x: pCenter[0], z: pCenter[2] }, // Lock sort position
+          sortPos: { x: pCenter[0], y: pCenter[1] - stackHeight / 2, z: pCenter[2] }, // Lock sort position (include Y base)
         });
 
         // ---- Exact local frame on pallet (no drift) ----
@@ -1635,7 +1650,7 @@ const weight = toKg(Number(form.weight) || 0, weightUnit); // always kg
                 color: form.color,
                 position: [cx, y, cz],
                 renderGroupId,
-                sortPos: { x: pCenter[0], z: pCenter[2] }, // Lock to pallet's sort position
+                sortPos: { x: pCenter[0], y: pCenter[1] - stackHeight / 2, z: pCenter[2] }, // Lock to pallet's sort position
               });
               put++;
             }
@@ -1691,24 +1706,28 @@ const weight = toKg(Number(form.weight) || 0, weightUnit); // always kg
       setTimeline((prev) => {
         const nt = [...prev, ...newRender];
         // Sort for consistent playback:
-        // Priority: Back (X) -> Left (Z) -> Vertical (Y)
-        // Fills the container "Slice by Slice" (Back wall first)
+        // Priority: Logical Group Y -> Logical Group X -> Logical Group Z -> Internal Y
+        // This ensures pallets + their products play TOGETHER in sequence
         nt.sort((a, b) => {
-          // Use sortPos if available (Pallets), else fallback to center
-          const xA = a.sortPos ? a.sortPos.x : (a.position[0]);
-          const xB = b.sortPos ? b.sortPos.x : (b.position[0]);
-          // 1. Back X (Length-wise depth)
+          // 1. Group/Base Y (Vertical) - PRIMARY
+          const yA = a.sortPos?.y ?? (a.position[1] - a.height / 2);
+          const yB = b.sortPos?.y ?? (b.position[1] - b.height / 2);
+          if (Math.abs(yA - yB) > 0.001) return yA - yB;
+
+          // 2. Group/Base X (Back to Front)
+          const xA = a.sortPos?.x ?? a.position[0];
+          const xB = b.sortPos?.x ?? b.position[0];
           if (Math.abs(xA - xB) > 0.001) return xA - xB;
 
-          const zA = a.sortPos ? a.sortPos.z : (a.position[2]);
-          const zB = b.sortPos ? b.sortPos.z : (b.position[2]);
-          // 2. Left Z (Width-wise lanes)
+          // 3. Group/Base Z (Left to Right)
+          const zA = a.sortPos?.z ?? a.position[2];
+          const zB = b.sortPos?.z ?? b.position[2];
           if (Math.abs(zA - zB) > 0.001) return zA - zB;
 
-          // 3. Bottom Y (Vertical)
-          const yA = a.position[1] - a.height / 2;
-          const yB = b.position[1] - b.height / 2;
-          return yA - yB;
+          // 4. Internal Y (Within the same group/pallet, build up)
+          const realYa = a.position[1] - a.height / 2;
+          const realYb = b.position[1] - b.height / 2;
+          return realYa - realYb;
         });
         if (!isPlaying) setPlayhead(nt.length);
         return nt;
@@ -1817,38 +1836,47 @@ const repackLargestFirst = useCallback(() => {
     })();
     if (!res.ok) break;
 
+    const finalL = res.swapped ? u.width : u.length;
+    const finalW = res.swapped ? u.length : u.width;
+
     newTimeline.push({
       ...u,
-      length: res.swapped ? u.width : u.length,
-      width: res.swapped ? u.length : u.width,
+      length: finalL,
+      width: finalW,
       position: res.position,
       renderGroupId: "repacked",
-      sortPos: { x: res.position[0], z: res.position[2] }, // Lock sort position
+      // Sort by Min Coordinates (Corner) for stable "Wall" building
+      sortPos: { 
+        x: res.position[0] - finalL / 2, 
+        y: res.position[1] - u.height / 2, 
+        z: res.position[2] - finalW / 2 
+      },
     });
   }
 
-  // ✅ SORT TIMELINE FOR ANIMATION: Column-wise (Vertical stacks)
-  // Order: Back-to-Front (X) -> Left-to-Right (Z) -> Bottom-up (Y)
-  // This ensures "Slice by Slice" filling (Back wall first)
+  // UPDATED SORTING: Back-to-Front (X) -> Bottom-to-Top (Y) -> Left-to-Right (Z)
   newTimeline.sort((a, b) => {
-    // 1. Back X (Length-wise depth)
-    const xA = a.sortPos ? a.sortPos.x : a.position[0];
-    const xB = b.sortPos ? b.sortPos.x : b.position[0];
+    // 1. Group/Base X (Back to Front) - PRIMARY for Wall Building effect
+    // Use Min X (Start position) to group items in the same vertical plane
+    const xA = a.sortPos?.x ?? (a.position[0] - a.length / 2);
+    const xB = b.sortPos?.x ?? (b.position[0] - b.length / 2);
     if (Math.abs(xA - xB) > 0.001) return xA - xB;
 
-    // 2. Left Z (Width-wise lanes)
-    const zA = a.sortPos ? a.sortPos.z : a.position[2];
-    const zB = b.sortPos ? b.sortPos.z : b.position[2];
+    // 2. Group/Base Y (Vertical) - SECONDARY
+    const yA = a.sortPos?.y ?? (a.position[1] - a.height / 2);
+    const yB = b.sortPos?.y ?? (b.position[1] - b.height / 2);
+    if (Math.abs(yA - yB) > 0.001) return yA - yB;
+
+    // 3. Group/Base Z (Left to Right)
+    const zA = a.sortPos?.z ?? (a.position[2] - a.width / 2);
+    const zB = b.sortPos?.z ?? (b.position[2] - b.width / 2);
     if (Math.abs(zA - zB) > 0.001) return zA - zB;
 
-    // 3. Bottom Y (floating point tolerance 1mm)
-    const yA = a.position[1] - a.height / 2;
-    const yB = b.position[1] - b.height / 2;
-    return yA - yB;
+    return 0;
   });
 
   setTimeline(newTimeline);
-  setPlayhead(0);
+  setPlayhead(newTimeline.length);
   setIsPlaying(false);
   setFreeSpaces(fs);
 }, [items, container, mode, selectedSize, selectedTruck, usePallets, setTimeline, setPlayhead, setIsPlaying, setNextPosition]);
@@ -3047,9 +3075,57 @@ useEffect(() => {
                       💡Capacity management
                     </Typography>
                     <Typography variant="body2" sx={{ mt: 0.5 }}>
-                      To fill the remaining space, create <b>{nextSuggestion.qty}</b> Custom Pallet(s) with these dimensions:
+                      To fill the remaining space, add <b>{nextSuggestion.qty}</b> item(s) with these dimensions:
                     </Typography>
                   </Box>
+                  <Stack direction="row" spacing={1}>
+                  <Button 
+                    variant="outlined" 
+                    size="small"
+                    color="secondary"
+                    onClick={() => {
+                        // 1. Get raw suggestions
+                        const rawL = nextSuggestion.L;
+                        const rawW = nextSuggestion.W;
+                        const rawH = nextSuggestion.H;
+
+                        // Helper: Convert meters to UI unit
+                        const toSafeUI = (m, u) => {
+                          const EPS = 0.0005; 
+                          const val = Math.max(0, m - EPS); 
+                          switch (u) {
+                            case "mm": return Math.floor(val * 1000).toString();
+                            case "cm": return (Math.floor(val * 1000) / 10).toString();
+                            case "m": return (Math.floor(val * 1000) / 1000).toString();
+                            case "inch": return (Math.floor((val / 0.0254) * 100) / 100).toString();
+                            case "ft": return (Math.floor((val / 0.3048) * 100) / 100).toString();
+                            default: return val.toFixed(3);
+                          }
+                        };
+
+                        // 2. Convert to UI units (Full dimensions, no pallet base)
+                        const uiL = toSafeUI(Math.max(0.01, rawL), unit);
+                        const uiW = toSafeUI(Math.max(0.01, rawW), unit);
+                        const uiH = toSafeUI(Math.max(0.01, rawH), unit);
+
+                        // 3. Apply to State as Loose Box
+                        setUsePallets(false);
+                        setCargoType("Box");
+                        
+                        setForm(prev => ({
+                          ...prev,
+                          productName: "Custom Fill Box",
+                          length: uiL,
+                          width: uiW,
+                          height: uiH,
+                          quantity: nextSuggestion.qty || 1
+                        }));
+                        setTab(1); // Go to Products tab
+                        setOpen3D(false); // Close 3D view
+                    }}
+                  >
+                    As Box
+                  </Button>
                   <Button 
                     variant="contained" 
                     size="small"
@@ -3060,13 +3136,25 @@ useEffect(() => {
                         const rawW = nextSuggestion.W;
                         const rawH = nextSuggestion.H;
 
-                        // 2. Convert to UI units
+                        // Helper: Convert meters to UI unit, rounding DOWN to ensure fit
+                        const toSafeUI = (m, u) => {
+                          const EPS = 0.0005; // Increased safety margin
+                          const val = Math.max(0, m - EPS); 
+                          switch (u) {
+                            case "mm": return Math.floor(val * 1000).toString();
+                            case "cm": return (Math.floor(val * 1000) / 10).toString(); // 1 decimal for cm
+                            case "m": return (Math.floor(val * 1000) / 1000).toString();
+                            case "inch": return (Math.floor((val / 0.0254) * 100) / 100).toString();
+                            case "ft": return (Math.floor((val / 0.3048) * 100) / 100).toString();
+                            default: return val.toFixed(3);
+                          }
+                        };
 
-                        const uiL = toUI(Math.max(0.1, rawL), unit);
-                        const uiW = toUI(Math.max(0.1, rawW), unit);
+                        // 2. Convert to UI units (safe floor)
+                        const uiL = toSafeUI(Math.max(0.01, rawL), unit);
+                        const uiW = toSafeUI(Math.max(0.01, rawW), unit);
                         
                         // 3. Convert back to exact meters to ensure Pallet = Product
-                        // This prevents "Pallet footprint too small" error caused by rounding mismatch
                         const exactL = parseToMeters(uiL, unit);
                         const exactW = parseToMeters(uiW, unit);
 
@@ -3075,12 +3163,13 @@ useEffect(() => {
                         const baseH = rawH > 0.3 ? 0.15 : Number((rawH * 0.4).toFixed(3));
                         
                         const availProdH = rawH - baseH;
-                        const uiH = toUI(Math.max(0.01, availProdH), unit);
+                        const uiH = toSafeUI(Math.max(0.01, availProdH), unit);
                         const exactProdH = parseToMeters(uiH, unit);
 
                         // 5. Apply to State
                         setUsePallets(true);
                         setPalletType("Custom Pallets");
+                        setCargoType("Box"); // Ensure cargo type is compatible with pallets
                         setAutoFitCustomPallet(false); // Strict mode
 
                         setPalletSpec(prev => ({
@@ -3093,7 +3182,7 @@ useEffect(() => {
 
                         setForm(prev => ({
                           ...prev,
-                          productName: "Custom Fill",
+                          productName: "Custom Fill Pallet",
                           length: uiL,
                           width: uiW,
                           height: uiH,
@@ -3103,8 +3192,9 @@ useEffect(() => {
                         setOpen3D(false); // Close 3D view
                     }}
                   >
-                    Use These Dims
+                    As Pallet
                   </Button>
+                  </Stack>
                 </Stack>
                 <Grid container spacing={2} sx={{ mt: 1 }}>
                   <Grid item xs={4}>
