@@ -234,7 +234,7 @@ function App() {
                 <NegotiationThreadAlert />
                 
                 {/* Temporary Tester - Remove in production */}
-                <NegotiationThreadTester />
+                {/* <NegotiationThreadTester /> */}
               </Router>
             </NegotiationProvider>
           </SocketProvider>
