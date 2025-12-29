@@ -487,7 +487,7 @@ const LoadBoard = () => {
       case 2: // Transit
         return loadData.filter(load =>
           ['assigned', 'in transit', 'picked up'].includes(normalize(load.status))
-        );
+        ).sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt));
       case 3: // Delivered
         return loadData.filter(load =>
           ['delivered', 'completed'].includes(normalize(load.status))
