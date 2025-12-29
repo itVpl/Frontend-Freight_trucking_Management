@@ -443,20 +443,20 @@ export default function LiveTracker() {
             commodity: loadData.loadReference?.commodity || loadData.commodity,
             status: [
               {
-                label: "Loading",
-                name: driverName,
+                label: "Assigned",
+                name: `Driver Name: ${driverName}`,
                 time: new Date(loadData.loadReference?.pickupDate || loadData.pickupDate || loadData.startedAt || Date.now()).toLocaleString(),
                 done: true,
               },
               {
                 label: "In-Transit",
-                name: driverName,
+                name: `Driver Name: ${driverName}`,
                 time: new Date(loadData.currentLocation?.updatedAt || loadData.loadReference?.destinationPlace?.arrivedAt || Date.now()).toLocaleString(),
                 done: loadData.status !== "loading" && loadData.status !== "Loading",
               },
               {
                 label: "Delivered",
-                name: driverName,
+                name: `Driver Name: ${driverName}`,
                 time: new Date(loadData.loadReference?.deliveryDate || loadData.deliveryDate || loadData.load?.deliveryDate || Date.now()).toLocaleString(),
                 done: loadData.status === "delivered" || loadData.status === "Delivered",
               },
@@ -589,20 +589,20 @@ export default function LiveTracker() {
               commodity: load.commodity,
               status: [
                 {
-                  label: "Loading",
-                  name: load.acceptedBid?.driverName || "Driver",
+                  label: "Assigned",
+                  name: `Driver Name: ${load.acceptedBid?.driverName || "Driver"}`,
                   time: new Date(load.pickupDate || load.timeInfo?.daysSincePickup ? Date.now() - (load.timeInfo.daysSincePickup * 24 * 60 * 60 * 1000) : Date.now()).toLocaleString(),
                   done: true,
                 },
                 {
                   label: "In-Transit",
-                  name: load.acceptedBid?.driverName || "Driver",
+                  name: `Driver Name: ${load.acceptedBid?.driverName || "Driver"}`,
                   time: new Date(trackingData.startedAt || load.currentLocation?.lastUpdated || Date.now()).toLocaleString(),
                   done: load.status === "In Transit",
                 },
                 {
                   label: "Delivered",
-                  name: load.acceptedBid?.driverName || "Driver",
+                  name: `Driver Name: ${load.acceptedBid?.driverName || "Driver"}`,
                   time: new Date(load.deliveryDate || load.timeInfo?.daysUntilDelivery ? Date.now() + (load.timeInfo.daysUntilDelivery * 24 * 60 * 60 * 1000) : Date.now()).toLocaleString(),
                   done: load.status === "Delivered",
                 },
@@ -744,20 +744,20 @@ export default function LiveTracker() {
              destLng: track.destinationLatLng.lon,
              status: [
                {
-                 label: "Loading",
-                 name: track.driverName || "Driver",
+                 label: "Assigned",
+                 name: `Driver Name: ${track.driverName || "Driver"}`,
                  time: new Date(track.startedAt).toLocaleString(),
                  done: true,
                },
                {
                  label: "In-Transit",
-                 name: track.driverName || "Driver",
+                 name: `Driver Name: ${track.driverName || "Driver"}`,
                  time: new Date(track.currentLocation.updatedAt).toLocaleString(),
                  done: track.status !== "loading",
                },
                {
                  label: "Delivered",
-                 name: track.driverName || "Driver",
+                 name: `Driver Name: ${track.driverName || "Driver"}`,
                  time: new Date(track.load?.deliveryDate || Date.now()).toLocaleString(),
                  done: track.status === "delivered",
                },
@@ -816,20 +816,20 @@ export default function LiveTracker() {
                   commodity: load.commodity,
                   status: [
                     {
-                      label: "Loading",
-                      name: load.assignedTo?.contactPerson || load.driverName || "Driver",
+                      label: "Assigned",
+                      name: `Driver Name: ${load.assignedTo?.contactPerson || load.driverName || "Driver"}`,
                       time: new Date(load.timeInfo?.daysSincePickup ? Date.now() - (load.timeInfo.daysSincePickup * 24 * 60 * 60 * 1000) : Date.now()).toLocaleString(),
                       done: true,
                     },
                     {
                       label: "In-Transit",
-                      name: load.acceptedBid?.driverName || load.driverName || "Driver",
+                      name: `Driver Name: ${load.acceptedBid?.driverName || load.driverName || "Driver"}`,
                       time: new Date(load.currentLocation?.lastUpdated || load.currentLocation?.updatedAt || Date.now()).toLocaleString(),
                       done: load.status === "In Transit" || load.status === "in_transit",
                     },
                     {
                       label: "Delivered",
-                      name: load.acceptedBid?.driverName || load.driverName || "Driver",
+                      name: `Driver Name: ${load.acceptedBid?.driverName || load.driverName || "Driver"}`,
                       time: new Date(load.timeInfo?.daysUntilDelivery ? Date.now() + (load.timeInfo.daysUntilDelivery * 24 * 60 * 60 * 1000) : Date.now()).toLocaleString(),
                       done: load.status === "Delivered" || load.status === "delivered",
                     },
