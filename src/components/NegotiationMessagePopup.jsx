@@ -207,7 +207,7 @@ const NegotiationMessagePopup = () => {
 
             {/* Message */}
             <div className="bg-gray-50 p-3 rounded-lg">
-              <p className="text-gray-700 text-sm leading-relaxed">
+              <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">
                 {notification.message}
               </p>
             </div>

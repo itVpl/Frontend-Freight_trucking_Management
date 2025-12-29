@@ -1297,7 +1297,7 @@ const Dashboard = () => {
                         <Typography variant="subtitle2" color="text.secondary" sx={{ fontSize: '0.75rem', mb: 0.5 }}>
                           {msg.by} • {new Date(msg.at).toLocaleString()}
                         </Typography>
-                        <Typography variant="body2">{msg.message}</Typography>
+                        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{msg.message}</Typography>
                       </Box>
                     ))
                   ) : (

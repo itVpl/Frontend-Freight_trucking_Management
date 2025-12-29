@@ -69,7 +69,7 @@ import { Download, Search } from '@mui/icons-material';
 import PersonIcon from '@mui/icons-material/Person';
 import SearchNavigationFeedback from '../../components/SearchNavigationFeedback';
 import PageLoader from '../../components/PageLoader';
-import MessageTester from '../../components/MessageTester';
+// import MessageTester from '../../components/MessageTester';
 import { useThemeConfig } from '../../context/ThemeContext';
 import { useSocket } from '../../context/SocketContext';
 
@@ -347,6 +347,7 @@ const LoadBoard = () => {
   const [acceptForm, setAcceptForm] = useState({ shipmentNumber: '', poNumber: '', bolNumber: '', acceptanceAttachment1: null });
   const [acceptBidId, setAcceptBidId] = useState(null);
   const [acceptErrors, setAcceptErrors] = useState({});
+  const [acceptingBid, setAcceptingBid] = useState(false);
   const [acceptFilePreview, setAcceptFilePreview] = useState(null);
 
   // Negotiation modal state
@@ -587,12 +588,76 @@ const LoadBoard = () => {
     const handleNegotiationUpdate = async (data) => {
       console.log('🔄 Real-time negotiation update received:', data);
       
+      // Normalize IDs for comparison (handle string/number mismatch)
+      const currentBidId = viewBidId?.toString();
+      const updateBidId = (data.bidId || data._id || data.negotiationId)?.toString();
+      
       // If negotiation history modal is open and this update is for the current bid
-      if (negotiationHistoryModalOpen && viewBidId && 
-          (data.bidId === viewBidId || data._id === viewBidId)) {
+      if (negotiationHistoryModalOpen && currentBidId && updateBidId === currentBidId) {
         
-        console.log('📱 Refreshing negotiation history for open modal');
+        console.log('📱 Processing negotiation update for open modal');
+
+        // 🚀 Optimistic Update: Append message immediately without waiting for API
+        if (data.message || data.rate) {
+          console.log('⚡ Optimistically adding message to history');
+          
+          // Determine sender type for UI styling
+          // If sender is shipper, it's 'shipper', otherwise treat as 'trucker' (left side)
+          const senderType = (data.sender === 'shipper' || data.type === 'shipper') ? 'shipper' : 'trucker';
+          
+          const newMessage = {
+             _id: data._id || Date.now().toString(),
+             by: senderType,
+             message: data.message || '',
+             rate: data.rate || null,
+             at: data.timestamp || new Date().toISOString()
+          };
+
+          setNegotiationHistory(prev => {
+             // If history doesn't exist yet, initialize it
+             if (!prev?.internalNegotiation?.history) {
+                 return {
+                     ...prev,
+                     internalNegotiation: {
+                         ...prev?.internalNegotiation,
+                         history: [newMessage]
+                     }
+                 };
+             }
+             
+             // Check for duplicates to avoid adding same message twice
+             // (Compare ID or timestamp+message)
+             const exists = prev.internalNegotiation.history.some(
+                 msg => (msg._id && msg._id === newMessage._id) || 
+                 (msg.at === newMessage.at && msg.message === newMessage.message && msg.rate === newMessage.rate)
+             );
+             
+             if (exists) return prev;
+
+             return {
+                 ...prev,
+                 internalNegotiation: {
+                     ...prev.internalNegotiation,
+                     history: [...prev.internalNegotiation.history, newMessage]
+                 }
+             };
+          });
+          
+          // Force loading to false so user sees the message immediately
+          setNegotiationHistoryLoading(false);
+          
+          // Scroll to bottom after optimistic update
+          if (negotiationHistoryRef.current) {
+            setTimeout(() => {
+              negotiationHistoryRef.current?.scrollTo({
+                top: negotiationHistoryRef.current.scrollHeight,
+                behavior: 'smooth'
+              });
+            }, 100);
+          }
+        }
         
+        // Still fetch from API to ensure synchronization
         try {
           const token = localStorage.getItem('token');
           const response = await axios.get(`${BASE_API_URL}/api/v1/bid/${viewBidId}/internal-negotiation-thread`, {
@@ -603,7 +668,8 @@ const LoadBoard = () => {
 
           if (response.data.success && response.data.data?.internalNegotiation) {
             setNegotiationHistory(response.data.data);
-            console.log('✅ Negotiation history updated in real-time');
+            setNegotiationHistoryLoading(false); // Ensure loading is off
+            console.log('✅ Negotiation history synced with server');
           }
         } catch (err) {
           console.error('❌ Error refreshing negotiation history:', err);
@@ -626,7 +692,10 @@ const LoadBoard = () => {
       'inhouse_internal_negotiate',
       'new_negotiation_message',
       'negotiation_message_received',
-      'internal_negotiation_message'
+      'internal_negotiation_message',
+      'driver_internal_negotiate',
+      'trucker_internal_negotiate',
+      'negotiation_update'
     ];
 
     negotiationEvents.forEach(event => {
@@ -655,6 +724,51 @@ const LoadBoard = () => {
       }, 100);
     }
   }, [negotiationHistory?.internalNegotiation?.history]);
+
+  // 🔄 Silent Polling: Auto-refresh negotiation history when modal is open
+  // This ensures that even if socket events are missed, the user sees new messages within 3 seconds
+  useEffect(() => {
+    let intervalId;
+    
+    if (negotiationHistoryModalOpen && viewBidId) {
+      console.log('🔄 Starting silent polling for negotiation history...');
+      
+      intervalId = setInterval(async () => {
+        try {
+          const token = localStorage.getItem('token');
+          // Silent fetch - do not trigger loading state
+          const response = await axios.get(`${BASE_API_URL}/api/v1/bid/${viewBidId}/internal-negotiation-thread`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          
+          if (response.data.success && response.data.data?.internalNegotiation) {
+             setNegotiationHistory(prev => {
+                const newHistory = response.data.data.internalNegotiation.history || [];
+                const oldHistory = prev?.internalNegotiation?.history || [];
+                
+                // Only update if there's a change in message count or content
+                // This prevents unnecessary re-renders
+                if (JSON.stringify(newHistory) !== JSON.stringify(oldHistory)) {
+                   console.log('📩 Polling found new messages! Updating UI...');
+                   return response.data.data;
+                }
+                return prev;
+             });
+          }
+        } catch (error) {
+          // Silent catch - don't disturb user
+          console.error('Silent polling error:', error);
+        }
+      }, 3000); // Poll every 3 seconds
+    }
+    
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+        console.log('🛑 Stopped negotiation polling');
+      }
+    };
+  }, [negotiationHistoryModalOpen, viewBidId]);
 
 
   const handleChangePage = (event, newPage) => setPage(newPage);
@@ -2374,6 +2488,7 @@ const handleEditLoad = (load) => {
       alertify.error('Please fill in all required fields');
       return;
     }
+    setAcceptingBid(true);
     try {
       const token = localStorage.getItem('token');
 
@@ -2419,6 +2534,8 @@ const handleEditLoad = (load) => {
       }
     } catch (err) {
       alertify.error(err.response?.data?.message || 'Failed to accept bid');
+    } finally {
+      setAcceptingBid(false);
     }
   };
 
@@ -4855,7 +4972,8 @@ const handleEditLoad = (load) => {
                                   lineHeight: 1.5,
                                   fontSize: '0.85rem',
                                   maxWidth: 220,
-                                  fontWeight: 400
+                                  fontWeight: 400,
+                                  whiteSpace: 'pre-wrap'
                                 }}>
                                   "{bid.message || 'No details provided.'}"
                                 </Typography>
@@ -5082,7 +5200,8 @@ const handleEditLoad = (load) => {
                               fontWeight: 500,
                               fontSize: 13,
                               color: '#333',
-                              fontStyle: 'italic'
+                              fontStyle: 'italic',
+                              whiteSpace: 'pre-wrap'
                             }}>
                               "{bid.negotiationDetails.shipperNegotiationMessage}"
                             </Typography>
@@ -5113,7 +5232,8 @@ const handleEditLoad = (load) => {
                                 fontSize: 12,
                                 color: '#333',
                                 fontStyle: 'italic',
-                                mt: 0.5
+                                mt: 0.5,
+                                whiteSpace: 'pre-wrap'
                               }}>
                                 "{bid.negotiationDetails.truckerNegotiationMessage}"
                               </Typography>
@@ -5527,176 +5647,182 @@ const handleEditLoad = (load) => {
         </DialogActions>
       </Dialog>
 
-      {/* Accept Bid Modal */}
 <Dialog
   open={acceptModalOpen}
   onClose={handleCloseAcceptModal}
-  maxWidth="sm"     // 👈 SMALL WIDTH
+  maxWidth="xs"
   fullWidth
   PaperProps={{
     sx: {
-      borderRadius: 4,
-      p: 2,
-      boxShadow: "0 20px 60px rgba(0,0,0,0.12)",
-      background: "#fff",
+      borderRadius: "24px",
+      overflow: "visible", 
+      boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.15)",
+      border: "1px solid #f1f5f9",
     },
   }}
 >
-  {/* Header */}
-  <DialogTitle
+  {/* --- PREMIUM HEADER SECTION --- */}
+  <Box
     sx={{
-      fontWeight: 700,
-      fontSize: 24,
-      color: "#1e3a8a",
-      borderBottom: "1px solid #e5e7eb",
-      pb: 2,
+      position: "relative",
+      height: "110px",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      background: "linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%)",
+      borderTopLeftRadius: "24px",
+      borderTopRightRadius: "24px",
+      borderBottom: "1px solid #e2e8f0",
     }}
   >
-    Accept Bid
-  </DialogTitle>
+    {/* Floating Icon */}
+    <Box
+      sx={{
+        position: "absolute",
+        top: "-25px",
+        width: "55px",
+        height: "55px",
+        borderRadius: "16px",
+        background: "#0f172a",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        boxShadow: "0 10px 25px rgba(15, 23, 42, 0.25)",
+      }}
+    >
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+      </svg>
+    </Box>
 
-  <DialogContent sx={{ mt: 3 }}>
+    <Typography
+      variant="h6"
+      sx={{ fontWeight: 800, color: "#0f172a", mt: 2, letterSpacing: "-0.02em" }}
+    >
+      Finalize Acceptance
+    </Typography>
+    <Typography
+      sx={{ color: "#3b82f6", fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}
+    >
+      Shipment Verification
+    </Typography>
+  </Box>
+
+  <DialogContent sx={{ p: 4, pt: 4 }}>
     <Box component="form" onSubmit={handleAcceptSubmit}>
-      <Grid container spacing={2}>
-        
-        {/* Shipment Number */}
-        <Grid item xs={12} sm={6}>
-          <TextField
-            label="Shipment Number"
-            name="shipmentNumber"
-            value={acceptForm.shipmentNumber}
-            onChange={handleAcceptFormChange}
-            fullWidth
-            required
-            InputProps={{
-              sx: {
-                height: 45,
-                borderRadius: "10px",
-                background: "#f8fafc",
-              },
-            }}
-          />
-        </Grid>
+      <Stack spacing={3}>
+        {/* Shipment Number - Full Width */}
+        <TextField
+          label="Shipment Number"
+          placeholder="Enter number"
+          fullWidth
+          variant="outlined"
+          name="shipmentNumber"
+          value={acceptForm.shipmentNumber}
+          onChange={handleAcceptFormChange}
+          InputLabelProps={{ shrink: true, sx: { fontWeight: 600, color: "#475569" } }}
+          sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px", bgcolor: "#f8fafc" } }}
+        />
 
-        {/* PO Number */}
-        <Grid item xs={12} sm={6}>
+        {/* PO & BOL - Side by Side */}
+        <Box sx={{ display: "flex", gap: 2 }}>
           <TextField
             label="PO Number"
+            placeholder="PO#"
+            fullWidth
+            variant="outlined"
             name="poNumber"
             value={acceptForm.poNumber}
             onChange={handleAcceptFormChange}
-            fullWidth
-            required
-            InputProps={{
-              sx: {
-                height: 45,
-                borderRadius: "10px",
-                background: "#f8fafc",
-              },
-            }}
+            InputLabelProps={{ shrink: true, sx: { fontWeight: 600, color: "#475569" } }}
+            sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px", bgcolor: "#f8fafc" } }}
           />
-        </Grid>
-
-        {/* BOL Number */}
-        <Grid item xs={12} sm={6}>
           <TextField
             label="BOL Number"
+            placeholder="BOL#"
+            fullWidth
+            variant="outlined"
             name="bolNumber"
             value={acceptForm.bolNumber}
             onChange={handleAcceptFormChange}
-            fullWidth
-            required
-            InputProps={{
-              sx: {
-                height: 45,
-                borderRadius: "10px",
-                background: "#f8fafc",
-              },
-            }}
+            InputLabelProps={{ shrink: true, sx: { fontWeight: 600, color: "#475569" } }}
+            sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px", bgcolor: "#f8fafc" } }}
           />
-        </Grid>
+        </Box>
 
-        {/* Upload Box — SAME SIZE AS INPUT */}
-        <Grid item xs={12} sm={6}>
-          <Box sx={{ width: "100%" }}>
-            <Box
-              sx={{
-                height: 45,    
-                width: 220,    // 👈 SAME HEIGHT AS INPUT
-                border: "1.5px dashed #1170e6ff",
-                borderRadius: "10px",
-                background: "#f8fafc",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-                textAlign: "center",
-                "&:hover": {
-                  background: "#3b82f6",
-                  borderColor: "#eff6ff",
-                },
-              }}
+        {/* Upload Section - Modern Look */}
+        <Box>
+           <Typography sx={{ fontSize: "0.85rem", fontWeight: 600, color: "#475569", mb: 1 }}>
+            Delivery Order
+          </Typography>
+          <Box
+            sx={{
+              p: 2,
+              borderRadius: "12px",
+              border: "1px dashed #cbd5e1",
+              bgcolor: "#f1f5f9",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <Typography noWrap sx={{ fontSize: "0.8rem", color: "#64748b", maxWidth: "180px" }}>
+              {acceptForm.acceptanceAttachment1 ? acceptForm.acceptanceAttachment1.name : "No file chosen"}
+            </Typography>
+            <Button
+              component="label"
+              size="small"
+              sx={{ textTransform: "none", fontWeight: 700, color: "#2563eb" }}
             >
-              <input
-                accept="image/*,.pdf,.doc,.docx"
-                type="file"
-                id="upload-do-file"
-                style={{ display: "none" }}
-                name="acceptanceAttachment1"
-                onChange={handleAcceptFormChange}
-              />
-
-              <label htmlFor="upload-do-file" style={{ cursor: "pointer" }}>
-                <Typography sx={{ fontSize: 13, color: "#475569" }}>
-                  Upload DO
-                </Typography>
-              </label>
-            </Box>
+              Upload
+              <input hidden type="file" onChange={handleAcceptFormChange} name="acceptanceAttachment1" />
+            </Button>
           </Box>
-        </Grid>
-      </Grid>
+        </Box>
+      </Stack>
 
-      {/* Buttons */}
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "flex-end",
-          gap: 2,
-          mt: 4,
-        }}
-      >
+      {/* Action Buttons */}
+      <Box sx={{ mt: 5, display: "flex", gap: 2 }}>
         <Button
           onClick={handleCloseAcceptModal}
+          fullWidth
           sx={{
-            px: 4,
-            borderRadius: "10px",
-            background: "#f1f5f9",
-            color: "#334155",
+            py: 1.5,
+            borderRadius: "12px",
+            color: "#64748b",
             textTransform: "none",
-            "&:hover": { background: "#e2e8f0" },
+            fontWeight: 600,
+            bgcolor: "#f8fafc",
+            "&:hover": { bgcolor: "#f1f5f9" },
           }}
         >
           Cancel
         </Button>
-
         <Button
           type="submit"
+          fullWidth
           variant="contained"
+          disableElevation
+          disabled={acceptingBid}
           sx={{
-            px: 4,
-            borderRadius: "10px",
-            background: primary,
-            textTransform: "none",
+            py: 1.5,
+            borderRadius: "12px",
+            background: "#0f172a",
+            color: "#fff",
             fontWeight: 600,
-            "&:hover": { opacity: 0.9 },
+            textTransform: "none",
+            "&:hover": { background: "#1e293b" },
           }}
         >
-          Accept Bid
+          {acceptingBid ? <CircularProgress size={24} color="inherit" /> : "Confirm Bid"}
         </Button>
       </Box>
     </Box>
   </DialogContent>
 </Dialog>
+
 
 
 
@@ -6021,7 +6147,8 @@ const handleEditLoad = (load) => {
                             color: '#333',
                             fontSize: '0.875rem',
                             lineHeight: 1.4,
-                            wordBreak: 'break-word'
+                            wordBreak: 'break-word',
+                            whiteSpace: 'pre-wrap'
                           }}
                         >
                           {item.message || 'No message'}
@@ -8913,7 +9040,7 @@ const handleEditLoad = (load) => {
       </Dialog>
       
       {/* Message Tester for Development */}
-      <MessageTester />
+      {/* <MessageTester /> */}
     </Box>
   );
 };
