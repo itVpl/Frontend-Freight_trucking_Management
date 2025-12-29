@@ -572,6 +572,7 @@ const Dashboard = () => {
                   <TableCell sx={{ fontWeight: 600 }}>shipper Name</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Pickup</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Drop</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Shipment Type</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>ETA</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Bid Status</TableCell>
                 </TableRow>
@@ -585,6 +586,7 @@ const Dashboard = () => {
                   Array.from({ length: 5 }).map((_, index) => (
                     <TableRow key={index}>
                       <TableCell><Skeleton variant="text" width={120} /></TableCell>
+                      <TableCell><Skeleton variant="text" width={150} /></TableCell>
                       <TableCell><Skeleton variant="text" width={150} /></TableCell>
                       <TableCell><Skeleton variant="text" width={150} /></TableCell>
                       <TableCell><Skeleton variant="text" width={150} /></TableCell>
@@ -619,6 +621,8 @@ const Dashboard = () => {
                             : (row.destination?.city || row.to || '-')
                           }
                         </TableCell>
+                                                <TableCell>{row.shipper?.loadType || row.loadType || '-'}</TableCell>
+
                         <TableCell>{row.pickupDate ? new Date(row.pickupDate).toLocaleDateString() : (row.eta || '-')}</TableCell>
                         <TableCell>
                           <Button
@@ -659,6 +663,7 @@ const Dashboard = () => {
                   <TableCell sx={{ fontWeight: 600 }}>Shipment No</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Pickup Location</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Drop Location</TableCell>
+                   {/* <TableCell sx={{ fontWeight: 600 }}>Shipment Type</TableCell> */}
                   <TableCell sx={{ fontWeight: 600 }}>Pickup Date</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Drop Date</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
@@ -676,6 +681,7 @@ const Dashboard = () => {
                       <TableCell><Skeleton variant="text" width={120} /></TableCell>
                       <TableCell><Skeleton variant="text" width={150} /></TableCell>
                       <TableCell><Skeleton variant="text" width={150} /></TableCell>
+                      {/* <TableCell><Skeleton variant="text" width={100} /></TableCell> */}
                       <TableCell><Skeleton variant="text" width={100} /></TableCell>
                       <TableCell><Skeleton variant="text" width={100} /></TableCell>
                       <TableCell><Skeleton variant="rectangular" width={80} height={24} sx={{ borderRadius: 1 }} /></TableCell>
@@ -698,6 +704,7 @@ const Dashboard = () => {
                         <TableCell>{row.shipmentNumber}</TableCell>
                         <TableCell>{resolvePickupLocation(row)}</TableCell>
                         <TableCell>{resolveDropLocation(row)}</TableCell>
+                        {/* <TableCell>{row.loadType}</TableCell> */}
                         <TableCell>{row.pickupDate ? new Date(row.pickupDate).toLocaleDateString() : '-'}</TableCell>
                         <TableCell>{row.deliveryDate ? new Date(row.deliveryDate).toLocaleDateString() : '-'}</TableCell>
                         <TableCell>
