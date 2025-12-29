@@ -14,7 +14,9 @@ import {
   Divider,
   CircularProgress,
   Alert,
+  InputAdornment,
 } from "@mui/material";
+import SearchIcon from "@mui/icons-material/Search";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import LocationOnIcon from "@mui/icons-material/LocationOn";
@@ -959,6 +961,34 @@ export default function LiveTracker() {
           boxShadow: "4px 0 24px rgba(0, 0, 0, 0.06)"
         }}
       >
+
+        {/* Search Bar */}
+        <Box sx={{ p: 2, borderBottom: "1px solid #e5e7eb", position: "sticky", top: 0, bgcolor: "white", zIndex: 10 }}>
+          <TextField
+            fullWidth
+            variant="outlined"
+            placeholder="Search Shipment Number"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            size="small"
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ color: "text.secondary" }} />
+                </InputAdornment>
+              ),
+            }}
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                borderRadius: "12px",
+                bgcolor: "#f9fafb",
+                "& fieldset": { borderColor: "transparent" },
+                "&:hover fieldset": { borderColor: "#d1d5db" },
+                "&.Mui-focused fieldset": { borderColor: "#667eea" },
+              },
+            }}
+          />
+        </Box>
 
         {/* Content Section */}
         <Box sx={{ p: 1.5 }}>

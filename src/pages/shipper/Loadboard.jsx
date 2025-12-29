@@ -350,6 +350,9 @@ const LoadBoard = () => {
   const [acceptingBid, setAcceptingBid] = useState(false);
   const [acceptFilePreview, setAcceptFilePreview] = useState(null);
 
+  // Ref to track locally rejected bids to prevent race conditions
+  const recentlyRejectedRef = useRef(new Set());
+
   // Negotiation modal state
   const [negotiationModalOpen, setNegotiationModalOpen] = useState(false);
   const [negotiationForm, setNegotiationForm] = useState({
@@ -374,6 +377,7 @@ const LoadBoard = () => {
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [rejectBidId, setRejectBidId] = useState(null);
   const [rejectBidData, setRejectBidData] = useState(null);
+  const [rejectingBid, setRejectingBid] = useState(false);
 
   // Edit modal state
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -1360,7 +1364,26 @@ const LoadBoard = () => {
         }
       });
       if (Array.isArray(response.data.bids)) {
-        setBids(response.data.bids);
+        let processedBids = response.data.bids.map(bid => {
+           // Apply local rejection if needed
+           if (recentlyRejectedRef.current.has(bid._id)) {
+             return { ...bid, status: 'Rejected' };
+           }
+           return bid;
+        });
+
+        // If any bid is Accepted, mark all others as Rejected
+        const hasAcceptedBid = processedBids.some(bid => bid.status === 'Accepted');
+        if (hasAcceptedBid) {
+            processedBids = processedBids.map(bid => {
+                if (bid.status !== 'Accepted') {
+                    return { ...bid, status: 'Rejected' };
+                }
+                return bid;
+            });
+        }
+
+        setBids(processedBids);
       } else {
         setBids([]);
       }
@@ -1558,6 +1581,7 @@ const LoadBoard = () => {
   };
 
   const handleConfirmReject = async () => {
+    setRejectingBid(true);
     try {
       const token = localStorage.getItem('token');
       const response = await axios.put(`${BASE_API_URL}/api/v1/bid/${rejectBidId}/status`, {
@@ -1571,13 +1595,28 @@ const LoadBoard = () => {
       if (response.data.success) {
         alertify.success('Bid rejected successfully');
         handleCloseRejectModal();
-        // Refresh bids to show updated status
-        if (selectedLoadId) {
-          handleViewBids(selectedLoadId);
+        
+        // Add to locally rejected set to prevent race conditions
+        recentlyRejectedRef.current.add(rejectBidId);
+
+        // Update status to rejected but keep in list
+        setBids(prevBids => prevBids.map(bid => bid._id === rejectBidId ? { ...bid, status: 'Rejected' } : bid));
+
+        // Close details modal if open for this bid
+        if (selectedBid && selectedBid._id === rejectBidId) {
+          setBidDetailsModalOpen(false);
+          setSelectedBid(null);
         }
+
+        // Note: We intentionally do NOT call handleViewBids here to avoid 
+        // a race condition where the backend might still return the rejected bid 
+        // with 'Pending' status before the write is fully consistent.
+        // The local update above is sufficient for UI feedback.
       }
     } catch (err) {
       alertify.error(err.response?.data?.message || 'Failed to reject bid');
+    } finally {
+      setRejectingBid(false);
     }
   };
 
@@ -2521,17 +2560,23 @@ const handleEditLoad = (load) => {
         });
       }
 
-      setBids((prev) => prev.map((bid) => bid._id === acceptBidId ? { ...bid, status: 'Accepted' } : bid));
+      setBids((prev) => prev.map((bid) => {
+        if (bid._id === acceptBidId) {
+          return { ...bid, status: 'Accepted' };
+        } else {
+          return { ...bid, status: 'Rejected' };
+        }
+      }));
       alertify.success('Bid accepted successfully!');
       setAcceptModalOpen(false);
       setAcceptBidId(null);
       setAcceptForm({ shipmentNumber: '', poNumber: '', bolNumber: '', acceptanceAttachment1: null });
       setAcceptErrors({});
       setAcceptFilePreview(null);
-      // Refresh bids to show updated status
-      if (selectedLoadId) {
-        handleViewBids(selectedLoadId);
-      }
+      // Refresh bids commented out to preserve local state updates
+      // if (selectedLoadId) {
+      //   handleViewBids(selectedLoadId);
+      // }
     } catch (err) {
       alertify.error(err.response?.data?.message || 'Failed to accept bid');
     } finally {
@@ -2782,6 +2827,7 @@ const handleEditLoad = (load) => {
           <TableHead>
             <TableRow sx={{ backgroundColor: (themeConfig.table?.headerBg || '#f0f4f8') }}>
               <TableCell sx={{ fontWeight: 600 }}>Load ID</TableCell>
+              
               {/* Hide Shipment No column for Pending Approval (0) and Bidding (1) tabs */}
               {activeTab !== 0 && activeTab !== 1 && (
                 <TableCell sx={{ fontWeight: 600 }}>Shipment No</TableCell>
@@ -2791,6 +2837,7 @@ const handleEditLoad = (load) => {
               <TableCell sx={{ fontWeight: 600 }}>Drop</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Vehicle</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Created Date</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Action</TableCell>
             </TableRow>
           </TableHead>
@@ -2799,6 +2846,7 @@ const handleEditLoad = (load) => {
               Array.from({ length: 5 }).map((_, index) => (
                 <TableRow key={index}>
                   <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                  <TableCell><Skeleton variant="text" width={150} /></TableCell>
                   {activeTab !== 0 && activeTab !== 1 && (
                     <TableCell><Skeleton variant="text" width={120} /></TableCell>
                   )}
@@ -2817,7 +2865,7 @@ const handleEditLoad = (load) => {
               ))
             ) : filteredData.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={activeTab === 0 || activeTab === 1 ? 7 : 8} align="center">No data found</TableCell>
+                <TableCell colSpan={activeTab === 0 || activeTab === 1 ? 8 : 9} align="center">No data found</TableCell>
               </TableRow>
             ) : (
               filteredData
@@ -2864,6 +2912,8 @@ const handleEditLoad = (load) => {
                       <TableCell>
                         <Chip label={load.status || '-'} color={getStatusColor(load.status || '')} size="small" />
                       </TableCell>
+                                            <TableCell>{load.createdAt ? new Date(load.createdAt).toLocaleString() : '-'}</TableCell>
+
                       <TableCell>
                         <Stack direction="row" spacing={1}>
                           <Button
@@ -5263,7 +5313,35 @@ const handleEditLoad = (load) => {
                       </Box>
                     )}
 
-                    {/* Action Buttons */}
+                {/* Status Text or Action Buttons */}
+                {(() => {
+                  const isAnyAccepted = bids.some(b => b.status === 'Accepted');
+                  const effectiveStatus = bid.status === 'Accepted' ? 'Accepted' : (bid.status === 'Rejected' || isAnyAccepted) ? 'Rejected' : null;
+
+                  if (effectiveStatus) {
+                    return (
+                      <Box sx={{
+                        mt: 2,
+                        p: 1.5,
+                        width: '100%',
+                        textAlign: 'center',
+                        borderRadius: 2,
+                        bgcolor: effectiveStatus === 'Accepted' ? '#e8f5e9' : '#ffebee',
+                        border: '1px solid',
+                        borderColor: effectiveStatus === 'Accepted' ? '#a5d6a7' : '#ef9a9a'
+                      }}>
+                         <Typography sx={{
+                            fontWeight: 700,
+                            color: effectiveStatus === 'Accepted' ? '#2e7d32' : '#c62828',
+                            fontSize: 16
+                         }}>
+                            {effectiveStatus === 'Accepted' ? '✅ Accepted' : '❌ Rejected'}
+                         </Typography>
+                      </Box>
+                    );
+                  }
+
+                  return (
                     <Box sx={{
                       display: 'flex',
                       gap: { xs: 1, sm: 1.5 },
@@ -5342,6 +5420,8 @@ const handleEditLoad = (load) => {
                         ❌ Reject
                       </Button>
                     </Box>
+                  );
+                })()}
                   </Box>
                 </Grid>
               ))}
@@ -5968,6 +6048,7 @@ const handleEditLoad = (load) => {
           <Button
             onClick={handleConfirmReject}
             variant="contained"
+            disabled={rejectingBid}
             sx={{
               borderRadius: 2,
               fontWeight: 600,
@@ -5977,7 +6058,7 @@ const handleEditLoad = (load) => {
               '&:hover': { opacity: 0.9 }
             }}
           >
-            Yes, Reject Bid
+            {rejectingBid ? <CircularProgress size={24} color="inherit" /> : 'Yes, Reject Bid'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -7938,6 +8019,16 @@ const handleEditLoad = (load) => {
                       <TableCell sx={{ fontWeight: 600, width: '25%', background: '#f8f9fa' }}>Status</TableCell>
                       <TableCell sx={{ width: '25%' }}>
                         <Chip label={cmtData.loadDetails?.status || 'N/A'} color={getStatusColor(cmtData.loadDetails?.status || '')} size="small" />
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 600, background: '#f8f9fa' }}>Created Date</TableCell>
+                      <TableCell sx={{ fontWeight: 500 }}>
+                        {cmtData.loadDetails?.createdAt ? new Date(cmtData.loadDetails.createdAt).toLocaleString() : 'N/A'}
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 600, background: '#f8f9fa' }}>Shipment No</TableCell>
+                      <TableCell sx={{ fontWeight: 500 }}>
+                        {cmtData.loadDetails?.shipmentNumber || 'N/A'}
                       </TableCell>
                     </TableRow>
                     <TableRow>
