@@ -3124,7 +3124,7 @@ useEffect(() => {
                         setOpen3D(false); // Close 3D view
                     }}
                   >
-                    As Box
+                    Without Pallet
                   </Button>
                   <Button 
                     variant="contained" 
@@ -3192,7 +3192,7 @@ useEffect(() => {
                         setOpen3D(false); // Close 3D view
                     }}
                   >
-                    As Pallet
+                    Use Pallet
                   </Button>
                   </Stack>
                 </Stack>
