@@ -8181,7 +8181,7 @@ const handleEditLoad = (load) => {
                     </TableRow>
                     <TableRow>
                       <TableCell sx={{ fontWeight: 600, background: '#f8f9fa' }}>Weight</TableCell>
-                      <TableCell sx={{ fontWeight: 500 }}>{cmtData.loadDetails?.weight} Kg</TableCell>
+                      <TableCell sx={{ fontWeight: 500 }}>{cmtData.loadDetails?.weight} lbs</TableCell>
                       <TableCell sx={{ fontWeight: 600, background: '#f8f9fa' }}>Commodity</TableCell>
                       <TableCell sx={{ fontWeight: 500 }}>{cmtData.loadDetails?.commodity}</TableCell>
                     </TableRow>
