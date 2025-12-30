@@ -552,6 +552,12 @@ const LoadBoard = () => {
       });
       let data = response.data;
       console.log('Fetched loads data:', data);
+      
+      // Additional log to check message field availability in first item
+      if (data && data.loads && data.loads.length > 0) {
+        console.log('Sample Load Message:', data.loads[0].message);
+      }
+      
       if (data && data.loads && Array.isArray(data.loads)) {
         console.log('Loads with status:', data.loads.map(load => ({ id: load._id, status: load.status })));
         setLoadData(data.loads);
@@ -2313,9 +2319,16 @@ const handleEditLoad = (load) => {
     setCmtLoading(true);
     setCmtData(null);
 
-    // Find the load from loadData state
-    const currentLoad = loadData.find(load => load._id === loadId);
+    // Find the load from loadData state with loose equality check
+    let currentLoad = loadData.find(load => load._id == loadId);
+    // If not found in current view (e.g. filtered), check original data
+    if (!currentLoad && originalLoadData && originalLoadData.length > 0) {
+      currentLoad = originalLoadData.find(load => load._id == loadId);
+    }
     console.log('Current Load from loadData:', currentLoad);
+    // Log full object to debug keys
+    console.log('Full Current Load Object:', JSON.stringify(currentLoad || {}, null, 2));
+    console.log('Current Load Message:', currentLoad?.message);
 
     try {
       const token = localStorage.getItem('token');
@@ -2328,11 +2341,86 @@ const handleEditLoad = (load) => {
       if (response.data.success) {
         console.log('CMT API Response:', response.data.data);
         
-        // Merge load data from loadData state with CMT response
-        const mergedData = {
-          ...response.data.data,
-          loadDetails: {
-            ...response.data.data.loadDetails,
+        // Try to find the approved bid message
+        let approvedBidMessage = response.data.data.approvedBidMessage || null;
+        
+        // 1. Check if it's directly in the response
+        if (response.data.data.winningBid?.message) {
+          approvedBidMessage = response.data.data.winningBid.message;
+        } 
+        // 2. Check in response loadDetails.bids
+        else if (response.data.data.loadDetails?.bids && Array.isArray(response.data.data.loadDetails.bids)) {
+           // Case insensitive check for Accepted/Assigned
+           const winning = response.data.data.loadDetails.bids.find(b => 
+             b.status?.toLowerCase() === 'accepted' || b.status?.toLowerCase() === 'assigned'
+           );
+           if (winning) approvedBidMessage = winning.message;
+        }
+        // 3. Check in currentLoad.bids
+        else if (currentLoad?.bids && Array.isArray(currentLoad.bids)) {
+           // Case insensitive check for Accepted/Assigned
+           const winning = currentLoad.bids.find(b => 
+             b.status?.toLowerCase() === 'accepted' || b.status?.toLowerCase() === 'assigned'
+           );
+           if (winning) approvedBidMessage = winning.message;
+        }
+
+        // 4. Fallback: Check if there is a 'message' field in the CMT response that is not the same as the main message
+         // Sometimes the API might return the bid message as 'bidMessage' or similar
+         if (!approvedBidMessage && response.data.data.bidMessage) {
+            approvedBidMessage = response.data.data.bidMessage;
+         }
+
+         // 5. Fallback: Match by rate if available
+         if (!approvedBidMessage && (currentLoad?.rate || response.data.data.loadDetails?.rate)) {
+             const targetRate = currentLoad?.rate || response.data.data.loadDetails?.rate;
+             // Check in response bids
+             if (response.data.data.loadDetails?.bids) {
+                 const match = response.data.data.loadDetails.bids.find(b => b.amount == targetRate || b.rate == targetRate);
+                 if (match) approvedBidMessage = match.message;
+             }
+             // Check in currentLoad bids
+             if (!approvedBidMessage && currentLoad?.bids) {
+                 const match = currentLoad.bids.find(b => b.amount == targetRate || b.rate == targetRate);
+                 if (match) approvedBidMessage = match.message;
+             }
+         }
+ 
+         // Re-verify the message from currentLoad right before merging
+          const messageFromLoad = currentLoad?.acceptedBid?.message || currentLoad?.message;
+          console.log('Message directly from currentLoad:', messageFromLoad);
+
+          let extractedBidMessage = messageFromLoad || currentLoad?.Message || response.data.data.loadDetails?.message || response.data.data.message;
+          
+          // Deduplicate message if it repeats itself (e.g. "Text\nText")
+          if (extractedBidMessage && typeof extractedBidMessage === 'string') {
+            const parts = extractedBidMessage.split('\n');
+            // Check if we can split into two identical halves
+            if (parts.length >= 2 && parts.length % 2 === 0) {
+              const mid = parts.length / 2;
+              const firstHalf = parts.slice(0, mid).join('\n');
+              const secondHalf = parts.slice(mid).join('\n');
+              if (firstHalf.trim() === secondHalf.trim()) {
+                console.log('Detected repeated message, cleaning up...');
+                extractedBidMessage = firstHalf;
+              }
+            }
+          }
+          
+          console.log('Final Extracted Bid Message:', extractedBidMessage);
+ 
+          // Merge load data from loadData state with CMT response
+          const mergedData = {
+             ...response.data.data,
+             approvedBidMessage,
+             // Explicitly set bidMessage
+             bidMessage: extractedBidMessage,
+             loadDetails: {
+               ...response.data.data.loadDetails,
+            // Ensure createdAt and shipmentNumber are present
+            createdAt: response.data.data.loadDetails?.createdAt || currentLoad?.createdAt,
+            shipmentNumber: response.data.data.loadDetails?.shipmentNumber || currentLoad?.shipmentNumber,
+            
             // Add origins and destinations from the main load data
             origins: currentLoad?.origins || response.data.data.loadDetails?.origins,
             destinations: currentLoad?.destinations || response.data.data.loadDetails?.destinations,
@@ -8123,6 +8211,22 @@ const handleEditLoad = (load) => {
                 </Table>
               </Paper>
 
+               {/* Bid Message - Show only for Assigned, In Transit, Delivered */}
+              {cmtData.bidMessage && ['assigned', 'in transit', 'delivered'].includes(cmtData.loadDetails?.status?.toLowerCase()) && (
+                <Paper elevation={2} sx={{ borderRadius: 2, overflow: 'hidden' }}>
+                  <Box sx={{ background: '#1976d2', p: 2 }}>
+                    <Typography sx={{ fontWeight: 700, color: '#fff', fontSize: 18 }}>
+                      💬 Bid Message
+                    </Typography>
+                  </Box>
+                  <Box sx={{ p: 2, background: '#e3f2fd' }}>
+                    <Typography sx={{ fontWeight: 500, fontStyle: 'italic', fontSize: 16, whiteSpace: 'pre-line' }}>
+                      {cmtData.bidMessage}
+                    </Typography>
+                  </Box>
+                </Paper>
+              )}
+
               {/* CMT Assignment Information Table */}
               {cmtData.cmtAssignment && (
                 <Paper elevation={2} sx={{ borderRadius: 2, overflow: 'hidden' }}>
@@ -8160,6 +8264,12 @@ const handleEditLoad = (load) => {
               )}
 
 
+            
+             
+
+
+             
+
               {/* Message */}
               {cmtData.message && (
                 <Paper elevation={2} sx={{ borderRadius: 2, overflow: 'hidden' }}>
@@ -8186,6 +8296,7 @@ const handleEditLoad = (load) => {
           </Button>
         </DialogActions>
       </Dialog>
+
 
       {/* Rate Suggestion Details Modal */}
       <Dialog
