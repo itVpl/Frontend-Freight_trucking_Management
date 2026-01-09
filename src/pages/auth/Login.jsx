@@ -13,7 +13,7 @@ import {
   IconButton,
   Container,
 } from '@mui/material';
-import { Visibility, VisibilityOff } from '@mui/icons-material';
+import { Visibility, VisibilityOff, ArrowBackRounded } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
 import alertify from 'alertifyjs';
 import axios from 'axios';
@@ -120,6 +120,27 @@ const Login = () => {
           zIndex: 0,
         }}
       />
+
+      {/* Home Button */}
+      <Button
+        variant="outlined"
+        onClick={() => navigate('/')}
+        sx={{
+          position: 'absolute',
+          top: 20,
+          left: 20,
+          zIndex: 10,
+          color: '#fff',
+          borderColor: '#fff',
+          fontWeight: 'bold',
+          '&:hover': {
+            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+            borderColor: '#fff',
+          },
+        }}
+      >
+       <ArrowBackRounded/>   Back to Home
+      </Button>
 
       {/* Content */}
       <Container

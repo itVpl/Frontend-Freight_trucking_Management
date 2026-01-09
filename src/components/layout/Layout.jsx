@@ -49,6 +49,7 @@ import {
   Palette,
   InfoOutlined,
   Payment,
+  Home,
 } from '@mui/icons-material';
 import ContainerIcon from '../icons/ContainerIcon';
 import { useAuth } from '../../context/AuthContext';
@@ -149,7 +150,7 @@ const Layout = () => {
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate('/');
   };
 
   const openThemeMenu = (event) => {
@@ -522,6 +523,40 @@ const Layout = () => {
           </ListItem>
         ))}
       </List>
+
+      {/* Back to Home Section */}
+      <Box sx={{ px: 2, pb: 1 }}>
+        <ListItem disablePadding>
+          <ListItemButton
+            onClick={() => navigate('/')}
+            sx={{
+              borderRadius: 2,
+              justifyContent: sidebarOpen ? 'flex-start' : 'center',
+              '&:hover': {
+                backgroundColor: themeConfig.mainSidebar?.hoverBg || themeConfig.sidebar?.hoverBg || themeConfig.tokens?.hover || '#f5f5f5',
+              },
+            }}
+          >
+            <ListItemIcon sx={{
+              minWidth: sidebarOpen ? 40 : 'auto',
+              color: '#666'
+            }}>
+              <Home />
+            </ListItemIcon>
+            {sidebarOpen && (
+              <ListItemText
+                primary="Back to Home"
+                sx={{
+                  '& .MuiListItemText-primary': {
+                    fontSize: '14px',
+                    fontWeight: 500,
+                  }
+                }}
+              />
+            )}
+          </ListItemButton>
+        </ListItem>
+      </Box>
 
       {/* Logout Section */}
       <Box sx={{ p: 2, borderTop: '1px solid #e0e0e0' }}>

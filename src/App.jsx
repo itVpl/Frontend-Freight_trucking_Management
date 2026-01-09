@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/auth/Login';
 import Dashboard from './pages/dashboard/Dashboard';
 import LiveTracker from './pages/tracking/LiveTracker';
@@ -25,7 +25,8 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 import Completed from './pages/reports/Completed';
 import LoadCalculator from './loadshippertruckercalculator/LoadCalculator';
-import LandingPage from './pages/auth/LandingPage';
+// import LandingPage from './pages/auth/LandingPage';
+import LandingPage from './pages/Landingpage/Landingpage';
 import './App.css';
 import { ThemeProvider, useThemeConfig } from './context/ThemeContext';
 import { NegotiationProvider } from './context/NegotiationContext';
@@ -36,11 +37,28 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import RealDataDebugger from './components/RealDataDebugger';
 import ChatWidgetManager from './components/ChatWidgetManager';
+// import Navbar from './components/landingpageComponents/Navbar';
+// import Footer from './components/landingpageComponents/Footer';
+import PublicLayout from './components/layout/PublicLayout';
 import NegotiationThreadAlert from './components/NegotiationThreadAlert';
+import SignUp from './pages/auth/SignUp';
+import AboutUs from './pages/Landingpage/AboutUs';
+import ForgotPasswordPage from './pages/Landingpage/ForgotPasswordPage';
+import ContactUs from './pages/Landingpage/ContactUs';
+import ShippingSelector from './pages/Landingpage/ShippingSelector';
+import Services from './pages/Landingpage/Services';
+import OTPValidationForm from './pages/Landingpage/OTPValidationForm';
+import ScheduleADemo from './pages/Landingpage/ScheduleADemo';
 import NegotiationThreadTester from './components/NegotiationThreadTester';
+import ShipmentForm from './components/landingpageComponents/Shipping/ShipmentForm';
+import ShipmentType from './components/landingpageComponents/Shipping/ShipmentType';
+import ShipperDetails from './components/landingpageComponents/Shipping/ShipperDetails';
+import StepHeader from './components/landingpageComponents/Shipping/StepHeader';
+import ReceiverDetails from './components/landingpageComponents/Shipping/ReceiverDetails';
+import ThankYou from './components/landingpageComponents/Shipping/ThankYou';
+import PaymentOptions from './components/landingpageComponents/Shipping/PaymentOptions';
 
 // Optional: RootGate—agar logged-in hai to dashboard bhej do, warna LandingPage dikhao
-import { useAuth } from './context/AuthContext';
 function RootGate() {
   const { user } = useAuth?.() || {};
   return user ? <Navigate to="/dashboard" replace /> : <LandingPage />;
@@ -166,6 +184,8 @@ function App() {
   };
 
   return (
+    <>
+    {/* <Navbar /> */}
     <AuthProvider>
       <ThemeProvider>
         <UiThemeWrapper>
@@ -186,21 +206,44 @@ function App() {
               <Router>
                 <div className="App">
                   <Routes>
-                    {/* Public Routes */}
-                    <Route path="/root" element={<RootGate />} />
-                    <Route path="/landingpage" element={<LandingPage />} />
+                    {/* Public Routes wrapped in PublicLayout */}
+                    <Route element={<PublicLayout />}>
+                      <Route path="/root" element={<RootGate />} />
+                      <Route path="/" element={<LandingPage />} />
+                      <Route path="/aboutus" element={<AboutUs />} />
+                      <Route path="/contactus" element={<ContactUs />} />
+                      <Route path="/shippingselector" element={<ShippingSelector />} />
+                      <Route path="/services" element={<Services />} />
+                      <Route path="/scheduleademo" element={<ScheduleADemo />} />
+                      
+                      {/*Shipiing page routes */}
+                      <Route path="/ShipmentForm" element={<ShipmentForm />} />
+                      <Route path="/ShipmentType" element={<ShipmentType />} />
+                      <Route path="/ShipperDetails" element={<ShipperDetails />} />
+                      <Route path="/StepHeader" element={<StepHeader />} />
+                      <Route path="/ReceiverDetails" element={<ReceiverDetails />} />
+                      <Route path="/ThankYou" element={<ThankYou />} />
+                      <Route path="/PaymentOptions" element={<PaymentOptions />} />
+                    </Route>
+
+                    {/* Standalone Public Routes (No Navbar/Footer) */}
                     <Route path="/login" element={<Login />} />
+                    <Route path="/signup" element={<SignUp />} />
+                    <Route path="/loadcalculator" element={<LoadCalculator />} />
+                    <Route path="/forgetpassword" element={<ForgotPasswordPage />} />
+                    <Route path="/otpvalidation" element={<OTPValidationForm />} />
+                    <Route path="/live-tracker" element={<LiveTracker />} />
 
                     {/* Protected Layout wrapper with no path */}
                     <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                       {/* Keep absolute paths as-is so URLs don't change */}
-                      <Route path="/" element={<Dashboard />} />
-                      <Route path="/live-tracker" element={<LiveTracker />} />
+                      <Route path="/dashboard" element={<Dashboard />} />
+                      {/* <Route path="/live-tracker" element={<LiveTracker />} /> */}
                       <Route path="/consignment" element={<ErrorBoundary><Consignment /></ErrorBoundary>} />
                       <Route path="/reports" element={<Reports />} />
                       <Route path="/reports/complete" element={<Completed />} />
                       <Route path="/profile" element={<Profile />} />
-                      <Route path="/loadcalculator" element={<LoadCalculator />} />
+                     
                       <Route path="/email" element={<Email />} />
                       <Route path="/debug-real-data" element={<RealDataDebugger />} />
 
@@ -241,6 +284,8 @@ function App() {
         </UiThemeWrapper>
       </ThemeProvider>
     </AuthProvider>
+    {/* <Footer /> */}
+    </>
   );
 }
 
