@@ -219,10 +219,10 @@ const ContactUs = () => {
         {/* Right Side - Info Card */}
         <div className="bg-white rounded-xl shadow-lg shadow-[#0356A2] border border-gray-100 p-8 lg:p-10">
           <p className="text-sm uppercase text-[#1F4E79] mb-2">→ Need Any Help? ←</p>
-          <h2 className="text-4xl font-medium mb-2 text-gray-800">Get in touch with us</h2>
-          <p className="text-gray-800 mb-10 text-center">Cloud computing resources over the internet.</p>
+          <h2 className="text-4xl font-medium mb-2 text-gray-800 mb-10">Get in touch with us</h2>
+          {/* <p className="text-gray-800 mb-10 text-center">Cloud computing resources over the internet.</p> */}
 
-          <div className="space-y-8">
+          <div className="space-y-8 mt-10">
             <div className="flex items-start gap-4">
               <div className="text-white p-4 rounded-xl shadow-lg flex-shrink-0" style={{ backgroundColor: primaryBlue }}>
                 <PhoneIcon className="w-6 h-6" />
@@ -247,7 +247,11 @@ const ContactUs = () => {
               </div>
               <div>
                 <p className="text-lg text-gray-800 font-semibold mb-1">Visit anytime</p>
+                <p className="text-lg text-gray-800 font-semibold mb-1">India</p>
                 <p className="text-gray-500 text-sm leading-relaxed">C-14, Udyog Vihar Phase V, Gurugram, India 122008</p>
+                  <p className="text-lg text-gray-800 font-semibold mb-1">USA</p>
+                <p className="text-gray-500 text-sm leading-relaxed">100 N HOWARD ST STE R, SPOKANE WA, 99201.</p>
+                <p className="text-gray-500 text-sm leading-relaxed">53 Frontage Rd, 1st Floor, Hampton, New Jersey 08827.</p>
               </div>
             </div>
           </div>

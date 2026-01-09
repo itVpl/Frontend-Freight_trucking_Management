@@ -6,174 +6,142 @@ import { GiCargoShip } from "react-icons/gi";
 import { FaRegUser } from "react-icons/fa";
 import { PiTrolleySuitcase } from "react-icons/pi";
 import { SlLink } from "react-icons/sl";
-import { HiArrowLongRight } from "react-icons/hi2";
+import { HiOutlineArrowUpRight } from "react-icons/hi2";
 
-// === Premium Service Card Component ===
-const ServiceCard = ({
-  icon,
-  title,
-  description,
-  isActive,
-  onClick,
-  index,
-}) => {
+const services = [
+  {
+    icon: <FaRegUser />,
+    title: "Customs Brokerage",
+    desc: "Seamless border transitions with AI-powered compliance and expert brokerage.",
+    tag: "Security"
+  },
+  {
+    icon: <CiDeliveryTruck />,
+    title: "Smart Warehousing",
+    desc: "Next-gen storage solutions with real-time tracking and climate control.",
+    tag: "Automated"
+  },
+  {
+    icon: <SlLink />,
+    title: "Supply Chain",
+    desc: "Data-driven architecture to optimize every link in your global logistics chain.",
+    tag: "Efficiency"
+  },
+  {
+    icon: <IoEarthOutline />,
+    title: "Cross-Border",
+    desc: "High-speed international transit corridors for time-critical global trade.",
+    tag: "Global"
+  },
+  {
+    icon: <PiTrolleySuitcase />,
+    title: "White-Glove",
+    desc: "Premium last-mile delivery focused on brand experience and precision.",
+    tag: "Premium"
+  },
+  {
+    icon: <GiCargoShip />,
+    title: "Project Cargo",
+    desc: "Engineering-led transport for oversized machinery and complex projects.",
+    tag: "Heavy-Lift"
+  },
+];
+
+const PremiumServiceCard = ({ item, index }) => {
+  const [isHovered, setIsHovered] = useState(false);
+
   return (
     <motion.div
-      layout
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       initial={{ opacity: 0, y: 30 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
-      transition={{ 
-        type: "spring", 
-        stiffness: 100, 
-        damping: 20, 
-        delay: index * 0.1 
-      }}
-      onClick={onClick}
-      className={`relative group p-10 rounded-[2.5rem] cursor-pointer overflow-hidden transition-all duration-700 ${
-        isActive 
-          ? "bg-[#0A192F] text-white shadow-[0_20px_50px_rgba(3,86,162,0.3)] scale-[1.02] z-20" 
-          : "bg-white/70 backdrop-blur-md border border-slate-200/50 text-slate-800 hover:shadow-2xl hover:-translate-y-2 z-10"
-      }`}
+      transition={{ duration: 0.5, delay: index * 0.1 }}
+      className="relative group h-full"
     >
-      {/* Background Decorative Gradient for Active State */}
-      {isActive && (
-        <motion.div 
-          layoutId="highlight"
-          className="absolute inset-0 bg-gradient-to-br from-[#0356A2] to-[#0A192F] -z-10"
-        />
-      )}
+      {/* Outer Glow Effect on Hover */}
+      <div className={`absolute -inset-0.5 bg-gradient-to-r from-blue-600 to-cyan-500 rounded-[2rem] blur opacity-0 group-hover:opacity-20 transition duration-500`} />
+      
+      <div className="relative h-full bg-white border border-slate-200 rounded-[2rem] p-10 flex flex-col justify-between overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500">
+        
+        {/* Animated Background Shape */}
+        <div className={`absolute -right-10 -top-10 w-32 h-32 bg-slate-50 rounded-full transition-transform duration-700 group-hover:scale-[4] group-hover:bg-blue-50/50`} />
 
-      <div className="relative z-10">
-        {/* Icon Box */}
-        <div
-          className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-8 transition-all duration-500 ${
-            isActive 
-              ? "bg-amber-400 text-[#0A192F] rotate-[10deg]" 
-              : "bg-slate-100 text-[#0356A2] group-hover:bg-[#0356A2] group-hover:text-white"
-          }`}
-        >
-          <span className="text-3xl">{icon}</span>
+        <div className="relative z-10">
+          <div className="flex justify-between items-start mb-8">
+            {/* Icon Box */}
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-3xl transition-all duration-500 ${
+              isHovered ? "bg-blue-600 text-white shadow-lg shadow-blue-200 rotate-[10deg]" : "bg-blue-50 text-blue-600"
+            }`}>
+              {item.icon}
+            </div>
+            
+            {/* Minimalist Tag */}
+            <span className="text-[10px] font-bold tracking-[0.15em] uppercase text-slate-400 border border-slate-200 px-3 py-1 rounded-full group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600 transition-all duration-300">
+              {item.tag}
+            </span>
+          </div>
+
+          <h3 className="text-2xl font-bold text-slate-900 mb-4 tracking-tight group-hover:text-blue-700 transition-colors">
+            {item.title}
+          </h3>
+          
+          <p className="text-slate-500 leading-relaxed font-light mb-8 group-hover:text-slate-600 transition-colors">
+            {item.desc}
+          </p>
         </div>
-
-        <h3 className={`text-2xl font-semibold tracking-tight mb-4 transition-colors ${
-          isActive ? "text-amber-400" : "text-[#0A192F]"
-        }`}>
-          {title}
-        </h3>
-
-        <p className={`text-base leading-relaxed mb-10 transition-colors ${
-          isActive ? "text-slate-300" : "text-slate-500"
-        }`}>
-          {description}
-        </p>
 
         {/* Action Link */}
-        <div className="flex items-center gap-4 group/btn">
-          <span className={`text-sm font-bold tracking-widest uppercase transition-colors ${
-            isActive ? "text-white" : "text-[#0356A2]"
-          }`}>
-            Explore Details
+        <div className="relative z-10 flex items-center gap-2 text-sm font-bold text-blue-600 cursor-pointer overflow-hidden group/btn">
+          <span className="relative">
+            EXPLORE DETAILS
+            <span className="absolute bottom-0 left-0 w-full h-[1.5px] bg-blue-600 transform scale-x-0 group-hover/btn:scale-x-100 transition-transform origin-left duration-300" />
           </span>
-          <div className={`transition-transform duration-300 ${isActive ? "translate-x-2" : "group-hover:translate-x-2"}`}>
-            <HiArrowLongRight className={isActive ? "text-amber-400" : "text-[#0356A2]"} size={24} />
-          </div>
+          <HiOutlineArrowUpRight className="text-lg transform group-hover/btn:translate-x-1 group-hover/btn:-translate-y-1 transition-transform duration-300" />
         </div>
-      </div>
-
-      {/* Subtle Pattern Overlay */}
-      <div className="absolute top-0 right-0 p-8 opacity-5">
-        <span className="text-8xl font-black">{index + 1}</span>
       </div>
     </motion.div>
   );
 };
 
-// === Service Data ===
-const serviceCardsData = [
-  {
-    icon: <FaRegUser />,
-    title: "Customs Brokerage",
-    description: "Navigate global customs with elite brokerage services, ensuring compliance and rapid border clearance.",
-  },
-  {
-    icon: <CiDeliveryTruck />,
-    title: "Intelligence Warehousing",
-    description: "State-of-the-art secure storage with real-time tracking for your most valuable inventory assets.",
-  },
-  {
-    icon: <SlLink />,
-    title: "Supply Chain Strategy",
-    description: "High-level optimization of your logistics ecosystem for maximum efficiency and cost reduction.",
-  },
-  {
-    icon: <IoEarthOutline />,
-    title: "Cross-Border Logistics",
-    description: "Seamless international transit corridors designed for time-sensitive global trade requirements.",
-  },
-  {
-    icon: <PiTrolleySuitcase />,
-    title: "White-Glove Delivery",
-    description: "Premium last-mile solutions that prioritize brand experience and doorstep precision.",
-  },
-  {
-    icon: <GiCargoShip />,
-    title: "Global Project Cargo",
-    description: "Specialized engineering and transport for oversized shipments requiring bespoke handling.",
-  },
-];
-
 const LogixServices = () => {
-  const [activeIndex, setActiveIndex] = useState(1); // Set middle as default for balance
-
   return (
-    <section className="relative py-32 bg-[#F8FAFC] overflow-hidden">
-      {/* Decorative Background Elements */}
-      <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-100/40 rounded-full blur-3xl -z-10" />
-      <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-amber-100/30 rounded-full blur-3xl -z-10" />
+    <section className="relative py-32 bg-blue-100 overflow-hidden">
+      {/* Soft Background Accents */}
+      <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-blue-50/50 rounded-full blur-[120px] -z-10 translate-x-1/2 -translate-y-1/2" />
+      <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-cyan-50/50 rounded-full blur-[100px] -z-10 -translate-x-1/2 translate-y-1/2" />
 
       <div className="max-w-7xl mx-auto px-8">
-        
-        {/* Luxury Header */}
-        <div className="flex flex-col md:flex-row justify-between items-end mb-24 gap-8">
+        {/* --- Header --- */}
+        <div className="flex flex-col md:flex-row items-end justify-between mb-20 gap-8">
           <div className="max-w-2xl">
             <motion.div 
               initial={{ opacity: 0, x: -20 }}
               whileInView={{ opacity: 1, x: 0 }}
               className="flex items-center gap-3 mb-6"
             >
-              <div className="h-[1px] w-12 bg-amber-500" />
-              <span className="text-xs font-black tracking-[0.3em] text-amber-600 uppercase">Our Expertise</span>
+              <div className="h-1 w-12 bg-blue-600 rounded-full" />
+              <span className="text-xs font-black tracking-[0.3em] text-blue-600 uppercase">Our Capabilities</span>
             </motion.div>
-
-            <h2 className="text-5xl md:text-6xl font-light text-[#0A192F] leading-[1.1]">
-              Strategic Solutions for <br />
-              <span className="font-serif italic text-[#0356A2]">Modern Commerce</span>
+            
+            <h2 className="text-5xl md:text-6xl font-bold text-slate-900 leading-[1.1] tracking-tighter">
+              Orchestrating the future <br />
+              <span className="text-blue-600">of global logistics.</span>
             </h2>
           </div>
           
-          <p className="max-w-sm text-slate-500 text-lg font-light leading-relaxed border-l border-slate-200 pl-8">
-            Experience the pinnacle of logistics orchestration with our tailored suite of global services.
+          <p className="max-w-sm text-slate-500 text-lg font-light leading-relaxed">
+            We merge industrial expertise with digital intelligence to deliver world-class supply chain solutions.
           </p>
         </div>
 
-        {/* Animated Grid */}
-        <motion.div 
-          layout 
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10"
-        >
-          <AnimatePresence mode="popLayout">
-            {serviceCardsData.map((card, index) => (
-              <ServiceCard 
-                key={card.title} 
-                {...card} 
-                index={index}
-                isActive={activeIndex === index}
-                onClick={() => setActiveIndex(index)}
-              />
-            ))}
-          </AnimatePresence>
-        </motion.div>
+        {/* --- Grid --- */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {services.map((item, index) => (
+            <PremiumServiceCard key={index} item={item} index={index} />
+          ))}
+        </div>
       </div>
     </section>
   );
