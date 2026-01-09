@@ -1,184 +1,179 @@
-import React from "react";
-import { motion } from "framer-motion"; // Import framer-motion
+import React, { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { CiDeliveryTruck } from "react-icons/ci";
 import { IoEarthOutline } from "react-icons/io5";
 import { GiCargoShip } from "react-icons/gi";
 import { FaRegUser } from "react-icons/fa";
 import { PiTrolleySuitcase } from "react-icons/pi";
 import { SlLink } from "react-icons/sl";
-import { GrLinkNext } from "react-icons/gr";
+import { HiArrowLongRight } from "react-icons/hi2";
 
-// === Service Card Component ===
+// === Premium Service Card Component ===
 const ServiceCard = ({
   icon,
   title,
   description,
-  bgColor,
-  iconColor,
-  cardStyle,
-  isFeatured,
-  index, // Added index for staggered animation
+  isActive,
+  onClick,
+  index,
 }) => {
-  const buttonClasses = isFeatured
-    ? "bg-white text-[#0356A2] hover:bg-[#0356A2] border border-white hover:text-white"
-    : "bg-[#0356A2] text-white hover:bg-white hover:text-[#0356A2] border border-[#0356A2]";
-
   return (
     <motion.div
-      // Animation logic
+      layout
       initial={{ opacity: 0, y: 30 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: false, amount: 0.2 }}
-      transition={{ duration: 0.5, delay: index * 0.1 }}
-      className={`p-8 rounded-2xl flex flex-col justify-between transition-all duration-300 hover:shadow-xl ${cardStyle}`}
+      viewport={{ once: true }}
+      transition={{ 
+        type: "spring", 
+        stiffness: 100, 
+        damping: 20, 
+        delay: index * 0.1 
+      }}
+      onClick={onClick}
+      className={`relative group p-10 rounded-[2.5rem] cursor-pointer overflow-hidden transition-all duration-700 ${
+        isActive 
+          ? "bg-[#0A192F] text-white shadow-[0_20px_50px_rgba(3,86,162,0.3)] scale-[1.02] z-20" 
+          : "bg-white/70 backdrop-blur-md border border-slate-200/50 text-slate-800 hover:shadow-2xl hover:-translate-y-2 z-10"
+      }`}
     >
-      <div>
+      {/* Background Decorative Gradient for Active State */}
+      {isActive && (
+        <motion.div 
+          layoutId="highlight"
+          className="absolute inset-0 bg-gradient-to-br from-[#0356A2] to-[#0A192F] -z-10"
+        />
+      )}
+
+      <div className="relative z-10">
+        {/* Icon Box */}
         <div
-          className={`w-16 h-16 rounded-lg flex items-center justify-center mb-5 ${
-            isFeatured ? "bg-white" : bgColor
+          className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-8 transition-all duration-500 ${
+            isActive 
+              ? "bg-amber-400 text-[#0A192F] rotate-[10deg]" 
+              : "bg-slate-100 text-[#0356A2] group-hover:bg-[#0356A2] group-hover:text-white"
           }`}
         >
-          <span
-            className={`text-3xl ${isFeatured ? "text-blue-700" : iconColor}`}
-          >
-            {icon}
-          </span>
+          <span className="text-3xl">{icon}</span>
         </div>
 
-        <h3
-          className={`text-xl font-semibold mb-3 ${
-            isFeatured ? "text-white" : "text-[#0356A2]"
-          }`}
-        >
+        <h3 className={`text-2xl font-semibold tracking-tight mb-4 transition-colors ${
+          isActive ? "text-amber-400" : "text-[#0A192F]"
+        }`}>
           {title}
         </h3>
 
-        <p
-          className={`text-sm leading-relaxed ${
-            isFeatured ? "text-blue-200" : "text-blue-900/70"
-          }`}
-        >
+        <p className={`text-base leading-relaxed mb-10 transition-colors ${
+          isActive ? "text-slate-300" : "text-slate-500"
+        }`}>
           {description}
         </p>
+
+        {/* Action Link */}
+        <div className="flex items-center gap-4 group/btn">
+          <span className={`text-sm font-bold tracking-widest uppercase transition-colors ${
+            isActive ? "text-white" : "text-[#0356A2]"
+          }`}>
+            Explore Details
+          </span>
+          <div className={`transition-transform duration-300 ${isActive ? "translate-x-2" : "group-hover:translate-x-2"}`}>
+            <HiArrowLongRight className={isActive ? "text-amber-400" : "text-[#0356A2]"} size={24} />
+          </div>
+        </div>
       </div>
 
-      <div className="mt-6">
-        <a href="/contactus" className="w-full block text-center">
-          <button
-            className={`flex items-center justify-center gap-2 px-6 py-2 rounded-full font-medium transition duration-300 ${buttonClasses}`}
-          >
-            <span>Get a Quote</span>
-            <GrLinkNext className="text-sm" />
-          </button>
-        </a>
+      {/* Subtle Pattern Overlay */}
+      <div className="absolute top-0 right-0 p-8 opacity-5">
+        <span className="text-8xl font-black">{index + 1}</span>
       </div>
     </motion.div>
   );
 };
 
-// === Data for All Cards ===
+// === Service Data ===
 const serviceCardsData = [
   {
     icon: <FaRegUser />,
     title: "Customs Brokerage",
-    description: "Navigate customs with ease, ensuring your goods clears borders swiftly and compliantly.",
-    bgColor: "bg-orange-100",
-    iconColor: "text-orange-600",
-    cardStyle: "bg-white border border-gray-200 shadow-sm",
+    description: "Navigate global customs with elite brokerage services, ensuring compliance and rapid border clearance.",
   },
   {
-    icon: <CiDeliveryTruck className="w-12 h-12 text-[#0356A2]" />,
-    title: "Warehousing & Distribution",
-    description: "Secure storage and efficient distribution solutions to keep your inventory flowing smoothly.",
-    bgColor: "bg-white",
-    iconColor: "text-[#0356A2]",
-    cardStyle: "bg-[#0356A2] text-white shadow-xl",
-    isFeatured: true,
+    icon: <CiDeliveryTruck />,
+    title: "Intelligence Warehousing",
+    description: "State-of-the-art secure storage with real-time tracking for your most valuable inventory assets.",
   },
   {
     icon: <SlLink />,
-    title: "Supply Chain Management",
-    description: "Optimizing every step of your supply chain for streamlined, efficient, and cost-effective operations.",
-    bgColor: "bg-orange-100",
-    iconColor: "text-orange-600",
-    cardStyle: "bg-white border text-[#0356A2] border-gray-200 shadow-sm",
+    title: "Supply Chain Strategy",
+    description: "High-level optimization of your logistics ecosystem for maximum efficiency and cost reduction.",
   },
   {
     icon: <IoEarthOutline />,
-    title: "Cross-Border Solutions",
-    description: "Seamless cross-border logistics to connect your business with international markets.",
-    bgColor: "bg-orange-100",
-    iconColor: "text-orange-600",
-    cardStyle: "bg-white border border-gray-200 shadow-sm",
+    title: "Cross-Border Logistics",
+    description: "Seamless international transit corridors designed for time-sensitive global trade requirements.",
   },
   {
     icon: <PiTrolleySuitcase />,
-    title: "Last-Mile Delivery",
-    description: "Reliable last-mile delivery that gets your projects to customers’ doorsteps with precision",
-    bgColor: "bg-orange-100",
-    iconColor: "text-orange-600",
-    cardStyle: "bg-white border border-gray-200 shadow-sm",
+    title: "White-Glove Delivery",
+    description: "Premium last-mile solutions that prioritize brand experience and doorstep precision.",
   },
   {
     icon: <GiCargoShip />,
-    title: "Project Cargo Handling",
-    description: "Specialized handling for oversized or complex shipments, with tailored logistics solutions.",
-    bgColor: "bg-orange-100",
-    iconColor: "text-orange-600",
-    cardStyle: "bg-white border border-gray-200 shadow-sm",
-  },
-  {
-    icon: <IoEarthOutline />,
-    title: "Drayage",
-    description: "Moving containers between port and nearby warehouse.",
-    bgColor: "bg-orange-100",
-    iconColor: "text-orange-600",
-    cardStyle: "bg-white border border-gray-200 shadow-sm",
+    title: "Global Project Cargo",
+    description: "Specialized engineering and transport for oversized shipments requiring bespoke handling.",
   },
 ];
 
-// === Main Section Component ===
 const LogixServices = () => {
+  const [activeIndex, setActiveIndex] = useState(1); // Set middle as default for balance
+
   return (
-    <section className="py-20 bg-white overflow-hidden">
-      <div className="max-w-7xl mx-auto px-6 lg:px-8">
+    <section className="relative py-32 bg-[#F8FAFC] overflow-hidden">
+      {/* Decorative Background Elements */}
+      <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-100/40 rounded-full blur-3xl -z-10" />
+      <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-amber-100/30 rounded-full blur-3xl -z-10" />
+
+      <div className="max-w-7xl mx-auto px-8">
         
-        {/* Header Animation */}
-        <motion.div 
-          initial={{ opacity: 0, y: -20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: false }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-20 px-4"
-        >
-          <p className="text-sm font-semibold uppercase tracking-widest text-orange-600 mb-3">
-            ● <span className="text-[#0356A2]"> Our Services</span>
+        {/* Luxury Header */}
+        <div className="flex flex-col md:flex-row justify-between items-end mb-24 gap-8">
+          <div className="max-w-2xl">
+            <motion.div 
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              className="flex items-center gap-3 mb-6"
+            >
+              <div className="h-[1px] w-12 bg-amber-500" />
+              <span className="text-xs font-black tracking-[0.3em] text-amber-600 uppercase">Our Expertise</span>
+            </motion.div>
+
+            <h2 className="text-5xl md:text-6xl font-light text-[#0A192F] leading-[1.1]">
+              Strategic Solutions for <br />
+              <span className="font-serif italic text-[#0356A2]">Modern Commerce</span>
+            </h2>
+          </div>
+          
+          <p className="max-w-sm text-slate-500 text-lg font-light leading-relaxed border-l border-slate-200 pl-8">
+            Experience the pinnacle of logistics orchestration with our tailored suite of global services.
           </p>
-
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-poly text-[#0356A2] leading-tight max-w-4xl mx-auto">
-            Comprehensive{" "}
-            <span className="text-orange-600">Logix Services</span> Tailored to
-            Meet Your Unique <span className="text-orange-600">Needs</span>
-          </h1>
-
-          <p className="mt-2 max-w-4xl mx-auto text-blue-900/70 text-base sm:text-lg leading-relaxed">
-            Our vision is to be the leading logistics partner, known for
-            excellence in supply chain management, innovation, and customer
-            satisfaction — exceeding expectations and driving success for our
-            clients globally.
-          </p>
-        </motion.div>
-
-        {/* Combined Grid for better responsive flow */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {serviceCardsData.map((card, index) => (
-            <ServiceCard 
-              key={index} 
-              {...card} 
-              index={index % 3} // Restarts stagger delay for each row
-            />
-          ))}
         </div>
+
+        {/* Animated Grid */}
+        <motion.div 
+          layout 
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10"
+        >
+          <AnimatePresence mode="popLayout">
+            {serviceCardsData.map((card, index) => (
+              <ServiceCard 
+                key={card.title} 
+                {...card} 
+                index={index}
+                isActive={activeIndex === index}
+                onClick={() => setActiveIndex(index)}
+              />
+            ))}
+          </AnimatePresence>
+        </motion.div>
       </div>
     </section>
   );

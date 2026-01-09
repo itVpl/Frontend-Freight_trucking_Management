@@ -1,51 +1,43 @@
-import React, { useEffect, useState, useRef } from "react";
+import React from "react";
 import { PiGreaterThanBold } from "react-icons/pi";
 import TransportSection from "../../components/landingpageComponents/TransportSection";
+import {
+  FaPlay,
+  FaArrowRight,
+  FaGlobeAmericas,
+  FaAward,
+  FaFingerprint,
+} from "react-icons/fa";
+import { motion } from "framer-motion";
 
-const AnimatedSection = ({ children, delay = "delay-0" }) => {
-  const ref = useRef(null);
-  const [isVisible, setIsVisible] = useState(false);
+/* ------------------ REUSABLE ANIMATION ------------------ */
+// Changed "once: true" to "once: false" to trigger every time
+const FadeIn = ({ children, delay = 0, direction = "up", distance = 40 }) => (
+  <motion.div
+    initial={{
+      opacity: 0,
+      y: direction === "up" ? distance : direction === "down" ? -distance : 0,
+      x: direction === "left" ? distance : direction === "right" ? -distance : 0,
+    }}
+    whileInView={{ opacity: 1, y: 0, x: 0 }}
+    viewport={{ once: false, amount: 0.2 }} // Re-animates every time 20% of the element is visible
+    transition={{ duration: 0.8, delay, ease: [0.16, 1, 0.3, 1] }}
+  >
+    {children}
+  </motion.div>
+);
 
-  useEffect(() => {
-    const element = ref.current;
-    if (!element) return;
-    
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        // Isse animation baar baar trigger hogi (jb jb screen pr aayega)
-        setIsVisible(entry.isIntersecting);
-      },
-      { threshold: 0.1 }
-    );
-
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
-
-  // Isse slide-up effect aayega
-  const animationState = isVisible
-    ? "opacity-100 translate-y-0"
-    : "opacity-0 translate-y-10";
-
-  return (
-    <div
-      ref={ref}
-      className={`transition-all duration-1000 ease-out ${delay} ${animationState}`}
-    >
-      {children}
-    </div>
-  );
-};
-
-const profilePlaceholder = "/heroimg.jpg";
-const mainImage = "/heroimg.jpg";
+const clients = [
+  "/client1.jpg",
+  "/client2.jpg",
+  "/client3.jpg",
+  "/client4.jpg",
+];
 
 const AboutUs = () => {
-  const clients = Array(4).fill(profilePlaceholder);
-
   return (
     <div>
-      {/* Aboutus SECTION */}
+      {/* HERO / BREADCRUMB */}
       <div
         className="relative h-[60vh] bg-cover bg-center flex flex-col items-center justify-center"
         style={{
@@ -54,95 +46,154 @@ const AboutUs = () => {
         }}
       >
         <div className="absolute inset-0 bg-black/60"></div>
-        <h1 className="relative text-4xl md:text-5xl font-bold text-white z-10">
+        <motion.h1 
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: false }}
+          className="relative text-4xl md:text-5xl font-bold text-white z-10"
+        >
           About Us
-        </h1>
-        <p className="relative mt-2 text-lg z-10 text-white flex items-center gap-2">
+        </motion.h1>
+        <motion.p 
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: false }}
+          transition={{ delay: 0.2 }}
+          className="relative mt-2 text-lg z-10 text-white flex items-center gap-2"
+        >
           <span className="text-blue-300 cursor-pointer hover:underline transition">
             Home
           </span>
           <PiGreaterThanBold className="text-white text-sm" />
           <span>About Us</span>
-        </p>
+        </motion.p>
       </div>
 
-      {/* MAIN CONTENT SECTION */}
-      <div className="flex items-center mt-24 justify-center font-['Inter']">
-        <div className="max-w-8xl w-full bg-white rounded-2xl">
-          <div className="grid lg:grid-cols-5 gap-8 lg:gap-12 p-6 sm:p-12">
+      {/* MAIN SECTION */}
+      <section className="py-24 lg:py-32 overflow-hidden bg-gradient-to-b from-blue-50 to-slate-500 border-b-4 border-t-4 border-orange-500">
+        <div className="max-w-7xl mx-auto px-6 lg:px-12">
+          <div className="grid lg:grid-cols-2 gap-20 items-center">
             
-            {/* LEFT SIDE (Wrapped in Animation) */}
-            <div className="relative flex flex-col items-center h-auto lg:h-[500px] p-4 sm:p-6 md:p-8 lg:p-10 lg:col-span-2 overflow-visible">
-              <AnimatedSection>
-                <div className="relative z-10 w-full max-w-[450px] h-[350px] sm:h-[420px] md:h-[480px] lg:h-[500px] rounded-tl-[100px] overflow-visible">
-                  <div className="relative flex flex-col lg:flex-row justify-center items-center h-auto lg:h-[300px] p-4 sm:p-6 md:p-8 lg:p-10 lg:col-span-2 overflow-visible">
-                    <div className="absolute hidden lg:block inset-0 bg-[#1F4E79] z-0 overflow-hidden rounded-l-3xl rounded-tl-[100px] w-[300px] h-[450px] transform translate-x-7 -translate-y-19 scale-110 shadow-inner"></div>
-                    <div className="absolute hidden lg:block bg-[#1F4E79] z-0 overflow-hidden h-[200px] w-[200px] top-0 right-0 transform -translate-x-8 -translate-y-27 shadow-inner"></div>
+            {/* LEFT CONTENT */}
+            <div>
+              <FadeIn delay={0.1}>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-100 mb-8">
+                  <FaAward className="text-orange-600 text-xs" />
+                  <span className="text-[10px] font-bold text-orange-700 uppercase tracking-wider">
+                    Premium Service 2024
+                  </span>
+                </div>
+              </FadeIn>
 
-                    <div className="relative z-10 w-full max-w-[450px] h-[350px] sm:h-[420px] md:h-[480px] lg:h-[500px] rounded-tl-[100px] rounded-2xl overflow-visible shadow-2xl">
-                      <img
-                        src={mainImage}
-                        alt="Logistics"
-                        className="w-full h-full object-cover rounded-tl-[80px] rounded-bl-2xl"
-                      />
-                      <div className="absolute top-[25%] left-[-30px] sm:left-[-70px] md:left-[-50px] bg-white p-3 sm:p-4 rounded-tl-[50px] rounded-bl-xl shadow-xl border-l-4 border-[#1F4E79] w-[120px] sm:w-[130px] md:w-32 text-center z-20 overflow-visible">
-                        <p className="text-xl sm:text-2xl font-bold text-blue-900">50K+</p>
-                        <p className="text-xs sm:text-sm text-gray-600 mb-2">Satisfied Clients</p>
-                        <div className="flex justify-center -space-x-2">
-                          {clients.map((src, index) => (
-                            <img key={index} className="w-6 h-6 sm:w-8 sm:h-8 rounded-full border-2 border-white object-cover" src={src} alt="client" />
-                          ))}
-                        </div>
-                      </div>
+              <FadeIn delay={0.2}>
+                <h2 className="text-4xl md:text-6xl font-bold text-slate-900 leading-[1.1] mb-8">
+                  Moving the world, <br />
+                  <span className="text-orange-400 font-light italic">
+                    one mile at a time.
+                  </span>
+                </h2>
+              </FadeIn>
+
+              <FadeIn delay={0.3}>
+                <p className="text-gray-600 text-lg leading-relaxed mb-10 max-w-lg">
+                  We specialize in high-precision logistics. From complex global
+                  supply chains to last-mile delivery, we combine human
+                  expertise with cutting-edge technology to keep your business
+                  moving forward.
+                </p>
+              </FadeIn>
+
+              <FadeIn delay={0.4}>
+                <div className="flex flex-wrap items-center gap-6 mb-16">
+                  <button className="px-8 py-4 bg-slate-900 text-white rounded-full font-bold text-sm tracking-wide hover:bg-blue-600 hover:shadow-xl hover:shadow-blue-200 transition-all duration-300 flex items-center gap-3">
+                    EXPLORE SOLUTIONS <FaArrowRight size={12} />
+                  </button>
+
+                  {/* <button className="flex items-center gap-3 group">
+                    <div className="w-12 h-12 rounded-full border-2 border-gray-100 flex items-center justify-center group-hover:bg-gray-50 transition-colors">
+                      <FaPlay className="text-blue-600 text-[10px] ml-1" />
+                    </div>
+                    <span className="text-sm font-bold text-slate-700">
+                      Corporate Video
+                    </span>
+                  </button> */}
+                </div>
+              </FadeIn>
+
+              <div className="grid grid-cols-2 gap-8 border-t border-gray-100 pt-10">
+                <FadeIn delay={0.5} direction="up">
+                  <div className="flex gap-4 items-center">
+                    <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center">
+                      <FaFingerprint className="text-blue-600" />
+                    </div>
+                    <div>
+                      <h4 className="text-2xl font-bold text-slate-900">100%</h4>
+                      <p className="text-[10px] text-white uppercase font-bold tracking-widest">
+                        Secure Delivery
+                      </p>
                     </div>
                   </div>
-                  <div className="absolute bottom-[25%] right-[-30px] sm:right-[-70px] md:right-[-50px] bg-white p-4 sm:p-5 rounded-tl-[50px] rounded-bl-xl shadow-2xl border-l-4 border-[#1F4E79] w-[120px] sm:w-[130px] md:w-32 text-center z-20">
-                    <p className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-black">25</p>
-                    <p className="text-xs sm:text-sm font-semibold text-black">Years of Experience</p>
+                </FadeIn>
+
+                <FadeIn delay={0.6} direction="up">
+                  <div className="flex gap-4 items-center">
+                    <div className="w-12 h-12 rounded-2xl bg-green-50 flex items-center justify-center">
+                      <FaGlobeAmericas className="text-green-600" />
+                    </div>
+                    <div>
+                      <h4 className="text-2xl font-bold text-slate-900">24/7</h4>
+                      <p className="text-[10px] text-white uppercase font-bold tracking-widest">
+                        Global Support
+                      </p>
+                    </div>
                   </div>
-                </div>
-              </AnimatedSection>
+                </FadeIn>
+              </div>
             </div>
 
-            {/* RIGHT CONTENT SECTION */}
-            <div className="flex flex-col justify-center mb-12 lg:col-span-3">
-              <AnimatedSection delay="delay-100">
-                <h3 className="text-3xl font-bold text-[#1F4E79] mb-8">
-                  Welcome To V Power Logistics
-                </h3>
-              </AnimatedSection>
+            {/* RIGHT IMAGE */}
+            <div className="relative">
+              <FadeIn direction="left" delay={0.2}>
+                <div className="relative z-10 rounded-[2.5rem] overflow-hidden shadow-[0_50px_100px_-20px_rgba(0,0,0,0.15)] group">
+                  <img
+                    src="/heroimg.jpg"
+                    alt="Team"
+                    className="w-full h-[600px] object-cover transition-transform duration-1000 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-tr from-blue-600/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+                </div>
+              </FadeIn>
 
-              <AnimatedSection delay="delay-200">
-                <h1 className="text-4xl sm:text-4xl font-extrabold text-gray-800 leading-tight mb-4">
-                  Your Trust 3PL Partner Efficient, Reliable, And Scalable
-                  Logistics Solutions
-                </h1>
-              </AnimatedSection>
+              {/* CLIENT AVATARS */}
+              <FadeIn delay={0.4} direction="up">
+                <div className="absolute -bottom-10 -left-10 z-20 bg-white p-8 rounded-[2rem] shadow-2xl border border-gray-50 hidden md:block">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="flex -space-x-3">
+                      {clients.map((src, i) => (
+                        <img
+                          key={i}
+                          src={src}
+                          alt="Client"
+                          className="w-10 h-10 rounded-full border-4 border-white object-cover"
+                        />
+                      ))}
+                    </div>
+                    <span className="text-xs font-bold text-gray-400">
+                      +500 Clients
+                    </span>
+                  </div>
+                  <p className="text-slate-900 font-bold text-lg leading-tight">
+                    Trusted by World's <br /> Leading Brands
+                  </p>
+                </div>
+              </FadeIn>
 
-              <AnimatedSection delay="delay-300">
-                <p className="text-gray-600 text-lg mb-32">
-                  At V Power Logistics, we specialize in providing comprehensive
-                  third-party logistics (3PL) services tailored to meet the
-                  unique needs of businesses across various industries.
-                </p>
-              </AnimatedSection>
-
-              <AnimatedSection delay="delay-500">
-                <button className="flex items-center -mt-10 group transition duration-300">
-                  <span className="bg-white text-black border-2 border-[#1F4E79] hover:border-[#FD6309] px-6 py-3 text-lg font-medium group-hover:bg-blue-50">
-                    Explore More
-                  </span>
-                  <span className="bg-[#1F4E79] p-3 group-hover:bg-[#FD6309]">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                    </svg>
-                  </span>
-                </button>
-              </AnimatedSection>
+              <div className="absolute -top-12 -right-12 w-64 h-64 bg-blue-50 rounded-full -z-0 blur-3xl opacity-60" />
             </div>
           </div>
         </div>
-      </div>
+      </section>
+
       <TransportSection />
     </div>
   );
