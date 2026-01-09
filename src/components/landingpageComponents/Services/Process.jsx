@@ -77,7 +77,7 @@ const Process = () => {
 
             <div className="w-24 h-[1px] bg-gradient-to-r from-[#FD6209] to-transparent mb-10" />
 
-            {/* Image */}
+            {/* Imageaaaa */}
             <div className="hidden lg:block relative w-full h-64 overflow-hidden rounded-2xl border border-white/5">
               <img
                 src="/servicepic.png"
@@ -103,7 +103,7 @@ const Process = () => {
             />
 
             <ProcessStep
-              number="02"
+              number="02" 
               title="Route Optimization & Compliance"
               description="Our logistics experts plan optimized routes while ensuring full compliance with customs, safety regulations, and international trade standards."
             />
