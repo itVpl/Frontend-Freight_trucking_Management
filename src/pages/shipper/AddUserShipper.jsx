@@ -73,7 +73,7 @@ const DUMMY_CUSTOMERS = [
       zipCode: '10001'
     },
     status: 'active',
-    notes: 'Premium customer'
+    notes: 'Premium user'
   },
   {
     _id: '2',
@@ -512,10 +512,10 @@ const AddUserShipper = () => {
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Typography variant="h5" fontWeight={700} sx={{ color: (themeConfig.tokens?.text || '#333333'), ...(themeConfig.content?.bgImage ? { backgroundColor: 'rgba(255,255,255,0.88)', borderRadius: 1, px: 1 } : {}) }}>
-            Add Customer
+            Add User
           </Typography>
           <Chip
-            label={`${customersData.length} Customer${customersData.length !== 1 ? 's' : ''}`}
+            label={`${customersData.length} User${customersData.length !== 1 ? 's' : ''}`}
             color="primary"
             sx={{ fontWeight: 600 }}
           />
@@ -524,7 +524,7 @@ const AddUserShipper = () => {
           <TextField
             variant="outlined"
             size="small"
-            placeholder="Search customers..."
+            placeholder="Search users..."
             value={searchTerm}
             onChange={handleSearch}
             InputProps={{
@@ -557,7 +557,7 @@ const AddUserShipper = () => {
               },
             }}
           >
-            Add Customer
+            Add User
           </Button>
         </Stack>
       </Box>
@@ -754,7 +754,7 @@ const AddUserShipper = () => {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <PersonAdd sx={{ fontSize: 28 }} />
             <Typography variant="h6" fontWeight={700}>
-              Add New Customer
+              Add New User
             </Typography>
           </Box>
           <IconButton 
@@ -1040,7 +1040,7 @@ const AddUserShipper = () => {
                   background: brand
                 }}
               >
-                {loading ? <CircularProgress size={24} color="inherit" /> : 'Create Customer'}
+                {loading ? <CircularProgress size={24} color="inherit" /> : 'Create User'}
               </Button>
             </DialogActions>
           </Box>
@@ -1077,7 +1077,7 @@ const AddUserShipper = () => {
           }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography variant="h6" fontWeight={700} sx={{ color: headerTextColor }}>
-                Edit Customer
+                Edit User
               </Typography>
               <IconButton 
                 onClick={() => setEditModalOpen(false)}
@@ -1241,7 +1241,7 @@ const AddUserShipper = () => {
                 color="primary" 
                 sx={{ borderRadius: 3, textTransform: 'none', px: 4 }}
               >
-                {loading ? <CircularProgress size={20} color="inherit" /> : 'Update Customer'}
+                {loading ? <CircularProgress size={20} color="inherit" /> : 'Update User'}
               </Button>
             </Box>
           </Box>
@@ -1280,7 +1280,7 @@ const AddUserShipper = () => {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
               <Business sx={{ fontSize: 28, color: headerTextColor }} />
               <Typography variant="h5" fontWeight={600} color={headerTextColor}>
-                Customer Details
+                User Details
               </Typography>
             </Box>
             <Button
