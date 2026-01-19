@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import {
   Box,
   Grid,
@@ -34,6 +35,33 @@ import {
 } from '@mui/icons-material';
 import { Wrapper, Status } from '@googlemaps/react-wrapper';
 import { useAuth } from '../../context/AuthContext';
+import {
+  fetchDashboardData,
+  fetchActualCounts,
+  fetchMapData,
+  fetchDetailedLoads,
+  fetchBills,
+  fetchPendingDeliveryData,
+  setSelectedCard as setSelectedCardAction,
+  setCurrentPage as setCurrentPageAction,
+  clearDashboardError,
+} from '../../redux/slices/dashboardSlice';
+import {
+  selectDashboardData,
+  selectDashboardLoading,
+  selectDashboardError,
+  selectActualCounts,
+  selectMapData,
+  selectMapLoading,
+  selectTableData,
+  selectTableLoading,
+  selectSelectedCard,
+  selectCurrentPage,
+  selectPaginatedTableData,
+  selectTotalPages,
+  selectItemsPerPage,
+  selectDashboardValue,
+} from '../../redux/selectors/dashboardSelectors';
 
 // Fix for Leaflet default icons
 import L from 'leaflet';
@@ -58,7 +86,6 @@ import group26 from "../../assets/Icons super admin/Group26.png"
 import group21 from "../../assets/Icons super admin/Group21.png"
 import group28 from "../../assets/Icons super admin/Group28.png"
 import cancel from "../../assets/Icons super admin/cancel.png"
-import group29 from "../../assets/Icons super admin/Group29.png"
 import group20 from "../../assets/Icons super admin/Vectors/Group20.png"
 import group30 from "../../assets/Icons super admin/Vectors/Group30.png"
 import group27 from "../../assets/Icons super admin/Vectors/Group27.png"
@@ -66,46 +93,82 @@ import CardBoard from "../../assets/Icons super admin/Vectors/CardBoard.png"
 import Deliver from "../../assets/Icons super admin/Vectors/Deliver.png"
 import USA from "../../assets/Icons super admin/Vectors/USA.png"
 import localshipping from "../../assets/Icons super admin/Vectors/localshipping.png"
-import autotowing from "../../assets/Icons super admin/Vectors/autotowing.png"
+
+// Memoized stat card to avoid unnecessary re-renders
+const StatCard = memo(function StatCard({ title, value, icon, image, onClick }) {
+  return (
+    <Paper
+      elevation={2}
+      onClick={onClick}
+      sx={{
+        p: 2,
+        borderRadius: 5,
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        cursor: onClick ? 'pointer' : 'default',
+        transition: 'all 0.3s ease',
+        '&:hover': onClick
+          ? {
+              elevation: 4,
+              transform: 'translateY(-2px)',
+              boxShadow: '0 8px 25px rgba(0,0,0,0.15)',
+            }
+          : {},
+      }}
+    >
+      {/* Top Header */}
+      <Box display="flex" alignItems="center" gap={1}>
+        <Box>
+          <img src={icon} alt={title} width={50} />
+        </Box>
+        <Typography fontWeight="bold" fontSize={20}>
+          {title}
+        </Typography>
+      </Box>
+
+      {/* Value & Image */}
+      <Box display="flex" justifyContent="space-between" alignItems="center" mt={2}>
+        <Typography fontWeight="bold" fontSize={24}>
+          {value}
+        </Typography>
+        {image && <img src={image} alt={title} width={100} />}
+      </Box>
+    </Paper>
+  );
+});
 
 const Dashboard = () => {
-  const { user, userType } = useAuth();
+  const { userType } = useAuth();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const navigate = useNavigate();
   const { themeConfig } = useThemeConfig();
+  
+  // Redux dispatch and selectors
+  const dispatch = useDispatch();
+  
+  const dashboardData = useSelector(selectDashboardData);
+  const loading = useSelector(selectDashboardLoading);
+  const error = useSelector(selectDashboardError);
+  const actualCounts = useSelector(selectActualCounts);
+  const mapData = useSelector(selectMapData);
+  const mapLoading = useSelector(selectMapLoading);
+  const tableData = useSelector(selectTableData);
+  const tableLoading = useSelector(selectTableLoading);
+  const selectedCard = useSelector(selectSelectedCard);
+  const currentPage = useSelector(selectCurrentPage);
+  const paginatedTableData = useSelector(selectPaginatedTableData);
+  const totalPages = useSelector(selectTotalPages);
+  const itemsPerPage = useSelector(selectItemsPerPage);
 
-  // State for dashboard data
-  const [dashboardData, setDashboardData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  
-  // State for dynamic table
-  const [selectedCard, setSelectedCard] = useState('Bid Management');
-  const [tableData, setTableData] = useState([]);
-  const [tableLoading, setTableLoading] = useState(false);
-  
-  // State for pagination
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(5);
-  
-  // State for actual counts from API calls
-  const [actualCounts, setActualCounts] = useState({
-    totalLoads: 0,
-    pendingDeliveries: 0,
-    delivered: 0,
-    inTransit: 0,
-    bidding: 0,
-    bills: 0
-  });
-  
-  // State for map data
-  const [mapData, setMapData] = useState([]);
-  const [mapLoading, setMapLoading] = useState(false);
-
-  const handleTrackShipment = () => {
-    navigate('/live-tracker');
-  };
+  // Use memoized selector for each dashboard metric instead of
+  // constructing a fake state object on every render
+  const totalLoads = useSelector((state) => selectDashboardValue(state, 'totalLoads'));
+  const pendingDeliveries = useSelector((state) => selectDashboardValue(state, 'pendingDeliveries'));
+  const delivered = useSelector((state) => selectDashboardValue(state, 'delivered'));
+  const bills = useSelector((state) => selectDashboardValue(state, 'bills') || 0);
+  const inTransitLoads = useSelector((state) => selectDashboardValue(state, 'inTransitLoads'));
 
   // Render function for Google Maps wrapper
   const render = (status) => {
@@ -142,62 +205,8 @@ const Dashboard = () => {
     return null;
   };
 
-  // Fetch shipment data for map
-  const fetchMapData = async () => {
-    try {
-      setMapLoading(true);
-      const token = localStorage.getItem('token');
-      const role = userType === 'trucker' ? 'trucker' : 'shipper';
-      
-      const response = await fetch(`${BASE_API_URL}/api/v1/load/${role}/my-loads-detailed`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      if (data?.success && Array.isArray(data?.data?.loads)) {
-        const processedData = data.data.loads.map(load => {
-          const originObj = Array.isArray(load.origin) ? (load.origin[0] || {}) : (load.origin || {});
-          const destinationObj = Array.isArray(load.destination) ? (load.destination[0] || {}) : (load.destination || {});
-          const originCity = originObj.city || '';
-          const originState = originObj.state || '';
-          const destCity = destinationObj.city || '';
-          const destState = destinationObj.state || '';
-          const originCoords = getCoordinatesFromCity(originCity, originState);
-          const destinationCoords = getCoordinatesFromCity(destCity, destState);
-          return {
-            id: load._id,
-            shipmentNumber: load.shipmentNumber,
-            status: load.status,
-            origin: { city: originCity, state: originState, coordinates: originCoords },
-            destination: { city: destCity, state: destState, coordinates: destinationCoords },
-            pickupDate: load.pickupDate,
-            deliveryDate: load.deliveryDate,
-            rate: load.rate,
-            loadType: load.loadType,
-            weight: load.weight,
-          };
-        }).filter(item => Array.isArray(item.origin.coordinates) && Array.isArray(item.destination.coordinates));
-        
-        setMapData(processedData);
-      }
-    } catch (error) {
-      console.error('Error fetching map data:', error);
-    } finally {
-      setMapLoading(false);
-    }
-  };
-
   // Helper function to get coordinates from city names
-  const getCoordinatesFromCity = (city, state) => {
+  const getCoordinatesFromCity = (city) => {
     // This is a simplified mapping - in production, you'd use a geocoding service
     const cityCoordinates = {
       'Houston': [29.7604, -95.3698],
@@ -226,305 +235,6 @@ const Dashboard = () => {
     return [29.7604, -95.3698];
   };
 
-  // Fetch detailed loads data from API
-  const fetchDetailedLoadsData = async (status = null) => {
-    try {
-      setTableLoading(true);
-      const token = localStorage.getItem('token');
-      const role = userType === 'trucker' ? 'trucker' : 'shipper';
-      
-      // Build URL with optional status parameter
-      let url = `${BASE_API_URL}/api/v1/load/${role}/my-loads-detailed`;
-      if (status) {
-        url += `?status=${encodeURIComponent(status)}`;
-      }
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      if (data.success && data.data.loads) {
-        // Debug logging to understand API response structure
-        console.log('=== API Response for loads ===');
-        console.log('Full API Response:', data);
-        console.log('Loads Array:', data.data.loads);
-        
-        // Log first load to see structure
-        if (data.data.loads.length > 0) {
-          console.log('First Load Object:', data.data.loads[0]);
-          console.log('Origin Structure:', data.data.loads[0].origin);
-          console.log('Destination Structure:', data.data.loads[0].destination);
-          console.log('Origin Type:', typeof data.data.loads[0].origin);
-          console.log('Destination Type:', typeof data.data.loads[0].destination);
-          console.log('Is Origin Array:', Array.isArray(data.data.loads[0].origin));
-          console.log('Is Destination Array:', Array.isArray(data.data.loads[0].destination));
-        }
-        
-        // Format the API data for table display
-        const formattedData = data.data.loads.map(load => {
-          // Helper function to format location from origins/destinations array
-          const formatLocationFromArray = (locationArray) => {
-            if (!locationArray || !Array.isArray(locationArray) || locationArray.length === 0) {
-              return 'N/A';
-            }
-            
-            // Take the first location from the array
-            const firstLocation = locationArray[0];
-            if (firstLocation.city && firstLocation.state) {
-              return `${firstLocation.city}, ${firstLocation.state}`;
-            }
-            if (firstLocation.city) {
-              return firstLocation.city;
-            }
-            if (firstLocation.extractedCity) {
-              return firstLocation.extractedCity;
-            }
-            return 'N/A';
-          };
-          
-          return {
-            id: load.shipmentNumber || load._id || 'N/A',
-            type: load.loadType || 'OTR',
-            from: formatLocationFromArray(load.origins),
-            to: formatLocationFromArray(load.destinations),
-            eta: load.deliveryDate ? new Date(load.deliveryDate).toLocaleDateString() : 'N/A',
-            status: load.status || 'N/A',
-            weight: load.weight || 'N/A',
-            rate: load.rate || 'N/A',
-            pickupDate: load.pickupDate ? new Date(load.pickupDate).toLocaleDateString() : 'N/A',
-            driverName: load.acceptedBid?.driverName || 'N/A',
-            vehicleNumber: load.acceptedBid?.vehicleNumber || 'N/A',
-            commodity: load.commodity || 'N/A',
-            vehicleType: load.vehicleType || 'N/A'
-          };
-        });
-        
-        setTableData(formattedData);
-        setCurrentPage(1); // Reset to first page when new data loads
-        
-        // Update actual counts based on status
-        if (status === 'Bidding') {
-          setActualCounts(prev => ({ ...prev, bidding: data.data.loads.length }));
-        } else if (status === 'Delivered') {
-          setActualCounts(prev => ({ ...prev, delivered: data.data.loads.length }));
-        } else if (status === 'In Transit') {
-          setActualCounts(prev => ({ ...prev, inTransit: data.data.loads.length }));
-        } else if (!status) {
-          setActualCounts(prev => ({ ...prev, totalLoads: data.data.loads.length }));
-        }
-      } else {
-        throw new Error(data.message || 'Failed to fetch detailed loads data');
-      }
-    } catch (err) {
-      console.error('Error fetching detailed loads data:', err);
-      setTableData([]);
-    } finally {
-      setTableLoading(false);
-    }
-  };
-
-  // Fetch bills data from API
-  const fetchBillsData = async () => {
-    try {
-      setTableLoading(true);
-      const token = localStorage.getItem('token');
-      
-      const response = await fetch(`${BASE_API_URL}/api/v1/bill/my-bills`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      console.log('Bills API Response:', data);
-      console.log('Has bills?', data.bills);
-      console.log('Bills count:', data.count);
-      
-      if (data.success && data.bills && data.bills.length > 0) {
-        // Format the API data for table display
-        const formattedData = data.bills.map(bill => ({
-          id: bill.billNumber || bill._id || 'N/A',
-          type: 'Invoice',
-          from: bill.pickup?.city || bill.pickup?.address || 'N/A',
-          to: bill.delivery?.city || bill.delivery?.address || 'N/A',
-          eta: bill.dueDate ? new Date(bill.dueDate).toLocaleDateString() : 'N/A',
-          status: bill.status || 'Pending',
-          rate: bill.billing?.total || 0,
-          pickupDate: bill.invoiceDate ? new Date(bill.invoiceDate).toLocaleDateString() : 'N/A',
-          driverName: bill.paymentTerms?.description || 'N/A',
-          vehicleNumber: 'N/A',
-          commodity: 'N/A',
-          vehicleType: 'N/A'
-        }));
-        
-        setTableData(formattedData);
-        setCurrentPage(1); // Reset to first page when new data loads
-      } else {
-        setTableData([]);
-      }
-    } catch (err) {
-      console.error('Error fetching bills data:', err);
-      setTableData([]);
-    } finally {
-      setTableLoading(false);
-    }
-  };
-
-  // Fetch pending delivery data (In Transit loads only)
-  const fetchPendingDeliveryData = async () => {
-    try {
-      setTableLoading(true);
-      const token = localStorage.getItem('token');
-      const role = userType === 'trucker' ? 'trucker' : 'shipper';
-      
-      // Fetch only In Transit status loads
-      const inTransitResponse = await fetch(`${BASE_API_URL}/api/v1/load/${role}/my-loads-detailed?status=In%20Transit`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!inTransitResponse.ok) {
-        throw new Error('Failed to fetch pending delivery data');
-      }
-
-      const inTransitData = await inTransitResponse.json();
-
-      // Get loads from In Transit response
-      const allLoads = [];
-      if (inTransitData.success && inTransitData.data.loads) {
-        allLoads.push(...inTransitData.data.loads);
-      }
-
-      // Format the combined data for table display
-      const formattedData = allLoads.map(load => {
-        // Helper function to format location from origins/destinations array
-        const formatLocationFromArray = (locationArray) => {
-          if (!locationArray || !Array.isArray(locationArray) || locationArray.length === 0) {
-            return 'N/A';
-          }
-          
-          // Take the first location from the array
-          const firstLocation = locationArray[0];
-          if (firstLocation.city && firstLocation.state) {
-            return `${firstLocation.city}, ${firstLocation.state}`;
-          }
-          if (firstLocation.city) {
-            return firstLocation.city;
-          }
-          if (firstLocation.extractedCity) {
-            return firstLocation.extractedCity;
-          }
-          return 'N/A';
-        };
-        
-        return {
-          id: load.shipmentNumber || load._id || 'N/A',
-          type: load.loadType || 'OTR',
-          from: formatLocationFromArray(load.origins),
-          to: formatLocationFromArray(load.destinations),
-          eta: load.deliveryDate ? new Date(load.deliveryDate).toLocaleDateString() : 'N/A',
-          status: load.status || 'N/A',
-          weight: load.weight || 'N/A',
-          rate: load.rate || 'N/A',
-          pickupDate: load.pickupDate ? new Date(load.pickupDate).toLocaleDateString() : 'N/A',
-          driverName: load.acceptedBid?.driverName || 'N/A',
-          vehicleNumber: load.acceptedBid?.vehicleNumber || 'N/A',
-          commodity: load.commodity || 'N/A',
-          vehicleType: load.vehicleType || 'N/A'
-        };
-      });
-      
-      setTableData(formattedData);
-      setCurrentPage(1); // Reset to first page when new data loads
-      
-      // Update pending delivery count
-      setActualCounts(prev => ({ ...prev, pendingDeliveries: allLoads.length }));
-    } catch (err) {
-      console.error('Error fetching pending delivery data:', err);
-      setTableData([]);
-    } finally {
-      setTableLoading(false);
-    }
-  };
-
-  // Sample data for different categories
-  const getTableDataForCategory = (category) => {
-    const sampleData = {
-      'Total Delivery': [
-        { id: 'LD0331', type: 'OTR', from: 'New York', to: 'Dallas', eta: '1d', status: 'Posted' },
-        { id: 'LD0332', type: 'OTR', from: 'San Diego', to: 'Dallas', eta: '3d', status: 'Bidding' },
-        { id: 'LD0333', type: 'OTR', from: 'Dallas', to: 'New York', eta: '5d', status: 'Assigned' },
-        { id: 'LD0334', type: 'OTR', from: 'Dallas', to: 'Houston', eta: '7d', status: 'In Transit' },
-        { id: 'LD0335', type: 'OTR', from: 'Houston', to: 'Phoenix', eta: '1d', status: 'Delivered' },
-      ],
-      'Pending Delivery': [
-        { id: 'LD0331', type: 'OTR', from: 'New York', to: 'Dallas', eta: '1d', status: 'Posted' },
-        { id: 'LD0332', type: 'OTR', from: 'San Diego', to: 'Dallas', eta: '3d', status: 'Bidding' },
-      ],
-      'Completed Delivery': [
-        { id: 'LD0335', type: 'OTR', from: 'Houston', to: 'Phoenix', eta: '1d', status: 'Delivered' },
-        { id: 'LD0336', type: 'OTR', from: 'Miami', to: 'Atlanta', eta: '2d', status: 'Delivered' },
-      ],
-      'Bills': [
-        { id: 'BILL001', type: 'Invoice', from: 'JBL Logistics', to: 'Client A', eta: 'Due', status: 'Pending' },
-        { id: 'BILL002', type: 'Invoice', from: 'JBL Logistics', to: 'Client B', eta: 'Overdue', status: 'Overdue' },
-        { id: 'BILL003', type: 'Invoice', from: 'JBL Logistics', to: 'Client C', eta: 'Due', status: 'Paid' },
-      ],
-      'In Transit': [
-        { id: 'LD0334', type: 'OTR', from: 'Dallas', to: 'Houston', eta: '7d', status: 'In Transit' },
-        { id: 'LD0337', type: 'OTR', from: 'Chicago', to: 'Denver', eta: '4d', status: 'In Transit' },
-      ],
-      'Bids On Loads': [
-        { id: 'LD0331', type: 'OTR', from: 'New York', to: 'Dallas', eta: '1d', status: 'Bidding' },
-        { id: 'LD0332', type: 'OTR', from: 'San Diego', to: 'Dallas', eta: '3d', status: 'Bidding' },
-        { id: 'LD0338', type: 'OTR', from: 'Seattle', to: 'Portland', eta: '2d', status: 'Bidding' },
-      ],
-      'Bid Management': [
-        { id: 'LD0331', type: 'OTR', from: 'New York', to: 'Dallas', eta: '1d', status: 'Bidding' },
-        { id: 'LD0332', type: 'OTR', from: 'San Diego', to: 'Dallas', eta: '3d', status: 'Bidding' },
-        { id: 'LD0333', type: 'OTR', from: 'Dallas', to: 'New York', eta: '5d', status: 'Assigned' },
-        { id: 'LD0334', type: 'OTR', from: 'Dallas', to: 'Houston', eta: '7d', status: 'In Transit' },
-        { id: 'LD0335', type: 'OTR', from: 'Houston', to: 'Phoenix', eta: '1d', status: 'Delivered' },
-      ]
-    };
-    return sampleData[category] || [];
-  };
-
-  // Pagination logic
-  const totalPages = Math.ceil(tableData.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentTableData = tableData.slice(startIndex, endIndex);
-
-  // Pagination handlers
-  const handlePreviousPage = () => {
-    setCurrentPage(prev => Math.max(prev - 1, 1));
-  };
-
-  const handleNextPage = () => {
-    setCurrentPage(prev => Math.min(prev + 1, totalPages));
-  };
-
   // Function to scroll to table
   const scrollToTable = () => {
     setTimeout(() => {
@@ -535,212 +245,91 @@ const Dashboard = () => {
           block: 'start' 
         });
       }
-    }, 100); // Small delay to ensure table is rendered
+    }, 100);
   };
 
   // Click handlers for dashboard cards
-  const handleTotalDeliveryClick = () => {
-    setSelectedCard('Total Delivery');
-    fetchDetailedLoadsData(); // Call API to get real data
+  const handleTotalDeliveryClick = useCallback(() => {
+    dispatch(setSelectedCardAction('Total Delivery'));
+    const token = localStorage.getItem('token');
+    dispatch(fetchDetailedLoads({ userType, token }));
     scrollToTable();
-  };
+  }, [dispatch, userType]);
 
-  const handlePendingDeliveryClick = () => {
-    setSelectedCard('Pending Delivery');
-    fetchPendingDeliveryData(); // Call API to get Bidding + Assigned + In Transit loads
+  const handlePendingDeliveryClick = useCallback(() => {
+    dispatch(setSelectedCardAction('Pending Delivery'));
+    const token = localStorage.getItem('token');
+    dispatch(fetchPendingDeliveryData({ userType, token }));
     scrollToTable();
-  };
+  }, [dispatch, userType]);
 
-  const handleCompletedDeliveryClick = () => {
-    setSelectedCard('Completed Delivery');
-    fetchDetailedLoadsData('Delivered'); // Call API with status=Delivered
+  const handleCompletedDeliveryClick = useCallback(() => {
+    dispatch(setSelectedCardAction('Completed Delivery'));
+    const token = localStorage.getItem('token');
+    dispatch(fetchDetailedLoads({ userType, token, status: 'Delivered' }));
     scrollToTable();
-  };
+  }, [dispatch, userType]);
 
-  const handleBillsClick = () => {
-    setSelectedCard('Bills');
-    fetchBillsData(); // Call API to get real bills data
+  const handleBillsClick = useCallback(() => {
+    dispatch(setSelectedCardAction('Bills'));
+    const token = localStorage.getItem('token');
+    dispatch(fetchBills({ token }));
     scrollToTable();
-  };
+  }, [dispatch]);
 
-  const handleInTransitClick = () => {
-    setSelectedCard('In Transit');
-    fetchDetailedLoadsData('In Transit'); // Call API with status=In Transit
+  const handleInTransitClick = useCallback(() => {
+    dispatch(setSelectedCardAction('In Transit'));
+    const token = localStorage.getItem('token');
+    dispatch(fetchDetailedLoads({ userType, token, status: 'In Transit' }));
     scrollToTable();
-  };
+  }, [dispatch, userType]);
 
-  const handleBidsOnLoadsClick = () => {
-    setSelectedCard('Bids On Loads');
-    fetchDetailedLoadsData('Bidding'); // Call API with status=Bidding to get loads with bids
+  const handleBidsOnLoadsClick = useCallback(() => {
+    dispatch(setSelectedCardAction('Bids On Loads'));
+    const token = localStorage.getItem('token');
+    dispatch(fetchDetailedLoads({ userType, token, status: 'Bidding' }));
     scrollToTable();
-  };
+  }, [dispatch, userType]);
 
-  // Load actual counts for all categories
-  const loadActualCounts = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const role = userType === 'trucker' ? 'trucker' : 'shipper';
-      
-      // Load all counts in parallel including bills
-      const [totalResponse, biddingResponse, deliveredResponse, inTransitResponse, billsResponse] = await Promise.all([
-        fetch(`${BASE_API_URL}/api/v1/load/${role}/my-loads-detailed`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }),
-        fetch(`${BASE_API_URL}/api/v1/load/${role}/my-loads-detailed?status=Bidding`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }),
-        fetch(`${BASE_API_URL}/api/v1/load/${role}/my-loads-detailed?status=Delivered`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }),
-        fetch(`${BASE_API_URL}/api/v1/load/${role}/my-loads-detailed?status=In Transit`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }),
-        fetch(`${BASE_API_URL}/api/v1/bill/my-bills`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
-      ]);
+  const handleTrackShipment = useCallback(() => {
+    navigate('/live-tracker');
+  }, [navigate]);
 
-      const [totalData, biddingData, deliveredData, inTransitData, billsData] = await Promise.all([
-        totalResponse.json(),
-        biddingResponse.json(),
-        deliveredResponse.json(),
-        inTransitResponse.json(),
-        billsResponse.json()
-      ]);
+  // Pagination handlers
+  const handlePreviousPage = useCallback(() => {
+    dispatch(setCurrentPageAction(Math.max(currentPage - 1, 1)));
+  }, [dispatch, currentPage]);
 
-      // Update actual counts
-      const inTransitCount = inTransitData.success ? inTransitData.data.loads.length : 0;
-      const billsCount = billsData.success && billsData.bills ? billsData.bills.length : 0;
-      
-      setActualCounts({
-        totalLoads: totalData.success ? totalData.data.loads.length : 0,
-        bidding: biddingData.success ? biddingData.data.loads.length : 0,
-        delivered: deliveredData.success ? deliveredData.data.loads.length : 0,
-        inTransit: inTransitCount,
-        pendingDeliveries: inTransitCount, // Same as In Transit
-        bills: billsCount
-      });
+  const handleNextPage = useCallback(() => {
+    dispatch(setCurrentPageAction(Math.min(currentPage + 1, totalPages)));
+  }, [dispatch, currentPage, totalPages]);
 
-    } catch (err) {
-      console.error('Error loading actual counts:', err);
-    }
-  };
-
-  // Fetch dashboard data based on user type
-  const fetchDashboardData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const token = localStorage.getItem('token'); // Assuming token is stored in localStorage
-      
-      // Determine API endpoint based on user type
-      const endpoint = userType === 'shipper' 
-        ? '/api/v1/load/shipper/dashboard'
-        : '/api/v1/load/trucker/dashboard';
-      
-      const startTime = performance.now();
-      const response = await fetch(`${BASE_API_URL}${endpoint}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      if (data.success) {
-        // Set data first, then immediately hide loading
-        setDashboardData(data.data);
-        setLoading(false);
-        const endTime = performance.now();
-        console.log(`Dashboard API response time: ${(endTime - startTime).toFixed(2)}ms`);
-      } else {
-        throw new Error(data.message || 'Failed to fetch dashboard data');
-      }
-    } catch (err) {
-      console.error('Error fetching dashboard data:', err);
-      setError(err.message);
-      setLoading(false);
-    }
-  };
-
+  // Main useEffect for initial data loading
   useEffect(() => {
-    // Fetch data if user is a shipper or trucker
-    if (userType === 'shipper' || userType === 'trucker') {
-      // Main dashboard API - controls the loading state
-      fetchDashboardData();
-      
-      // Load map data immediately in parallel (doesn't block UI)
-      fetchMapData().catch(err => console.error('Error fetching map data:', err));
-      
-      // Lazy load actual counts after initial render (used to refine values)
-      // These are used to override dashboard API values, but dashboard API has fallback values
-      setTimeout(() => {
-        loadActualCounts().catch(err => console.error('Error loading actual counts:', err));
-      }, 300); // Load counts 300ms after initial render (reduced from 500ms)
-    } else {
-      setLoading(false);
-    }
+    if (!userType) return; // Wait for userType to be available
     
-    // Initialize table as empty (no default data)
-    setTableData([]);
-  }, [userType]);
+    if (userType === 'shipper' || userType === 'trucker') {
+      const token = localStorage.getItem('token');
+      
+      // CRITICAL: Check if token exists before making requests
+      if (!token) {
+        console.error('No authentication token found. Please log in.');
+        navigate('/login');
+        return;
+      }
 
-  
-  const StatCard = ({ title, value, icon, image, onClick }) => (
-    <Paper
-      elevation={2}
-      onClick={onClick}
-      sx={{
-        p: 2,
-        borderRadius: 5,
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-between',
-        cursor: onClick ? 'pointer' : 'default',
-        transition: 'all 0.3s ease',
-        '&:hover': onClick ? {
-          elevation: 4,
-          transform: 'translateY(-2px)',
-          boxShadow: '0 8px 25px rgba(0,0,0,0.15)',
-        } : {},
-      }}
-    >
-      {/* Top Header */}
-      <Box display="flex" alignItems="center" gap={1}>
-        <Box
-        // sx={{
-        //   backgroundColor: '#1E293B',
-        //   p: 1,
-        //   borderRadius: '50%',
-        //   display: 'flex',
-        //   alignItems: 'center',
-        //   justifyContent: 'center',
-        // }}
-        >
-          <img src={icon} alt={title} width={50} />
-        </Box>
-        <Typography fontWeight="bold" fontSize={20}>
-          {title}
-        </Typography>
-      </Box>
+      // Clear any previous errors on refresh/mount
+      dispatch(clearDashboardError());
 
-      {/* Value & Image */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" mt={2}>
-        <Typography fontWeight="bold" fontSize={24}>
-          {value}
-        </Typography>
-        {image && <img src={image} alt={title} width={100} />}
-      </Box>
-    </Paper>
-  );
+      // Dispatch all API calls in parallel for faster loading
+      dispatch(fetchDashboardData({ userType, token }));
+      dispatch(fetchMapData({ userType, token, getCoordinatesFromCity }));
+      dispatch(fetchActualCounts({ userType, token }));
+    }
+  }, [userType, dispatch, navigate]);
+
+
+
   // Skeleton loading component
   const DashboardSkeleton = () => (
     <Box sx={{ p: 3 }}>
@@ -899,8 +488,8 @@ const Dashboard = () => {
     </Box>
   );
 
-  // Show loading state with skeleton
-  if (loading) {
+    // Show loading state while data is being fetched
+  if (loading && !dashboardData) {
     return <DashboardSkeleton />;
   }
 
@@ -909,72 +498,41 @@ const Dashboard = () => {
     return (
       <Box sx={{ p: 3 }}>
         <Alert severity="error" sx={{ mb: 2 }}>
-          Error loading dashboard data: {error}
+          <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+            Error loading dashboard data
+          </Typography>
+          <Typography variant="body2">
+            {error}
+          </Typography>
         </Alert>
-        <Button variant="contained" onClick={fetchDashboardData}>
-          Retry
-        </Button>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button 
+            variant="contained" 
+            onClick={() => {
+              const token = localStorage.getItem('token');
+              if (token) {
+                dispatch(fetchDashboardData({ userType, token }));
+              } else {
+                navigate('/login');
+              }
+            }}
+          >
+            Retry
+          </Button>
+          <Button 
+            variant="outlined" 
+            onClick={() => navigate('/login')}
+          >
+            Log In Again
+          </Button>
+        </Box>
       </Box>
     );
   }
 
-  // Get dashboard values from API data or use defaults
-  // Priority: dashboardData (from main API) > actualCounts (lazy loaded) > defaults
-  const getDashboardValue = (key) => {
-    // First, try to use main dashboard API data (fastest, already loaded)
-    if ((userType === 'shipper' || userType === 'trucker') && dashboardData?.dashboard) {
-      // Handle statusBreakdown data
-      if (key === 'delivered') {
-        const dashboardValue = dashboardData.dashboard.statusBreakdown?.delivered;
-        if (dashboardValue !== undefined && dashboardValue !== null) {
-          return dashboardValue;
-        }
-      }
-      // Check if dashboard has this key
-      const dashboardValue = dashboardData.dashboard[key];
-      if (dashboardValue !== undefined && dashboardValue !== null) {
-        return dashboardValue;
-      }
-      // Special handling for inTransitLoads - check dashboard first
-      if (key === 'inTransitLoads' || key === 'pendingDeliveries') {
-        const inTransitValue = dashboardData.dashboard.inTransitLoads || dashboardData.dashboard.inTransit;
-        if (inTransitValue !== undefined && inTransitValue !== null) {
-          return inTransitValue;
-        }
-      }
-    }
-    
-    // Fallback to actualCounts if available (lazy loaded, more accurate)
-    if (key === 'pendingDeliveries') {
-      if (actualCounts.inTransit !== undefined && actualCounts.inTransit !== null) {
-        return actualCounts.inTransit;
-      }
-    }
-    
-    if (key === 'inTransitLoads') {
-      if (actualCounts.inTransit !== undefined && actualCounts.inTransit !== null) {
-        return actualCounts.inTransit;
-      }
-    }
-    
-    // Use actual counts if available (check for undefined, not just > 0)
-    if (actualCounts[key] !== undefined && actualCounts[key] !== null) {
-      return actualCounts[key];
-    }
-    
-    // Default values for non-shipper/trucker users or when data is not available
-    const defaults = {
-      totalLoads: 0,
-      todayDeliveries: 0,
-      pendingDeliveries: 0,
-      activeLoads: 0,
-      delayedLoads: 0,
-      inTransitLoads: 0,
-      overdueLoads: 0,
-      delivered: 0
-    };
-    return defaults[key] || 0;
-  };
+  // Pagination logic
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
 
   return (
     <Box sx={{ p: 3 }}>
@@ -991,7 +549,7 @@ const Dashboard = () => {
         <Box sx={{ gridColumn: 'span 1' }}>
           <StatCard 
             title="Total Delivery" 
-            value={getDashboardValue('totalLoads')} 
+            value={totalLoads} 
             icon={group23} 
             image={CardBoard}
             onClick={handleTotalDeliveryClick}
@@ -1000,7 +558,7 @@ const Dashboard = () => {
         <Box sx={{ gridColumn: 'span 1' }}>
           <StatCard 
             title="Pending Delivery" 
-            value={getDashboardValue('pendingDeliveries')} 
+            value={pendingDeliveries} 
             icon={group22} 
             image={Deliver}
             onClick={handlePendingDeliveryClick}
@@ -1085,7 +643,7 @@ const Dashboard = () => {
         <Box sx={{ gridColumn: 'span 1', gridRow: 'span 2' }}>
           <StatCard 
             title="Completed Delivery" 
-            value={getDashboardValue('delivered')} 
+            value={delivered} 
             icon={group26} 
             image={group20}
             onClick={handleCompletedDeliveryClick}
@@ -1094,7 +652,7 @@ const Dashboard = () => {
         <Box sx={{ gridColumn: 'span 1', gridRow: 'span 2' }}>
           <StatCard 
             title="Bills" 
-            value={getDashboardValue('bills') || 0} 
+            value={bills} 
             icon={group21} 
             image={group30}
             onClick={handleBillsClick}
@@ -1103,7 +661,7 @@ const Dashboard = () => {
         <Box sx={{ gridColumn: 'span 1' }}>
           <StatCard 
             title="In Transit" 
-            value={getDashboardValue('inTransitLoads')} 
+            value={inTransitLoads} 
             icon={group28} 
             image={group27}
             onClick={handleInTransitClick}
@@ -1200,7 +758,7 @@ const Dashboard = () => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  currentTableData.map((row, index) => (
+                  paginatedTableData.map((row, index) => (
                     <TableRow key={index}>
                       <TableCell>{row.id}</TableCell>
                       <TableCell>{row.type}</TableCell>
