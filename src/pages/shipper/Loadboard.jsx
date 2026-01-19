@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { BASE_API_URL } from '../../apiConfig';
@@ -72,6 +72,16 @@ import PageLoader from '../../components/PageLoader';
 // import MessageTester from '../../components/MessageTester';
 import { useThemeConfig } from '../../context/ThemeContext';
 import { useSocket } from '../../context/SocketContext';
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchShipperLoads, resetLoadsToOriginal, setLoads } from '../../redux/slices/loadBoardSlice';
+import {
+  selectLoads,
+  selectOriginalLoads,
+  selectLoadBoardLoading,
+  selectLoadBoardError,
+  selectTabCounts,
+  selectLastFetched,
+} from '../../redux/selectors/loadBoardSelectors';
 
 // Premium Dark Tooltip
 const PremiumTooltip = styled(({ className, ...props }) => (
@@ -249,12 +259,13 @@ const OTR_VEHICLE_TYPES = [
 
 const LoadBoard = () => {
   const location = useLocation();
+  const dispatch = useDispatch();
+
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [modalOpen, setModalOpen] = useState(false);
   const [loadType, setLoadType] = useState('OTR');
   const [searchTerm, setSearchTerm] = useState('');
-  const [originalLoadData, setOriginalLoadData] = useState([]);
   const [isFiltered, setIsFiltered] = useState(false);
   const [chargesCalculatorModalOpen, setChargesCalculatorModalOpen] = useState(false);
   const [charges, setCharges] = useState([]);
@@ -331,8 +342,15 @@ const LoadBoard = () => {
 
   // Naya state for errors
   const [errors, setErrors] = useState({});
-  const [loadData, setLoadData] = useState([]);
-  const [loading, setLoading] = useState(true);
+
+  // Redux-managed load board state
+  const loads = useSelector(selectLoads);
+  const originalLoadData = useSelector(selectOriginalLoads);
+  const loading = useSelector(selectLoadBoardLoading);
+  const loadError = useSelector(selectLoadBoardError);
+  const tabCounts = useSelector(selectTabCounts);
+  const lastFetched = useSelector(selectLastFetched);
+
   const [createLoadLoading, setCreateLoadLoading] = useState(false);
 
   const [bidsModalOpen, setBidsModalOpen] = useState(false);
@@ -469,47 +487,36 @@ const LoadBoard = () => {
     setPage(0); // Reset to first page when changing tabs
   };
 
-  // Filter loads based on active tab
-  const getFilteredLoads = () => {
-    if (!loadData || loadData.length === 0) return [];
+  // Memoized filter loads based on active tab (optimized for performance)
+  const filteredLoadsByTab = useMemo(() => {
+    if (!loads || loads.length === 0) return [];
 
     const normalize = (status) => status ? status.toLowerCase() : '';
 
     switch (activeTab) {
       case 0: // Pending Approval
-        return loadData.filter(load =>
+        return loads.filter(load =>
           ['pending', 'approval', 'pending approval', 'posted'].includes(normalize(load.status))
         );
       case 1: // Bidding
-        return loadData.filter(load =>
+        return loads.filter(load =>
           ['bidding', 'bid received', 'posted'].includes(normalize(load.status))
         );
       case 2: // Transit
-        return loadData.filter(load =>
+        return loads.filter(load =>
           ['assigned', 'in transit', 'picked up'].includes(normalize(load.status))
         ).sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt));
       case 3: // Delivered
-        return loadData.filter(load =>
+        return loads.filter(load =>
           ['delivered', 'completed'].includes(normalize(load.status))
         );
       default:
-        return loadData;
+        return loads;
     }
-  };
+  }, [loads, activeTab]);
 
-  // Get counts for each tab
-  const getTabCounts = () => {
-    if (!loadData || loadData.length === 0) return [0, 0, 0, 0];
-
-    return [
-      loadData.filter(load => ['Pending', 'Approval', 'Pending Approval', 'Posted'].includes(load.status)).length,
-      loadData.filter(load => ['Bidding', 'Bid Received'].includes(load.status)).length,
-      loadData.filter(load => ['Assigned', 'In Transit', 'Picked Up'].includes(load.status)).length,
-      loadData.filter(load => ['Delivered', 'Completed'].includes(load.status)).length
-    ];
-  };
-
-  const tabCounts = getTabCounts();
+  // Keep getFilteredLoads function for backward compatibility
+  const getFilteredLoads = useCallback(() => filteredLoadsByTab, [filteredLoadsByTab]);
 
   // Handle search result from universal search
   useEffect(() => {
@@ -519,7 +526,7 @@ const LoadBoard = () => {
       console.log('Navigated from search:', shipment);
 
       // Filter to show only the searched shipment
-      if (originalLoadData.length > 0) {
+      if (originalLoadData && originalLoadData.length > 0) {
         const filteredShipment = originalLoadData.find(load =>
           load.shipmentNumber === shipment.shipmentNumber ||
           load._id === shipment.id ||
@@ -527,7 +534,7 @@ const LoadBoard = () => {
         );
 
         if (filteredShipment) {
-          setLoadData([filteredShipment]);
+          dispatch(setLoads([filteredShipment]));
           setIsFiltered(true);
         }
       }
@@ -536,60 +543,31 @@ const LoadBoard = () => {
 
   // Clear search filter
   const clearSearchFilter = () => {
-    setLoadData(originalLoadData);
+    dispatch(resetLoadsToOriginal());
     setIsFiltered(false);
     setSearchTerm('');
   };
 
-  const fetchLoads = async () => {
-    setLoading(true);
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${BASE_API_URL}/api/v1/load/shipper`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      let data = response.data;
-      console.log('Fetched loads data:', data);
-      
-      // Additional log to check message field availability in first item
-      if (data && data.loads && data.loads.length > 0) {
-        console.log('Sample Load Message:', data.loads[0].message);
-      }
-      
-      if (data && data.loads && Array.isArray(data.loads)) {
-        console.log('Loads with status:', data.loads.map(load => ({ id: load._id, status: load.status })));
-        setLoadData(data.loads);
-        setOriginalLoadData(data.loads); // Store original data
-      } else if (Array.isArray(data)) {
-        console.log('Loads with status (direct array):', data.map(load => ({ id: load._id, status: load.status })));
-        setLoadData(data);
-        setOriginalLoadData(data); // Store original data
-      } else {
-        setLoadData([]);
-        setOriginalLoadData([]);
-      }
-    } catch (err) {
-      console.error('Error fetching loads:', err);
-      setLoadData([]);
-      setOriginalLoadData([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchLoads();
+    // Smart caching: Check if data is fresh (< 2 minutes)
+    const CACHE_TTL = 2 * 60 * 1000; // 2 minutes
+    const isDataFresh = lastFetched && (Date.now() - lastFetched) < CACHE_TTL;
+    
+    // If we have cached data, we don't need to fetch immediately unless it's stale
+    // or if the loads list is empty
+    if (!isDataFresh || !loads || loads.length === 0) {
+      dispatch(fetchShipperLoads());
+    }
     
     // Auto-refresh every 30 seconds to check for updates
     const refreshInterval = setInterval(() => {
-      fetchLoads();
+      dispatch(fetchShipperLoads());
     }, 30000); // 30 seconds
     
     // Cleanup interval on component unmount
     return () => clearInterval(refreshInterval);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch]);
 
   // Socket listener for real-time negotiation updates
   useEffect(() => {
@@ -1010,6 +988,10 @@ const LoadBoard = () => {
         bolNumber: '',
         returnDate: '',
         returnLocation: '',
+        returnAddress: '',
+        returnCity: '',
+        returnState: '',
+        returnZip: '',
         origins: [],
         destinations: []
       });
@@ -1310,6 +1292,10 @@ const LoadBoard = () => {
           bolNumber: '',
           returnDate: '',
           returnLocation: '',
+          returnAddress: '',
+          returnCity: '',
+          returnState: '',
+          returnZip: '',
           origins: [{
             addressLine1: '',
             addressLine2: '',
@@ -1333,10 +1319,9 @@ const LoadBoard = () => {
           }]
         });
         setErrors({});
-        // Refresh loads
+        // Refresh loads via Redux thunk
         console.log('Refreshing loads after successful creation...');
-        await fetchLoads();
-        console.log('Updated load data:', loadData);
+        await dispatch(fetchShipperLoads());
       } catch (err) {
         console.error('❌ Error creating load:', err);
         console.error('❌ Error response:', err.response);
@@ -2292,7 +2277,7 @@ const handleEditLoad = (load) => {
       );
 
       if (response.data.success) {
-        await fetchLoads();
+        await dispatch(fetchShipperLoads());
         handleCloseEditModal();
         alertify.success('Load updated successfully!');
       } else {
@@ -2319,13 +2304,13 @@ const handleEditLoad = (load) => {
     setCmtLoading(true);
     setCmtData(null);
 
-    // Find the load from loadData state with loose equality check
-    let currentLoad = loadData.find(load => load._id == loadId);
+    // Find the load from current Redux-managed loads with loose equality check
+    let currentLoad = (loads || []).find(load => load._id == loadId);
     // If not found in current view (e.g. filtered), check original data
     if (!currentLoad && originalLoadData && originalLoadData.length > 0) {
       currentLoad = originalLoadData.find(load => load._id == loadId);
     }
-    console.log('Current Load from loadData:', currentLoad);
+    console.log('Current Load from Redux loads:', currentLoad);
     // Log full object to debug keys
     console.log('Full Current Load Object:', JSON.stringify(currentLoad || {}, null, 2));
     console.log('Current Load Message:', currentLoad?.message);
@@ -2409,7 +2394,7 @@ const handleEditLoad = (load) => {
           
           console.log('Final Extracted Bid Message:', extractedBidMessage);
  
-          // Merge load data from loadData state with CMT response
+          // Merge load data from Redux-managed loads state with CMT response
           const mergedData = {
              ...response.data.data,
              approvedBidMessage,
@@ -2559,7 +2544,7 @@ const handleEditLoad = (load) => {
         }
 
         // Refresh the loads data
-        await fetchLoads();
+        dispatch(fetchShipperLoads());
       } else {
         // Show error notification
         if (window.alertify) {
@@ -2672,27 +2657,20 @@ const handleEditLoad = (load) => {
     }
   };
 
-  // Search and filter logic
-  const getSearchFilteredData = () => {
-    return loadData.filter((row) =>
+  // Memoized combined filtering: tab filter + search filter (optimized for performance)
+  const filteredData = useMemo(() => {
+    return filteredLoadsByTab.filter((row) =>
       Object.values(row).some((val) =>
         String(val).toLowerCase().includes(searchTerm.toLowerCase())
       )
     );
-  };
-
-  // Combined filtering: tab filter + search filter
-  const filteredData = getFilteredLoads().filter((row) =>
-    Object.values(row).some((val) =>
-      String(val).toLowerCase().includes(searchTerm.toLowerCase())
-    )
-  );
+  }, [filteredLoadsByTab, searchTerm]);
 
   // Export CSV function (Consignment.jsx style)
   const exportToCSV = () => {
     const headers = ['Load ID', 'Weight', 'Pick-Up', 'Drop', 'Vehicle', 'Bids', 'Status'];
     const csvRows = [headers.join(',')];
-    loadData.forEach(row => {
+    (loads || []).forEach(row => {
       const values = [row.id, row.weight, row.pickup, row.drop, row.vehicle, row.bids, row.status];
       csvRows.push(values.join(','));
     });
@@ -2727,7 +2705,7 @@ const handleEditLoad = (load) => {
           </Typography>
           {isFiltered && (
             <Chip
-              label={`Filtered: ${loadData.length} result${loadData.length !== 1 ? 's' : ''}`}
+              label={`Filtered: ${filteredData.length} result${filteredData.length !== 1 ? 's' : ''}`}
               color="primary"
               onDelete={clearSearchFilter}
               deleteIcon={<Clear />}

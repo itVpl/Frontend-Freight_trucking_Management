@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
+import { fetchShipperLoads } from '../../redux/slices/loadBoardSlice';
 import {
   Box,
   Drawer,
@@ -108,6 +110,7 @@ const Layout = () => {
   const [notificationAnchorEl, setNotificationAnchorEl] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const dispatch = useDispatch();
 
   useEffect(() => {
     // Demo notification on first load
@@ -482,6 +485,12 @@ const Layout = () => {
             <ListItemButton
               selected={location.pathname === item.path}
               onClick={() => navigate(item.path)}
+              onMouseEnter={() => {
+                // Prefetch Load Board data when hovering over menu item for faster navigation
+                if (item.path === '/loadboard' && userType === 'shipper') {
+                  dispatch(fetchShipperLoads());
+                }
+              }}
               sx={{
                 mx: 2,
                 borderRadius: 2,
