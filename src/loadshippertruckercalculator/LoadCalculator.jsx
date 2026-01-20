@@ -1,5 +1,6 @@
 // LoadCalculator.jsx
 import React, { useMemo, useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { Canvas } from "@react-three/fiber";
 import * as THREE from "three";
 import { OrbitControls, Edges, RoundedBox, ContactShadows } from "@react-three/drei";
@@ -1098,6 +1099,9 @@ const TypeGallery = ({ items, selectedKey, onUse, onInfo }) => (
 
 // --------------------------- Main Component ---------------------------
 export default function LoadCalculator() {
+
+
+  const navigate = useNavigate();
   // Tabs
   const [tab, setTab] = useState(0);
 
@@ -2058,10 +2062,34 @@ useEffect(() => {
   return (
     <ThemeProvider theme={theme}>
       <Box sx={{ p: 4, background: "#f0f4f8", minHeight: "100vh" }}>
-        <Typography variant="h4" align="center" fontWeight="bold" gutterBottom>
-          📦 3D Load Calculator
-        </Typography>
-        <Typography align="center" color="text.secondary" sx={{ mb: 1 }}>
+        {/* Header with Back Button and Title */}
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 3, position: "relative" }}>
+          <Button 
+            variant="outlined" 
+            onClick={() => navigate(-1)}
+            sx={{ 
+              textTransform: "none", 
+              fontWeight: 700,
+              borderRadius: 2,
+              flex: "0 0 auto"
+            }}
+          >
+            ← Back
+          </Button>
+          
+          <Box sx={{ position: "absolute", left: "50%", transform: "translateX(-50%)" }}>
+            <Typography 
+              variant="h4" 
+              fontWeight="bold" 
+              sx={{ m: 0 }}
+            >
+              📦 3D Load Calculator
+            </Typography>
+          </Box>
+          
+          <Box sx={{ flex: "0 0 auto", width: 80 }} />
+        </Box>
+        <Typography align="center" color="text.secondary" sx={{ mb: 1, mt: -1.5 }}>
           Inputs in <b>{unitShort(unit)}</b> • Internal calculations in <b>meters</b> {isTank && <>• Tank volume bars use <b>nominal capacity</b></>}
         </Typography>
 
