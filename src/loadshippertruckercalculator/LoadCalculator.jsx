@@ -2074,7 +2074,7 @@ useEffect(() => {
               flex: "0 0 auto"
             }}
           >
-            ← Back
+            ← Back to Menu
           </Button>
           
           <Box sx={{ position: "absolute", left: "50%", transform: "translateX(-50%)" }}>

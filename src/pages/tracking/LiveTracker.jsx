@@ -30,6 +30,7 @@ import DirectionsCarIcon from "@mui/icons-material/DirectionsCar";
 import PersonIcon from "@mui/icons-material/Person";
 import { Button } from "@mui/material";
 import { Wrapper, Status } from '@googlemaps/react-wrapper';
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import PageLoader from "../../components/PageLoader";
 import LiveTrackerMap from "../../components/maps/LiveTrackerMap";
@@ -52,6 +53,7 @@ if (typeof document !== 'undefined') {
 }
 
 export default function LiveTracker() {
+  const navigate = useNavigate();
   const { user, userType, isAuthenticated } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedId, setExpandedId] = useState(null);
@@ -961,6 +963,22 @@ export default function LiveTracker() {
           boxShadow: "4px 0 24px rgba(0, 0, 0, 0.06)"
         }}
       >
+
+        {/* Back Button */}
+        <Box sx={{ p: 2, borderBottom: "1px solid #e5e7eb", bgcolor: "white" }}>
+          <Button 
+            variant="outlined" 
+            onClick={() => navigate(-1)}
+            sx={{ 
+              textTransform: "none", 
+              fontWeight: 700,
+              borderRadius: 2,
+              width: "100%"
+            }}
+          >
+            ← Back to Menu
+          </Button>
+        </Box>
 
         {/* Search Bar */}
         <Box sx={{ p: 2, borderBottom: "1px solid #e5e7eb", position: "sticky", top: 0, bgcolor: "white", zIndex: 10 }}>
