@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import {
   Box,
   Typography,
@@ -70,196 +71,78 @@ import {
 } from 'recharts';
 import SearchNavigationFeedback from '../../components/SearchNavigationFeedback';
 import { BASE_API_URL } from '../../apiConfig';
-
-// API service function to fetch VERIFIED loads
-const fetchVerifiedLoads = async (shipperId) => {
-  try {
-    let url = `${BASE_API_URL}/api/v1/accountant/shipper/all-verified-loads?shipperId=${shipperId}`;
-    
-    // Get token from various possible storage locations
-    const token = sessionStorage.getItem('token') || 
-                  localStorage.getItem('token') ||
-                  sessionStorage.getItem('authToken') ||
-                  localStorage.getItem('authToken') ||
-                  sessionStorage.getItem('accessToken') ||
-                  localStorage.getItem('accessToken');
-    
-    console.log('Token found:', token ? 'Yes' : 'No');
-    console.log('Available storage keys:', {
-      sessionStorage: Object.keys(sessionStorage),
-      localStorage: Object.keys(localStorage)
-    });
-    console.log('Making API request to:', url);
-    
-    const headers = {
-      'Content-Type': 'application/json',
-    };
-    
-    // Add authorization header if token exists
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    } else {
-      console.warn('No authentication token found. API call may fail.');
-    }
-    
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: headers,
-    });
-    
-    console.log('API Response status:', response.status);
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('API Error Response:', errorText);
-      throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
-    }
-    
-    const data = await response.json();
-    console.log('API Response data:', data);
-    return data;
-  } catch (error) {
-    console.error('Error fetching verified loads:', error);
-    throw error;
-  }
-};
+import { fetchVerifiedLoadsForShipper, setBillsError } from '../../redux/slices/billsSlice';
 
 const Bills = () => {
   const location = useLocation();
+  const dispatch = useDispatch();
+
+  const {
+    loading,
+    error,
+    apiData,
+    originalBillsData,
+  } = useSelector((state) => state.bills || {
+    loading: false,
+    error: null,
+    apiData: null,
+    originalBillsData: [],
+  });
+
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [dateRange, setDateRange] = useState([null, null]);
   const [anchorEl, setAnchorEl] = useState(null);
   const [filteredData, setFilteredData] = useState([]);
-  const [originalBillsData, setOriginalBillsData] = useState([]);
   const [isFiltered, setIsFiltered] = useState(false);
   const [generateBillOpen, setGenerateBillOpen] = useState(false);
   const [viewBillOpen, setViewBillOpen] = useState(false);
   const [selectedBill, setSelectedBill] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [apiData, setApiData] = useState(null);
+  const [apiDataLocal, setApiDataLocal] = useState(null);
 
   const { themeConfig } = useThemeConfig();
   const brand = (themeConfig.header?.bg && themeConfig.header.bg !== 'white') ? themeConfig.header.bg : (themeConfig.tokens?.primary || '#1976d2');
   const headerTextColor = themeConfig.header?.text || '#ffffff';
 
-  // Fetch API data on component mount
+  // Fetch API data on component mount via Redux (no UI/logic change)
   useEffect(() => {
-    const loadApiData = async () => {
-      setLoading(true);
-      setError(null);
+    // Resolve shipperId dynamically (same logic as before)
+    const resolveShipperId = () => {
+      const fromState = location.state?.shipperId;
+      if (fromState) return fromState;
+
+      const fromStorage =
+        localStorage.getItem('shipperId') || sessionStorage.getItem('shipperId');
+      if (fromStorage) return fromStorage;
+
       try {
-        // Resolve shipperId dynamically
-        const shipperId =
-          // from route state if passed
-          location.state?.shipperId ||
-          // from local/session storage common keys
-          localStorage.getItem('shipperId') ||
-          sessionStorage.getItem('shipperId') ||
-          // from persisted user profile object
-          (() => {
-            try {
-              const userRaw =
-                localStorage.getItem('user') ||
-                sessionStorage.getItem('user') ||
-                localStorage.getItem('profile') ||
-                sessionStorage.getItem('profile');
-              if (!userRaw) return null;
-              const user = JSON.parse(userRaw);
-              return user?.shipperId || user?._id || user?.id || null;
-            } catch {
-              return null;
-            }
-          })();
-
-        if (!shipperId) {
-          throw new Error('Missing shipperId. Please login or pass shipperId via navigation.');
-        }
-
-        const response = await fetchVerifiedLoads(shipperId);
-        setApiData(response);
-        
-        // Transform VERIFIED DOs to match existing table structure
-        if (response.success && Array.isArray(response?.data?.verifiedDOs)) {
-          const transformedData = response.data.verifiedDOs.map((doItem) => {
-            const lr = doItem.loadReference || {};
-            const cust = Array.isArray(doItem.customers) ? doItem.customers[0] : undefined;
-            const amount = Number(cust?.calculatedTotal ?? cust?.totalAmount ?? lr?.rate ?? 0) || 0;
-
-            // Origin/Destination best-effort extraction
-            const origin = lr.origins?.[0] || lr.originPlace || (doItem.shipper?.pickUpLocations?.[0] ? {
-              city: doItem.shipper.pickUpLocations[0].city,
-              state: doItem.shipper.pickUpLocations[0].state,
-              zipCode: doItem.shipper.pickUpLocations[0].zipCode,
-              address: doItem.shipper.pickUpLocations[0].address,
-            } : undefined);
-            const destination = lr.destinations?.[0] || lr.destinationPlace || (doItem.shipper?.dropLocations?.[0] ? {
-              city: doItem.shipper.dropLocations[0].city,
-              state: doItem.shipper.dropLocations[0].state,
-              zipCode: doItem.shipper.dropLocations[0].zipCode,
-              address: doItem.shipper.dropLocations[0].address,
-            } : undefined);
-
-            // Dates
-            const pickupDate = lr.pickupDate || doItem.shipper?.pickUpLocations?.[0]?.pickUpDate || doItem.date;
-            const deliveryDate = lr.deliveryDate || doItem.shipper?.dropLocations?.[0]?.dropDate || doItem.date;
-
-            return {
-              billId: lr.shipmentNumber || doItem._id,
-              chargeSetId: lr.poNumber || doItem._id,
-              containerId: lr.containerNo || doItem.shipper?.containerNo || 'N/A',
-              secondaryRef: lr.bolNumber || doItem.bols?.[0]?.bolNo || doItem._id,
-              date: pickupDate ? format(new Date(pickupDate), 'yyyy-MM-dd') : 'N/A',
-              dueDate: deliveryDate ? format(new Date(deliveryDate), 'yyyy-MM-dd') : 'N/A',
-              amount,
-              status: (doItem.paymentStatus?.status || 'Pending'),
-              amount0_30: amount, // treat verified DOs as current
-            amount30_60: 0,
-            amount60_90: 0,
-            loadData: {
-                origin,
-                destination,
-                weight: lr.weight ?? doItem.shipper?.weight,
-                commodity: lr.commodity ?? doItem.shipper?.commodity,
-                vehicleType: lr.vehicleType ?? doItem.shipper?.containerType,
-                carrier: doItem.carrier,
-                shipper: doItem.shipper,
-                acceptedBid: lr.acceptedBid,
-                deliveryOrder: {
-                  customers: doItem.customers
-                },
-                verificationStatus: doItem.assignmentStatus || doItem.accountantApproval?.status || doItem.salesApproval?.status
-              }
-            };
-          });
-          
-          setOriginalBillsData(transformedData);
-          setFilteredData(transformedData);
-        }
-      } catch (err) {
-        let errorMessage = `API Error: ${err.message}`;
-        
-        // Check if it's an authentication error
-        if (err.message.includes('Please login to access this resource')) {
-          errorMessage = 'Authentication required. Please login to access load data.';
-        }
-        
-        setError(errorMessage);
-        console.error('Failed to load API data:', err);
-        
-        // No fallback data - show empty state
-        setOriginalBillsData([]);
-        setFilteredData([]);
-      } finally {
-        setLoading(false);
+        const userRaw =
+          localStorage.getItem('user') ||
+          sessionStorage.getItem('user') ||
+          localStorage.getItem('profile') ||
+          sessionStorage.getItem('profile');
+        if (!userRaw) return null;
+        const user = JSON.parse(userRaw);
+        return user?.shipperId || user?._id || user?.id || null;
+      } catch {
+        return null;
       }
     };
 
-    loadApiData();
-  }, []);
+    const shipperId = resolveShipperId();
+
+    if (!shipperId) {
+      const msg =
+        'API Error: Missing shipperId. Please login or pass shipperId via navigation.';
+      dispatch(setBillsError(msg));
+      console.error('Failed to load API data:', msg);
+      return;
+    }
+
+    dispatch(fetchVerifiedLoadsForShipper({ shipperId }));
+  }, [location.state, dispatch]);
 
   // Handle search result from universal search
   useEffect(() => {
