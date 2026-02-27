@@ -760,26 +760,57 @@ const AddCustomer = () => {
         onClose={closeDeleteConfirm}
         maxWidth="xs"
         fullWidth
-        PaperProps={{ sx: { borderRadius: 3 } }}
+        PaperProps={{ sx: { borderRadius: 3, overflow: "hidden" } }}
       >
-        <DialogTitle sx={{ fontWeight: 700, color: "white" }}>
-          Delete Customer
+        <DialogTitle
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 0.5,
+            py: 2.5,
+            px: 2.5,
+            background: brand,
+            color: "#fff",
+          }}
+        >
+          <Box
+            component="svg"
+            sx={{ width: 44, height: 44 }}
+            viewBox="0 0 48 48"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path d="M24 4L2 44h44L24 4z" fill="#F59E0B" />
+            <rect x="22.5" y="18" width="3" height="12" fill="#1F2937" />
+            <circle cx="24" cy="34" r="2.3" fill="#1F2937" />
+          </Box>
+          <Typography sx={{ fontWeight: 700, color: "#fff", fontSize: "1.25rem" }}>
+            Confirm Deletion
+          </Typography>
         </DialogTitle>
         <DialogContent>
-          <Typography variant="body1" sx={{ color: "text.secondary", pt: 2 }}>
+          <Typography align="center" sx={{ pt: 1.5 }}>
             Are you sure you want to delete{" "}
             {deleteTarget?.companyInfo?.companyName
-              ? `'${deleteTarget.companyInfo.companyName}'`
+              ? `"${deleteTarget.companyInfo.companyName}"`
               : "this customer"}
-            ? This action cannot be undone.
+            ?
           </Typography>
         </DialogContent>
-        <DialogActions sx={{ p: 2.5 }}>
+        <DialogActions sx={{ p: 2.5, justifyContent: "center", gap: 1.5 }}>
           <Button
             variant="outlined"
             onClick={closeDeleteConfirm}
             disabled={deleting}
-            sx={{ borderRadius: 2, textTransform: "none", px: 3 }}
+            sx={{
+              borderRadius: 3,
+              textTransform: "none",
+              px: 3,
+              borderColor: "#111827",
+              color: "#111827",
+              "&:hover": { backgroundColor: "#111827", color: "#fff" },
+            }}
           >
             Cancel
           </Button>
@@ -788,7 +819,7 @@ const AddCustomer = () => {
             color="error"
             onClick={confirmDelete}
             disabled={deleting}
-            sx={{ borderRadius: 2, textTransform: "none", px: 3 }}
+            sx={{ borderRadius: 3, textTransform: "none", px: 3, color: "#fff" }}
           >
             {deleting ? (
               <CircularProgress size={20} sx={{ color: "#fff" }} />
@@ -1258,231 +1289,335 @@ const AddCustomer = () => {
               </IconButton>
             </Box>
           </Box>
-          <Box component="form" onSubmit={handleSaveCustomer} sx={{ p: 3 }}>
-            <Grid
-              container
-              spacing={2}
-              sx={{ mb: 2, justifyContent: "center" }}
-            >
-              {/* Company Name | MC/DOT No */}
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Company Name"
-                  name="companyName"
-                  value={formData.companyName || ""}
-                  onChange={handleFormInputChange}
-                  fullWidth
+          <Box component="form" onSubmit={handleSaveCustomer} sx={{ p: 0, bgcolor: "#f8f9fa" }}>
+            <Box sx={{ p: 3 }}>
+              <Grid container spacing={3}>
+                {/* Company Information Section */}
+                <Grid
+                  item
+                  xs={12}
                   sx={{
-                    minWidth: "100%",
-                    "& .MuiInputBase-root": {
-                      borderRadius: "12px",
-                      paddingRight: 3,
+                    border: 1,
+                    borderColor: "divider",
+                    borderRadius: 3,
+                    p: 3,
+                    boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
+                    transition: "0.3s",
+                    width: "100%",
+                    bgcolor: "#fff",
+                    "&:hover": {
+                      boxShadow: "0 6px 24px rgba(0,0,0,0.1)",
                     },
                   }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="MC/DOT No"
-                  name="mcDotNo"
-                  value={formData.mcDotNo || ""}
-                  onChange={handleFormInputChange}
-                  fullWidth
-                  sx={{
-                    minWidth: "100%",
-                    "& .MuiInputBase-root": {
-                      borderRadius: "12px",
-                      paddingRight: 3,
-                    },
-                  }}
-                />
-              </Grid>
+                >
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
+                    <Box sx={{ width: 44, height: 44, borderRadius: "50%", backgroundColor: "#e3f2fd", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <Business sx={{ color: "#1976d2", fontSize: 22 }} />
+                    </Box>
+                    <Typography variant="h6" sx={{ fontWeight: 600, color: "#2D3748" }}>
+                      Company Information
+                    </Typography>
+                  </Box>
+                  <Paper elevation={0} sx={{ p: 2, borderRadius: "12px" }}>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          label="Company Name"
+                          name="companyName"
+                          value={formData.companyName || ""}
+                          onChange={handleFormInputChange}
+                          fullWidth
+                          required
+                          variant="outlined"
+                          size="medium"
+                          InputProps={{
+                            startAdornment: (
+                              <InputAdornment position="start">
+                                <Business color="action" fontSize="small" />
+                              </InputAdornment>
+                            ),
+                          }}
+                          sx={inputFieldSx}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          label="MC/DOT No"
+                          name="mcDotNo"
+                          value={formData.mcDotNo || ""}
+                          onChange={handleFormInputChange}
+                          fullWidth
+                          required
+                          variant="outlined"
+                          size="medium"
+                          InputProps={{
+                            startAdornment: (
+                              <InputAdornment position="start">
+                                <Typography variant="caption" sx={{ fontWeight: 700, color: "text.secondary" }}>
+                                  #
+                                </Typography>
+                              </InputAdornment>
+                            ),
+                          }}
+                          sx={inputFieldSx}
+                        />
+                      </Grid>
+                    </Grid>
+                  </Paper>
+                </Grid>
 
-              {/* Email | Mobile */}
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Email"
-                  name="email"
-                  value={formData.email || ""}
-                  onChange={handleFormInputChange}
-                  fullWidth
+                {/* Contact Details Section */}
+                <Grid
+                  item
+                  xs={12}
                   sx={{
-                    minWidth: "100%",
-                    "& .MuiInputBase-root": {
-                      borderRadius: "12px",
-                      paddingRight: 3,
+                    border: 1,
+                    borderColor: "divider",
+                    borderRadius: 3,
+                    p: 3,
+                    boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
+                    transition: "0.3s",
+                    width: "100%",
+                    bgcolor: "#fff",
+                    "&:hover": {
+                      boxShadow: "0 6px 24px rgba(0,0,0,0.1)",
                     },
                   }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Mobile"
-                  name="mobile"
-                  value={formData.mobile || ""}
-                  onChange={handleFormInputChange}
-                  fullWidth
-                  sx={{
-                    minWidth: "100%",
-                    "& .MuiInputBase-root": {
-                      borderRadius: "12px",
-                      paddingRight: 3,
-                    },
-                  }}
-                />
-              </Grid>
+                >
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
+                    <Box sx={{ width: 44, height: 44, borderRadius: "50%", backgroundColor: "#e3f2fd", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <Phone sx={{ color: "#1976d2", fontSize: 22 }} />
+                    </Box>
+                    <Typography variant="h6" sx={{ fontWeight: 600, color: "#2D3748" }}>
+                      Contact Details
+                    </Typography>
+                  </Box>
+                  <Paper elevation={0} sx={{ p: 2, borderRadius: "12px" }}>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          label="Email Address"
+                          name="email"
+                          type="email"
+                          value={formData.email || ""}
+                          onChange={handleFormInputChange}
+                          fullWidth
+                          required
+                          variant="outlined"
+                          InputProps={{
+                            startAdornment: (
+                              <InputAdornment position="start">
+                                <Email color="action" fontSize="small" />
+                              </InputAdornment>
+                            ),
+                          }}
+                          sx={inputFieldSx}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          label="Phone Number"
+                          name="mobile"
+                          value={formData.mobile || ""}
+                          onChange={handleFormInputChange}
+                          fullWidth
+                          required
+                          variant="outlined"
+                          InputProps={{
+                            startAdornment: (
+                              <InputAdornment position="start">
+                                <Phone color="action" fontSize="small" />
+                              </InputAdornment>
+                            ),
+                          }}
+                          sx={inputFieldSx}
+                        />
+                      </Grid>
+                    </Grid>
+                  </Paper>
+                </Grid>
 
-              {/* Company Address | City */}
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Company Address"
-                  name="companyAddress"
-                  value={formData.companyAddress || ""}
-                  onChange={handleFormInputChange}
-                  fullWidth
+                {/* Location Section */}
+                <Grid
+                  item
+                  xs={12}
                   sx={{
-                    minWidth: "100%",
-                    "& .MuiInputBase-root": {
-                      borderRadius: "12px",
-                      paddingRight: 3,
+                    border: 1,
+                    borderColor: "divider",
+                    borderRadius: 3,
+                    p: 3,
+                    boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
+                    transition: "0.3s",
+                    width: "100%",
+                    bgcolor: "#fff",
+                    "&:hover": {
+                      boxShadow: "0 6px 24px rgba(0,0,0,0.1)",
                     },
                   }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="City"
-                  name="city"
-                  value={formData.city || ""}
-                  onChange={handleFormInputChange}
-                  fullWidth
-                  sx={{
-                    minWidth: "100%",
-                    "& .MuiInputBase-root": {
-                      borderRadius: "12px",
-                      paddingRight: 3,
-                    },
-                  }}
-                />
-              </Grid>
+                >
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
+                    <Box sx={{ width: 44, height: 44, borderRadius: "50%", backgroundColor: "#e3f2fd", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <LocationOn sx={{ color: "#1976d2", fontSize: 22 }} />
+                    </Box>
+                    <Typography variant="h6" sx={{ fontWeight: 600, color: "#2D3748" }}>
+                      Location
+                    </Typography>
+                  </Box>
+                  <Paper elevation={0} sx={{ p: 2, borderRadius: "12px" }}>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12}>
+                        <TextField
+                          label="Street Address"
+                          name="companyAddress"
+                          value={formData.companyAddress || ""}
+                          onChange={handleFormInputChange}
+                          fullWidth
+                          variant="outlined"
+                          placeholder="e.g. 123 Logistics Way"
+                          sx={inputFieldSx}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          label="City"
+                          name="city"
+                          value={formData.city || ""}
+                          onChange={handleFormInputChange}
+                          fullWidth
+                          variant="outlined"
+                          sx={inputFieldSx}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          label="State/Province"
+                          name="state"
+                          value={formData.state || ""}
+                          onChange={handleFormInputChange}
+                          fullWidth
+                          variant="outlined"
+                          sx={inputFieldSx}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          label="Zip/Postal Code"
+                          name="zipCode"
+                          value={formData.zipCode || ""}
+                          onChange={handleFormInputChange}
+                          fullWidth
+                          variant="outlined"
+                          sx={inputFieldSx}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          label="Country"
+                          name="country"
+                          value={formData.country || ""}
+                          onChange={handleFormInputChange}
+                          fullWidth
+                          variant="outlined"
+                          sx={inputFieldSx}
+                        />
+                      </Grid>
+                    </Grid>
+                  </Paper>
+                </Grid>
 
-              {/* State | Country */}
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="State"
-                  name="state"
-                  value={formData.state || ""}
-                  onChange={handleFormInputChange}
-                  fullWidth
+                {/* Additional Notes */}
+                <Grid
+                  item
+                  xs={12}
                   sx={{
-                    minWidth: "100%",
-                    "& .MuiInputBase-root": {
-                      borderRadius: "12px",
-                      paddingRight: 3,
+                    border: 1,
+                    borderColor: "divider",
+                    borderRadius: 3,
+                    p: 3,
+                    boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
+                    transition: "0.3s",
+                    width: "100%",
+                    bgcolor: "#fff",
+                    "&:hover": {
+                      boxShadow: "0 6px 24px rgba(0,0,0,0.1)",
                     },
                   }}
-                />
+                >
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
+                    <Box sx={{ width: 44, height: 44, borderRadius: "50%", backgroundColor: "#e3f2fd", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <Description sx={{ color: "#1976d2", fontSize: 22 }} />
+                    </Box>
+                    <Typography variant="h6" sx={{ fontWeight: 600, color: "#2D3748" }}>
+                      Additional Notes
+                    </Typography>
+                  </Box>
+                  <TextField
+                    label="Additional Notes"
+                    name="notes"
+                    value={formData.notes || ""}
+                    onChange={handleFormInputChange}
+                    fullWidth
+                    multiline
+                    rows={3}
+                    variant="outlined"
+                    placeholder="Any specific requirements or details..."
+                    sx={inputFieldSx}
+                  />
+                </Grid>
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Country"
-                  name="country"
-                  value={formData.country || ""}
-                  onChange={handleFormInputChange}
-                  fullWidth
-                  sx={{
-                    minWidth: "100%",
-                    "& .MuiInputBase-root": {
-                      borderRadius: "12px",
-                      paddingRight: 3,
-                    },
-                  }}
-                />
-              </Grid>
+            </Box>
 
-              {/* Zip Code | Notes */}
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Zip Code"
-                  name="zipCode"
-                  value={formData.zipCode || ""}
-                  onChange={handleFormInputChange}
-                  fullWidth
-                  sx={{
-                    minWidth: "100%",
-                    "& .MuiInputBase-root": {
-                      borderRadius: "12px",
-                      paddingRight: 3,
-                    },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Notes"
-                  name="notes"
-                  value={formData.notes || ""}
-                  onChange={handleFormInputChange}
-                  fullWidth
-                  multiline
-                  rows={3}
-                  placeholder="Additional notes about the customer..."
-                  sx={{
-                    minWidth: "100%",
-                    "& .MuiInputBase-root": {
-                      borderRadius: "12px",
-                      paddingRight: 3,
-                    },
-                  }}
-                />
-              </Grid>
-            </Grid>
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "flex-end",
-                gap: 2,
-                mt: 3,
-              }}
-            >
+            <Divider />
+
+            <DialogActions sx={{ p: 3, bgcolor: "#fff" }}>
               <Button
-                variant="outlined"
                 onClick={() => setEditModalOpen(false)}
+                variant="outlined"
                 sx={{
-                  borderRadius: 3,
-                  backgroundColor: "#ffff",
-                  color: "#d32f2f",
+                  borderRadius: "10px",
                   textTransform: "none",
-                  px: 4,
-                  borderColor: "#d32f2f",
-                  "&:hover": { backgroundColor: "red", color: "white" },
+                  px: 3,
+                  py: 1,
+                  fontWeight: 600,
+                  border: "1px solid #ef4444",
+                  color: "#ef4444",
+                  transition: "all 0.3s ease",
+                  "&:hover": {
+                    backgroundColor: "#ef4444",
+                    color: "#ffffff",
+                    border: "1px solid #ef4444",
+                  },
                 }}
               >
                 Cancel
               </Button>
+
               <Button
                 type="submit"
                 variant="contained"
+                disableElevation
                 disabled={loading}
                 sx={{
-                  borderRadius: 3,
+                  borderRadius: "10px",
                   textTransform: "none",
                   px: 4,
-                  backgroundColor: "#1976d2",
-                  color: "#fff",
+                  py: 1,
+                  fontWeight: 600,
+                  backgroundColor: "#1d4ed8",
+                  color: "#fff !important",
                   "&:hover": {
-                    backgroundColor: "#1565c0",
-                    color: "#fff",
+                    backgroundColor: "#05080eff",
+                    color: "#fff !important",
                   },
                 }}
               >
                 {loading ? (
-                  <CircularProgress size={20} sx={{ color: "#fff" }} />
+                  <CircularProgress size={22} sx={{ color: "#fff" }} />
                 ) : (
                   "Update Customer"
                 )}
               </Button>
-            </Box>
+            </DialogActions>
           </Box>
         </Box>
       </Modal>

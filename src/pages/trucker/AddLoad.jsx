@@ -113,6 +113,8 @@ const AddLoad = () => {
   });
   const [drivers, setDrivers] = useState([]);
   const [driversLoading, setDriversLoading] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleteTargetLoadId, setDeleteTargetLoadId] = useState(null);
   const [formData, setFormData] = useState(() => ({
     customerId: '',
     loadType: 'OTR',
@@ -1064,22 +1066,35 @@ const AddLoad = () => {
   }, []);
 
   const handleDeleteLoad = async (loadId) => {
-    if (window.confirm('Are you sure you want to delete this load?')) {
-      try {
-        setLoading(true);
-        await deleteLoad(loadId);
-
-        // Refresh the load list
-        await fetchAllLoads();
-        setSuccess('Load deleted successfully');
-        setTimeout(() => setSuccess(null), 3000);
-      } catch (err) {
-        setError(err.message || 'Failed to delete load');
-        setTimeout(() => setError(null), 3000);
-      } finally {
-        setLoading(false);
-      }
+    try {
+      setLoading(true);
+      await deleteLoad(loadId);
+      await fetchAllLoads();
+      setSuccess('Load deleted successfully');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError(err.message || 'Failed to delete load');
+      setTimeout(() => setError(null), 3000);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const openDeleteConfirm = (loadId) => {
+    setDeleteTargetLoadId(loadId);
+    setConfirmDeleteOpen(true);
+  };
+
+  const closeDeleteConfirm = () => {
+    setConfirmDeleteOpen(false);
+    setDeleteTargetLoadId(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTargetLoadId) return;
+    await handleDeleteLoad(deleteTargetLoadId);
+    setConfirmDeleteOpen(false);
+    setDeleteTargetLoadId(null);
   };
 
   const handleOpenAssignDriver = async (load) => {
@@ -1600,7 +1615,7 @@ const AddLoad = () => {
                     Assign
                   </button>
                   <button
-                    onClick={() => handleDeleteLoad(load._id)}
+                    onClick={() => openDeleteConfirm(load._id)}
                     disabled={load.status === 'Assigned'}
                     className={`h-8 px-3 rounded-md border text-base font-medium cursor-pointer ${
                       load.status === 'Assigned'
@@ -1673,6 +1688,71 @@ const AddLoad = () => {
           </button>
         </div>
       </div>
+
+      <Dialog
+        open={confirmDeleteOpen}
+        onClose={closeDeleteConfirm}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3, overflow: 'hidden' } }}
+      >
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 0.5,
+            py: 2.5,
+            px: 2.5,
+            background: brand,
+            color: '#fff',
+          }}
+        >
+          <Box
+            component="svg"
+            sx={{ width: 44, height: 44 }}
+            viewBox="0 0 48 48"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path d="M24 4L2 44h44L24 4z" fill="#F59E0B" />
+            <rect x="22.5" y="18" width="3" height="12" fill="#1F2937" />
+            <circle cx="24" cy="34" r="2.3" fill="#1F2937" />
+          </Box>
+          <Typography sx={{ fontWeight: 700, color: '#fff', fontSize: '1.25rem' }}>
+            Confirm Deletion
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Typography align="center" sx={{ pt: 1.5 }}>
+            Are you sure you want to delete this load?
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5, justifyContent: 'center', gap: 1.5 }}>
+          <Button
+            onClick={closeDeleteConfirm}
+            variant="outlined"
+            sx={{
+              borderRadius: 3,
+              textTransform: 'none',
+              px: 3,
+              borderColor: '#111827',
+              color: '#111827',
+              '&:hover': { backgroundColor: '#111827', color: '#fff' },
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={confirmDelete}
+            variant="contained"
+            color="error"
+            sx={{ borderRadius: 3, textTransform: 'none', px: 3, color: '#fff' }}
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Modern Add Load Modal */}
       <Dialog
@@ -3734,7 +3814,7 @@ const AddLoad = () => {
                     <TableRow>
                       <TableCell sx={{ fontWeight: 600, width: '40%', borderBottom: '1px solid #e0e0e0' }}>Load Type</TableCell>
                       <TableCell sx={{ borderBottom: '1px solid #e0e0e0' }}>
-                        <Chip label={viewLoadData.loadType || 'N/A'} color="primary" size="small" />
+                        <Chip label={viewLoadData.loadType || 'N/A'} color="white" size="small" />
                       </TableCell>
                     </TableRow>
                     <TableRow>

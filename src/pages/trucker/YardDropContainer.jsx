@@ -44,9 +44,15 @@ import {
 } from "@mui/icons-material";
 import { useAuth } from "../../context/AuthContext";
 import { BASE_API_URL } from "../../apiConfig";
+import { useThemeConfig } from "../../context/ThemeContext";
 
 const YardDropContainer = () => {
   const { user, userType } = useAuth();
+  const { themeConfig } = useThemeConfig();
+  const brand =
+    themeConfig?.header?.bg && themeConfig.header.bg !== "white"
+      ? themeConfig.header.bg
+      : themeConfig?.tokens?.primary || "#1976d2";
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
@@ -782,22 +788,54 @@ const YardDropContainer = () => {
         </div>
       </div>
 
-      <Dialog open={confirmDeleteOpen} onClose={handleDeleteDialogClose} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ color: "white", fontWeight: 700 }}>
-          Confirm Delete
+      <Dialog open={confirmDeleteOpen} onClose={handleDeleteDialogClose} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3, overflow: "hidden" } }}>
+        <DialogTitle
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 0.5,
+            py: 2.5,
+            px: 2.5,
+            background: brand,
+            color: "#fff",
+          }}
+        >
+          <Box
+            component="svg"
+            sx={{ width: 44, height: 44 }}
+            viewBox="0 0 48 48"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path d="M24 4L2 44h44L24 4z" fill="#F59E0B" />
+            <rect x="22.5" y="18" width="3" height="12" fill="#1F2937" />
+            <circle cx="24" cy="34" r="2.3" fill="#1F2937" />
+          </Box>
+          <Typography sx={{ fontWeight: 700, color: "#fff", fontSize: "1.25rem" }}>
+            Confirm Deletion
+          </Typography>
         </DialogTitle>
         <DialogContent>
-          <Typography variant="body1" sx={{pt:2}}>
+          <Typography align="center" sx={{ pt: 1.5 }}>
             Are you sure you want to delete{" "}
             {deleteTarget?.containerNo ? `"${deleteTarget.containerNo}"` : "this container"}
-            ? This action cannot be undone.
+            ?
           </Typography>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ p: 2.5, justifyContent: "center", gap: 1.5 }}>
           <Button
             onClick={handleDeleteDialogClose}
             variant="outlined"
-            sx={{ borderRadius: 2, textTransform: "none", ":hover": { backgroundColor: "blue", color:"white" } }}
+            disabled={deleting}
+            sx={{
+              borderRadius: 3,
+              textTransform: "none",
+              px: 3,
+              borderColor: "#111827",
+              color: "#111827",
+              "&:hover": { backgroundColor: "#111827", color: "#fff" },
+            }}
           >
             Cancel
           </Button>
@@ -806,7 +844,7 @@ const YardDropContainer = () => {
             color="error"
             onClick={confirmDelete}
             disabled={deleting}
-            sx={{ borderRadius: 2, textTransform: "none" }}
+            sx={{ borderRadius: 3, textTransform: "none", px: 3, color: "#fff" }}
           >
             {deleting ? <CircularProgress size={20} sx={{ color: "#fff" }} /> : "Delete"}
           </Button>

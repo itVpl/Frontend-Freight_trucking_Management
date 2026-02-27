@@ -79,6 +79,18 @@ const Dashboard = () => {
   const vehicleTypes = ['Dry Van', 'Flatbed', 'Refrigerated', 'Container', 'Tanker', 'Car Carrier', 'Lowboy'];
   const fuelTypes = ['Diesel', 'Gasoline', 'Electric', 'Hybrid', 'CNG', 'LPG'];
   const { themeConfig } = useThemeConfig();
+  const brand = (themeConfig.header?.bg && themeConfig.header.bg !== 'white') ? themeConfig.header.bg : (themeConfig.tokens?.primary || '#1976d2');
+  const headerTextColor = themeConfig.header?.text || '#ffffff';
+  const inputFieldSx = {
+    "& .MuiOutlinedInput-root": {
+      borderRadius: "12px",
+      backgroundColor: "#f8f9fb",
+      "& fieldset": { borderColor: "#e0e6ee" },
+      "&:hover fieldset": { borderColor: "#1976d2" },
+      "&.Mui-focused fieldset": { borderColor: "#1976d2" },
+      "&.Mui-focused": { backgroundColor: "#fff" }
+    }
+  };
 
   // API Helper Functions
   const getAuthToken = () => {
@@ -637,93 +649,182 @@ const Dashboard = () => {
 
       {/* Add Vehicle Dialog */}
       <Dialog open={openAddDialog} onClose={() => setOpenAddDialog(false)} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ color:"white" }}>Add New Vehicle</DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-            <TextField
-              label="Vehicle Number"
-              value={formData.vehicleNo}
-              onChange={(e) => setFormData({ ...formData, vehicleNo: e.target.value })}
-              fullWidth
-              required
-            />
-            <TextField
-              label="Chassis Number"
-              value={formData.chassisNo}
-              onChange={(e) => setFormData({ ...formData, chassisNo: e.target.value })}
-              fullWidth
-              required
-            />
-            <TextField
-              label="Engine Number"
-              value={formData.engineNo}
-              onChange={(e) => setFormData({ ...formData, engineNo: e.target.value })}
-              fullWidth
-              required
-            />
-            <TextField
-              label="Model Year"
-              type="number"
-              value={formData.modelYear}
-              onChange={(e) => setFormData({ ...formData, modelYear: e.target.value })}
-              fullWidth
-              required
-            />
-            <FormControl fullWidth required>
-              <InputLabel>Vehicle Type</InputLabel>
-              <Select
-                value={formData.vehicleType}
-                onChange={(e) => setFormData({ ...formData, vehicleType: e.target.value })}
-                label="Vehicle Type"
-              >
-                {vehicleTypes.map((type) => (
-                  <MenuItem key={type} value={type}>
-                    {type}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <TextField
-              label="Make"
-              value={formData.make}
-              onChange={(e) => setFormData({ ...formData, make: e.target.value })}
-              fullWidth
-              required
-            />
-            <TextField
-              label="Model"
-              value={formData.model}
-              onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-              fullWidth
-              required
-            />
-            <TextField
-              label="Capacity (tons)"
-              type="number"
-              value={formData.capacity}
-              onChange={(e) => setFormData({ ...formData, capacity: e.target.value })}
-              fullWidth
-              required
-            />
-            <FormControl fullWidth required>
-              <InputLabel>Fuel Type</InputLabel>
-              <Select
-                value={formData.fuelType}
-                onChange={(e) => setFormData({ ...formData, fuelType: e.target.value })}
-                label="Fuel Type"
-              >
-                {fuelTypes.map((type) => (
-                  <MenuItem key={type} value={type}>
-                    {type}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+        <DialogTitle
+          sx={{
+            textAlign: "left",
+            pb: 2,
+            pt: 3,
+            background: brand,
+            color: headerTextColor,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Typography variant="h6" fontWeight={700} color="white">
+            Add New Vehicle
+          </Typography>
+          <IconButton onClick={() => setOpenAddDialog(false)} sx={{ color: "white" }}>
+            <Close />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ background: "#f5f7fb" }}>
+          <Box sx={{ p: 2 }}>
+            <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: 2, border: "1px solid #e8edf2", background: "#fff" }}>
+              <Typography variant="h6" sx={{ mb: 2.5, fontWeight: 700, display: "flex", alignItems: "center", gap: 1, color: "#1f2937" }}>
+                <Box sx={{ width: 4, height: 22, background: "#1976d2", borderRadius: 1 }} />
+                Vehicle Information
+              </Typography>
+              <Grid container spacing={2.5}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Vehicle Number"
+                    value={formData.vehicleNo}
+                    onChange={(e) => setFormData({ ...formData, vehicleNo: e.target.value })}
+                    fullWidth
+                    required
+                    sx={inputFieldSx}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Chassis Number"
+                    value={formData.chassisNo}
+                    onChange={(e) => setFormData({ ...formData, chassisNo: e.target.value })}
+                    fullWidth
+                    required
+                    sx={inputFieldSx}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Engine Number"
+                    value={formData.engineNo}
+                    onChange={(e) => setFormData({ ...formData, engineNo: e.target.value })}
+                    fullWidth
+                    required
+                    sx={inputFieldSx}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Model Year"
+                    type="number"
+                    value={formData.modelYear}
+                    onChange={(e) => setFormData({ ...formData, modelYear: e.target.value })}
+                    fullWidth
+                    required
+                    sx={inputFieldSx}
+                  />
+                </Grid>
+              </Grid>
+            </Paper>
+
+            <Paper elevation={0} sx={{ p: 3, mb: 1, borderRadius: 2, border: "1px solid #e8edf2", background: "#fff" }}>
+              <Typography variant="h6" sx={{ mb: 2.5, fontWeight: 700, display: "flex", alignItems: "center", gap: 1, color: "#1f2937" }}>
+                <Box sx={{ width: 4, height: 22, background: "#1976d2", borderRadius: 1 }} />
+                Specifications
+              </Typography>
+              <Grid container spacing={2.5}>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth required>
+                    <InputLabel>Vehicle Type</InputLabel>
+                    <Select
+                      value={formData.vehicleType}
+                      onChange={(e) => setFormData({ ...formData, vehicleType: e.target.value })}
+                      label="Vehicle Type"
+                      fullWidth
+                      sx={{
+                        width: "100%",
+                        borderRadius: "12px",
+                        backgroundColor: "#f8f9fb",
+                        "& .MuiOutlinedInput-notchedOutline": { borderColor: "#e0e6ee" },
+                        "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#1976d2" },
+                      }}
+                    >
+                      {vehicleTypes.map((type) => (
+                        <MenuItem key={type} value={type}>
+                          {type}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Make"
+                    value={formData.make}
+                    onChange={(e) => setFormData({ ...formData, make: e.target.value })}
+                    fullWidth
+                    required
+                    sx={inputFieldSx}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Model"
+                    value={formData.model}
+                    onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+                    fullWidth
+                    required
+                    sx={inputFieldSx}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Capacity (tons)"
+                    type="number"
+                    value={formData.capacity}
+                    onChange={(e) => setFormData({ ...formData, capacity: e.target.value })}
+                    fullWidth
+                    required
+                    sx={inputFieldSx}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth required>
+                    <InputLabel>Fuel Type</InputLabel>
+                    <Select
+                      value={formData.fuelType}
+                      onChange={(e) => setFormData({ ...formData, fuelType: e.target.value })}
+                      label="Fuel Type"
+                      fullWidth
+                      sx={{
+                        width: "100%",
+                        borderRadius: "12px",
+                        backgroundColor: "#f8f9fb",
+                        "& .MuiOutlinedInput-notchedOutline": { borderColor: "#e0e6ee" },
+                        "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#1976d2" },
+                      }}
+                    >
+                      {fuelTypes.map((type) => (
+                        <MenuItem key={type} value={type}>
+                          {type}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </Grid>
+            </Paper>
           </Box>
         </DialogContent>
-        <DialogActions sx={{ pb:4, pr:4 }}>
-          <Button onClick={() => setOpenAddDialog(false)} sx={{border: "1px solid #d32f2f", color: '#d32f2f', '&:hover': { color: '#fff', backgroundColor:"#d32f2f" } }}>Cancel</Button>
-          <Button onClick={handleAddVehicle} variant="contained" sx={{color:"#fff"}}>
+        <DialogActions sx={{ pb: 4, pr: 4 }}>
+          <Button
+            onClick={() => setOpenAddDialog(false)}
+            sx={{
+              borderRadius: 3,
+              backgroundColor: "transparent",
+              color: "#d32f2f",
+              textTransform: "none",
+              px: 3,
+              border: "1px solid #d32f2f",
+              "&:hover": { backgroundColor: "#d32f2f", color: "#fff" },
+            }}
+          >
+            Cancel
+          </Button>
+          <Button onClick={handleAddVehicle} variant="contained" sx={{ borderRadius: 3, textTransform: "none", px: 4, color: "#fff" }}>
             Add Vehicle
           </Button>
         </DialogActions>
@@ -731,93 +832,181 @@ const Dashboard = () => {
 
       {/* Edit Vehicle Dialog */}
       <Dialog open={openEditDialog} onClose={() => setOpenEditDialog(false)} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ color:"white" }}>Edit Vehicle</DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-            <TextField
-              label="Vehicle Number"
-              value={formData.vehicleNo}
-              onChange={(e) => setFormData({ ...formData, vehicleNo: e.target.value })}
-              fullWidth
-              required
-            />
-            <TextField
-              label="Chassis Number"
-              value={formData.chassisNo}
-              onChange={(e) => setFormData({ ...formData, chassisNo: e.target.value })}
-              fullWidth
-              required
-            />
-            <TextField
-              label="Engine Number"
-              value={formData.engineNo}
-              onChange={(e) => setFormData({ ...formData, engineNo: e.target.value })}
-              fullWidth
-              required
-            />
-            <TextField
-              label="Model Year"
-              type="number"
-              value={formData.modelYear}
-              onChange={(e) => setFormData({ ...formData, modelYear: e.target.value })}
-              fullWidth
-              required
-            />
-            <FormControl fullWidth required>
-              <InputLabel>Vehicle Type</InputLabel>
-              <Select
-                value={formData.vehicleType}
-                onChange={(e) => setFormData({ ...formData, vehicleType: e.target.value })}
-                label="Vehicle Type"
-              >
-                {vehicleTypes.map((type) => (
-                  <MenuItem key={type} value={type}>
-                    {type}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <TextField
-              label="Make"
-              value={formData.make}
-              onChange={(e) => setFormData({ ...formData, make: e.target.value })}
-              fullWidth
-              required
-            />
-            <TextField
-              label="Model"
-              value={formData.model}
-              onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-              fullWidth
-              required
-            />
-            <TextField
-              label="Capacity (tons)"
-              type="number"
-              value={formData.capacity}
-              onChange={(e) => setFormData({ ...formData, capacity: e.target.value })}
-              fullWidth
-              required
-            />
-            <FormControl fullWidth required>
-              <InputLabel>Fuel Type</InputLabel>
-              <Select
-                value={formData.fuelType}
-                onChange={(e) => setFormData({ ...formData, fuelType: e.target.value })}
-                label="Fuel Type"
-              >
-                {fuelTypes.map((type) => (
-                  <MenuItem key={type} value={type}>
-                    {type}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+        <DialogTitle
+          sx={{
+            textAlign: "left",
+            pb: 2,
+            pt: 3,
+            background: brand,
+            color: headerTextColor,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Typography variant="h6" fontWeight={700} color="white">
+            Edit Vehicle
+          </Typography>
+          <IconButton onClick={() => setOpenEditDialog(false)} sx={{ color: "white" }}>
+            <Close />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ background: "#f5f7fb" }}>
+          <Box sx={{ p: 2 }}>
+            <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: 2, border: "1px solid #e8edf2", background: "#fff" }}>
+              <Typography variant="h6" sx={{ mb: 2.5, fontWeight: 700, display: "flex", alignItems: "center", gap: 1, color: "#1f2937" }}>
+                <Box sx={{ width: 4, height: 22, background: "#1976d2", borderRadius: 1 }} />
+                Vehicle Information
+              </Typography>
+              <Grid container spacing={2.5}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Vehicle Number"
+                    value={formData.vehicleNo}
+                    onChange={(e) => setFormData({ ...formData, vehicleNo: e.target.value })}
+                    fullWidth
+                    required
+                    sx={inputFieldSx}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Chassis Number"
+                    value={formData.chassisNo}
+                    onChange={(e) => setFormData({ ...formData, chassisNo: e.target.value })}
+                    fullWidth
+                    required
+                    sx={inputFieldSx}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Engine Number"
+                    value={formData.engineNo}
+                    onChange={(e) => setFormData({ ...formData, engineNo: e.target.value })}
+                    fullWidth
+                    required
+                    sx={inputFieldSx}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Model Year"
+                    type="number"
+                    value={formData.modelYear}
+                    onChange={(e) => setFormData({ ...formData, modelYear: e.target.value })}
+                    fullWidth
+                    required
+                    sx={inputFieldSx}
+                  />
+                </Grid>
+              </Grid>
+            </Paper>
+
+            <Paper elevation={0} sx={{ p: 3, mb: 1, borderRadius: 2, border: "1px solid #e8edf2", background: "#fff" }}>
+              <Typography variant="h6" sx={{ mb: 2.5, fontWeight: 700, display: "flex", alignItems: "center", gap: 1, color: "#1f2937" }}>
+                <Box sx={{ width: 4, height: 22, background: "#1976d2", borderRadius: 1 }} />
+                Specifications
+              </Typography>
+              <Grid container spacing={2.5}>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth required>
+                    <InputLabel>Vehicle Type</InputLabel>
+                    <Select
+                      value={formData.vehicleType}
+                      onChange={(e) => setFormData({ ...formData, vehicleType: e.target.value })}
+                      label="Vehicle Type"
+                      fullWidth
+                      sx={{
+                        width: "100%",
+                        borderRadius: "12px",
+                        backgroundColor: "#f8f9fb",
+                        "& .MuiOutlinedInput-notchedOutline": { borderColor: "#e0e6ee" },
+                        "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#1976d2" },
+                      }}
+                    >
+                      {vehicleTypes.map((type) => (
+                        <MenuItem key={type} value={type}>
+                          {type}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Make"
+                    value={formData.make}
+                    onChange={(e) => setFormData({ ...formData, make: e.target.value })}
+                    fullWidth
+                    required
+                    sx={inputFieldSx}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Model"
+                    value={formData.model}
+                    onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+                    fullWidth
+                    required
+                    sx={inputFieldSx}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Capacity (tons)"
+                    type="number"
+                    value={formData.capacity}
+                    onChange={(e) => setFormData({ ...formData, capacity: e.target.value })}
+                    fullWidth
+                    required
+                    sx={inputFieldSx}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth required>
+                    <InputLabel>Fuel Type</InputLabel>
+                    <Select
+                      value={formData.fuelType}
+                      onChange={(e) => setFormData({ ...formData, fuelType: e.target.value })}
+                      label="Fuel Type"
+                      fullWidth
+                      sx={{
+                        width: "100%",
+                        borderRadius: "12px",
+                        backgroundColor: "#f8f9fb",
+                        "& .MuiOutlinedInput-notchedOutline": { borderColor: "#e0e6ee" },
+                        "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#1976d2" },
+                      }}
+                    >
+                      {fuelTypes.map((type) => (
+                        <MenuItem key={type} value={type}>
+                          {type}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </Grid>
+            </Paper>
           </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenEditDialog(false)} sx={{ color: '#d32f2f', border: "1px solid #d32f2f", '&:hover': { color: 'white', backgroundColor:"#d32f2f" } }}>Cancel</Button>
-          <Button onClick={handleEditVehicle} variant="contained" sx={{color:"#fff"}}>
+        <DialogActions sx={{ pb: 4, pr: 4 }}>
+          <Button
+            onClick={() => setOpenEditDialog(false)}
+            sx={{
+              color: "#d32f2f",
+              border: "1px solid #d32f2f",
+              borderRadius: 3,
+              textTransform: "none",
+              px: 3,
+              "&:hover": { color: "white", backgroundColor: "#d32f2f" },
+            }}
+          >
+            Cancel
+          </Button>
+          <Button onClick={handleEditVehicle} variant="contained" sx={{ color: "#fff", borderRadius: 3, textTransform: "none", px: 4 }}>
             Update Vehicle
           </Button>
         </DialogActions>
@@ -980,42 +1169,77 @@ const Dashboard = () => {
             </Box>
           )}
         </DialogContent>
-        <DialogActions>
+        {/* <DialogActions>
           <Button onClick={() => setOpenViewDialog(false)} sx={{ color: '#d32f2f', border: '1px solid #d32f2f', mb:2,mr:10, '&:hover': { color: 'white', backgroundColor: '#d32f2f' } }}>Close</Button>
-        </DialogActions>
+        </DialogActions> */}
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={openDeleteDialog} onClose={() => setOpenDeleteDialog(false)}>
-        <DialogTitle sx={{ color: 'white', fontWeight: 600 }}>
-          Confirm Delete
+      <Dialog
+        open={openDeleteDialog}
+        onClose={() => {
+          setOpenDeleteDialog(false);
+          setVehicleToDelete(null);
+        }}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3, overflow: 'hidden' } }}
+      >
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 0.5,
+            py: 2.5,
+            px: 2.5,
+            background: brand,
+            color: '#fff',
+          }}
+        >
+          <Box
+            component="svg"
+            sx={{ width: 44, height: 44 }}
+            viewBox="0 0 48 48"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path d="M24 4L2 44h44L24 4z" fill="#F59E0B" />
+            <rect x="22.5" y="18" width="3" height="12" fill="#1F2937" />
+            <circle cx="24" cy="34" r="2.3" fill="#1F2937" />
+          </Box>
+          <Typography sx={{ fontWeight: 700, color: '#fff', fontSize: '1.25rem' }}>
+            Confirm Deletion
+          </Typography>
         </DialogTitle>
         <DialogContent>
-          <Typography variant="body1">
-            Are you sure you want to delete this vehicle? This action cannot be undone.
+          <Typography align="center" sx={{ pt: 1.5 }}>
+            Are you sure you want to delete this vehicle?
           </Typography>
         </DialogContent>
-        <DialogActions>
-          <Button 
+        <DialogActions sx={{ p: 2.5, justifyContent: 'center', gap: 1.5 }}>
+          <Button
             onClick={() => {
               setOpenDeleteDialog(false);
               setVehicleToDelete(null);
             }}
             variant="outlined"
-            sx={{ borderColor: '#d32f2f', color: '#d32f2f', '&:hover': { borderColor: '#b71c1c', color: '#b71c1c' } }}
+            sx={{
+              borderRadius: 3,
+              textTransform: 'none',
+              px: 3,
+              borderColor: '#111827',
+              color: '#111827',
+              '&:hover': { backgroundColor: '#111827', color: '#fff' },
+            }}
           >
             Cancel
           </Button>
-          <Button 
-            onClick={handleDeleteVehicle} 
-            variant="contained" 
+          <Button
+            onClick={handleDeleteVehicle}
+            variant="contained"
             color="error"
-            sx={{
-              backgroundColor: '#d32f2f',
-              '&:hover': {
-                backgroundColor: '#b71c1c',
-              },
-            }}
+            sx={{ borderRadius: 3, textTransform: 'none', px: 3, color: '#fff' }}
           >
             Delete
           </Button>

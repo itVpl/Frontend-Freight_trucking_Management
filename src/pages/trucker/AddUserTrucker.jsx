@@ -2158,7 +2158,7 @@ const AddUserTrucker = () => {
       >
         <DialogTitle sx={{ textAlign: "center", pt: 3 }}>
           <Warning sx={{ fontSize: 48, color: "warning.main", mb: 1 }} />
-          <Typography variant="h6" fontWeight={600}>
+          <Typography variant="h6" fontWeight={600} sx={{color:"white"}}>
             Confirm Deletion
           </Typography>
         </DialogTitle>
@@ -2172,7 +2172,7 @@ const AddUserTrucker = () => {
             onClick={() => setDeleteModalOpen(false)}
             variant="outlined"
             color="inherit"
-            sx={{ borderRadius: 2, textTransform: "none", px: 3 }}
+            sx={{ borderRadius: 2, textTransform: "none", px: 3, ":hover": { backgroundColor: "black", color: "white" } }}
           >
             Cancel
           </Button>
