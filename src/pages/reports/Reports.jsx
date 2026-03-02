@@ -1142,8 +1142,8 @@ const Reports = () => {
           }}
         >
           <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-            <LocalShipping sx={{ fontSize: 28, color: headerTextColor }} />
-            <Typography variant="h5" fontWeight={600} color={headerTextColor}>
+            <LocalShipping sx={{ fontSize: 28, color: "white" }} />
+            <Typography variant="h5" fontWeight={600} color="white">
               Consignment Details
             </Typography>
           </Box>
@@ -1151,7 +1151,7 @@ const Reports = () => {
             onClick={handleCloseModal}
             size="small"
             sx={{
-              color: headerTextColor,
+              color: "white",
               "&:hover": {
                 background: "rgba(255, 255, 255, 0.1)",
               },

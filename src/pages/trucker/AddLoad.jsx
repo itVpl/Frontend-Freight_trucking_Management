@@ -4104,7 +4104,7 @@ const AddLoad = () => {
             </Box>
           )}
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 3, justifyContent: 'flex-end', backgroundColor: '#f5f5f5' }}>
+        {/* <DialogActions sx={{ px: 3, pb: 3, justifyContent: 'flex-end', backgroundColor: '#f5f5f5' }}>
           <Button
             onClick={() => {
               setViewModalOpen(false);
@@ -4126,7 +4126,7 @@ const AddLoad = () => {
           >
             Close
           </Button>
-        </DialogActions>
+        </DialogActions> */}
       </Dialog>
 
       {/* Charges Calculator Modal */}
