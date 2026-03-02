@@ -1180,7 +1180,7 @@ const AddUserTrucker = () => {
                                 fontWeight: 600,
                                 fontSize: 11,
                                 textTransform: "capitalize",
-                                border: `1px solid ${selectedCustomer.status === "active" ? "#a5d6a7" : "#e0e0e0"}`,
+                                border: `1px solid ${selectedSubUser.isActive !== false ? "#a5d6a7" : "#e0e0e0"}`,
                               }}
                             />
                           </TableCell>
