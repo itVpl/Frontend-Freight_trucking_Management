@@ -1270,23 +1270,51 @@ const AddUserShipper = () => {
           }
         }}
       >
-        <DialogTitle sx={{ textAlign: 'center', pt: 3 }}>
-          <Warning sx={{ fontSize: 48, color: 'warning.main', mb: 1 }} />
-          <Typography variant="h6" fontWeight={600}>
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 0.5,
+            py: 2.5,
+            px: 2.5,
+            background: brand,
+            color: '#fff',
+          }}
+        >
+          <Box
+            component="svg"
+            sx={{ width: 44, height: 44 }}
+            viewBox="0 0 48 48"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path d="M24 4L2 44h44L24 4z" fill="#F59E0B" />
+            <rect x="22.5" y="18" width="3" height="12" fill="#1F2937" />
+            <circle cx="24" cy="34" r="2.3" fill="#1F2937" />
+          </Box>
+          <Typography variant="h6" fontWeight={600} sx={{ color: '#fff' }}>
             Confirm Deletion
           </Typography>
         </DialogTitle>
         <DialogContent sx={{ textAlign: 'center' }}>
-          <Typography variant="body1" color="text.secondary" marginTop={8}>
+          <Typography variant="body1" color="text.secondary" sx={{ pt: 1.5 }}>
             Are you sure you want to delete this user?
           </Typography>
         </DialogContent>
-        <DialogActions sx={{ p: 3, justifyContent: 'center', gap: 2 }}>
+        <DialogActions sx={{ p: 3, justifyContent: 'center', gap: 1.5 }}>
           <Button
             onClick={() => setDeleteModalOpen(false)}
             variant="outlined"
             color="inherit"
-            sx={{ borderRadius: 2, textTransform: 'none', px: 3 }}
+            sx={{
+              borderRadius: 3,
+              textTransform: 'none',
+              px: 3,
+              borderColor: '#111827',
+              color: '#111827',
+              '&:hover': { backgroundColor: '#111827', color: '#fff' },
+            }}
           >
             Cancel
           </Button>
@@ -1295,7 +1323,7 @@ const AddUserShipper = () => {
             variant="contained"
             color="error"
             disabled={loading}
-            sx={{ borderRadius: 2, textTransform: 'none', px: 3 }}
+            sx={{ borderRadius: 3, textTransform: 'none', px: 3, color: '#fff' }}
           >
             {loading ? <CircularProgress size={20} color="inherit" /> : 'Delete'}
           </Button>

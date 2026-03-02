@@ -2037,98 +2037,247 @@ const Dashboard = () => {
       <Dialog
         open={assignModalOpen}
         onClose={handleCloseAssignModal}
-        maxWidth="xs"
+        maxWidth="sm"
         fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            boxShadow: "0 10px 40px rgba(0, 0, 0, 0.2)",
+            overflow: "visible",
+          },
+        }}
       >
-        <DialogTitle sx={{ p: 0 }}>
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              px: 2,
-              py: 1.5,
-              background: brand,
-              color: headerTextColor,
-              // borderBottom: "1px solid #e0e0e0",
-            }}
-          >
-            <Typography variant="h6" fontWeight={700} sx={{ color: "white" }}>
-              Assign Driver
-            </Typography>
-            <IconButton
-              onClick={handleCloseAssignModal}
+        {/* Header with gradient and icon */}
+        <Box
+          sx={{
+            background: "linear-gradient(135deg, #1976d2 0%, #1565c0 100%)",
+            p: 3,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            color: "#fff",
+            position: "relative",
+            "&::after": {
+              content: '""',
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: "4px",
+              background:
+                "linear-gradient(90deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 100%)",
+            },
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+            <Box
               sx={{
-                color: "white",
-                "&:hover": { backgroundColor: "rgba(255,255,255,0.1)" },
+                width: 48,
+                height: 48,
+                borderRadius: "12px",
+                backgroundColor: "rgba(255, 255, 255, 0.25)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                backdropFilter: "blur(10px)",
+                boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
               }}
-              size="small"
-              aria-label="Close assign driver dialog"
             >
-              <CloseIcon />
-            </IconButton>
+              <PersonIcon sx={{ fontSize: 28, color: "#fff" }} />
+            </Box>
+            <Box>
+              <Typography
+                variant="h6"
+                sx={{
+                  fontWeight: 700,
+                  color: "#fff",
+                  fontSize: "1.25rem",
+                  mb: 0.3,
+                }}
+              >
+                Assign Driver
+              </Typography>
+              <Typography
+                variant="body2"
+                sx={{ color: "rgba(255, 255, 255, 0.95)", fontSize: "0.875rem" }}
+              >
+                Assign a driver to this load
+              </Typography>
+            </Box>
           </Box>
-        </DialogTitle>
-        <DialogContent sx={{ px: 4, py: 3, background: "#f8fafc" }}>
-          <Box component="form" onSubmit={handleAssignSubmit}>
-            <Grid container spacing={2} sx={{ mt: 3 }}>
-              <Grid item xs={12}>
-                <Autocomplete
-                  options={drivers}
-                  getOptionLabel={(d) =>
-                    d?.fullName || d?.name || d?.email || "Driver"
-                  }
-                  value={
-                    drivers.find((d) => d._id === assignForm.driverId) || null
-                  }
-                  onChange={(e, newVal) =>
-                    setAssignForm((prev) => ({
-                      ...prev,
-                      driverId: newVal?._id || "",
-                    }))
-                  }
-                  renderInput={(params) => (
-                    <TextField {...params} label="Driver Name" size="medium" />
-                  )}
-                  sx={{
-                    width: "180px",
-                    "& .MuiOutlinedInput-root": {
-                      borderRadius: 2,
-                      backgroundColor: "#ffffff",
+          <IconButton
+            onClick={handleCloseAssignModal}
+            sx={{
+              color: "#fff",
+              backgroundColor: "rgba(255, 255, 255, 0.15)",
+              "&:hover": {
+                backgroundColor: "rgba(255, 255, 255, 0.25)",
+              },
+            }}
+            aria-label="Close assign driver dialog"
+          >
+            <CloseIcon />
+          </IconButton>
+        </Box>
+        <DialogContent sx={{ p: 4, backgroundColor: "#fff" }}>
+          <Box component="form" onSubmit={handleAssignSubmit} sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            <Box>
+              <Typography
+                variant="body2"
+                sx={{
+                  mb: 1.5,
+                  fontWeight: 600,
+                  color: (themeConfig.tokens?.text || "#333333"),
+                  fontSize: "0.9rem",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 0.5,
+                }}
+              >
+                Driver Name <span style={{ color: "#ef4444" }}>*</span>
+              </Typography>
+              <Autocomplete
+                options={drivers}
+                getOptionLabel={(d) => d?.fullName || d?.name || d?.email || "Driver"}
+                value={drivers.find((d) => d._id === assignForm.driverId) || null}
+                onChange={(e, newVal) =>
+                  setAssignForm((prev) => ({
+                    ...prev,
+                    driverId: newVal?._id || "",
+                  }))
+                }
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    placeholder="Search and select driver"
+                    InputProps={{
+                      ...params.InputProps,
+                      startAdornment: (
+                        <>
+                          <Search sx={{ color: "#9ca3af", ml: 1, mr: -0.5, fontSize: 22 }} />
+                          {params.InputProps.startAdornment}
+                        </>
+                      ),
+                    }}
+                    sx={{
+                      "& .MuiInputBase-root": {
+                        borderRadius: 2.5,
+                        backgroundColor: "#E3F2FD",
+                        fontSize: "0.95rem",
+                        transition: "all 0.2s",
+                        "&:hover": {
+                          backgroundColor: "#fff",
+                          boxShadow: "0 2px 8px rgba(25, 118, 210, 0.15)",
+                        },
+                        "&.Mui-focused": {
+                          backgroundColor: "#fff",
+                          boxShadow: "0 0 0 3px rgba(25, 118, 210, 0.1)",
+                        },
+                      },
+                      "& .MuiOutlinedInput-notchedOutline": {
+                        borderColor: "#BBDEFB",
+                        borderWidth: "1.5px",
+                      },
+                      "&:hover .MuiOutlinedInput-notchedOutline": {
+                        borderColor: "#1976d2",
+                      },
+                      "& .Mui-focused .MuiOutlinedInput-notchedOutline": {
+                        borderColor: "#1976d2",
+                        borderWidth: "2px",
+                      },
+                    }}
+                  />
+                )}
+                ListboxProps={{ sx: { maxHeight: 240 } }}
+              />
+            </Box>
+
+            <Box>
+              <Typography
+                variant="body2"
+                sx={{
+                  mb: 1.5,
+                  fontWeight: 600,
+                  color: (themeConfig.tokens?.text || "#333333"),
+                  fontSize: "0.9rem",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 0.5,
+                }}
+              >
+                Vehicle No <span style={{ color: "#ef4444" }}>*</span>
+              </Typography>
+              <TextField
+                name="vehicleNumber"
+                value={assignForm.vehicleNumber}
+                onChange={handleAssignFormChange}
+                fullWidth
+                placeholder="Enter vehicle number"
+                InputProps={{
+                  startAdornment: (
+                    <Box sx={{ display: "flex", alignItems: "center", mr: 0.5, fontSize: "1.3rem" }}>
+                      🚛
+                    </Box>
+                  ),
+                }}
+                sx={{
+                  "& .MuiInputBase-root": {
+                    borderRadius: 2.5,
+                    backgroundColor: "#E3F2FD",
+                    fontSize: "0.95rem",
+                    transition: "all 0.2s",
+                    "&:hover": {
+                      backgroundColor: "#fff",
+                      boxShadow: "0 2px 8px rgba(25, 118, 210, 0.15)",
                     },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  label="Vehicle Number"
-                  name="vehicleNumber"
-                  value={assignForm.vehicleNumber}
-                  onChange={handleAssignFormChange}
-                  fullWidth
-                  size="medium"
-                  sx={{
-                    width: "180px",
-                    "& .MuiOutlinedInput-root": {
-                      borderRadius: 2,
-                      backgroundColor: "#ffffff",
+                    "&.Mui-focused": {
+                      backgroundColor: "#fff",
+                      boxShadow: "0 0 0 3px rgba(25, 118, 210, 0.1)",
                     },
-                  }}
-                />
-              </Grid>
-            </Grid>
-            <DialogActions sx={{ mt: 3, p: 0 }}>
+                  },
+                  "& .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "#BBDEFB",
+                    borderWidth: "1.5px",
+                  },
+                  "&:hover .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "#1976d2",
+                  },
+                  "& .Mui-focused .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "#1976d2",
+                    borderWidth: "2px",
+                  },
+                }}
+              />
+            </Box>
+
+            <DialogActions
+              sx={{
+                px: 0,
+                pb: 0,
+                pt: 1,
+                justifyContent: "flex-end",
+                backgroundColor: "#fff",
+                gap: 2,
+                borderTop: "1px solid #f3f4f6",
+              }}
+            >
               <Button
                 onClick={handleCloseAssignModal}
                 variant="outlined"
                 sx={{
-                  borderRadius: 2,
+                  borderRadius: 2.5,
+                  textTransform: "none",
                   fontWeight: 600,
-                  color: "red",
-                  borderColor: "red",
+                  px: 4,
+                  py: 1.2,
+                  borderColor: "#e5e7eb",
+                  color: "#6b7280",
+                  fontSize: "0.95rem",
+                  transition: "all 0.2s",
                   "&:hover": {
-                    backgroundColor: "red",
-                    color: "white",
+                    borderColor: "#9ca3af",
+                    backgroundColor: "#f9fafb",
+                    transform: "translateY(-1px)",
                   },
                 }}
               >
@@ -2137,8 +2286,29 @@ const Dashboard = () => {
               <Button
                 type="submit"
                 variant="contained"
-                color="primary"
-                sx={{ borderRadius: 2, fontWeight: 700, color: "#fff" }}
+                sx={{
+                  background: "linear-gradient(135deg, #1976d2 0%, #1565c0 100%)",
+                  color: "#fff",
+                  borderRadius: 2.5,
+                  textTransform: "none",
+                  fontWeight: 700,
+                  px: 4,
+                  py: 1.2,
+                  fontSize: "0.95rem",
+                  boxShadow: "0 4px 14px rgba(25, 118, 210, 0.4)",
+                  transition: "all 0.2s",
+                  "&:hover": {
+                    background: "linear-gradient(135deg, #1565c0 0%, #0d47a1 100%)",
+                    boxShadow: "0 6px 20px rgba(25, 118, 210, 0.5)",
+                    transform: "translateY(-2px)",
+                  },
+                  "&.Mui-disabled": {
+                    background: "#e5e7eb",
+                    color: "#9ca3af",
+                    boxShadow: "none",
+                  },
+                }}
+                disabled={!assignForm.driverId || !assignForm.vehicleNumber}
               >
                 Assign
               </Button>

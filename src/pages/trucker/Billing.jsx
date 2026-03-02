@@ -2507,11 +2507,11 @@ const Dashboard = () => {
                 textTransform: "none",
                 px: 3,
                 py: 1,
-                borderColor: brand,
-                color: brand,
+                border: "1px solid red",
+                color: "red",
                 "&:hover": {
-                  borderColor: brand,
-                  color: brand,
+                  color:"white",
+                  backgroundColor: "RED",
                 },
               }}
             >
@@ -2531,7 +2531,7 @@ const Dashboard = () => {
                 "&:hover": { backgroundColor: "#1b5e20" },
                 "&:disabled": {
                   backgroundColor: "#ccc",
-                  color: "#666",
+                  color: "white",
                 },
               }}
             >

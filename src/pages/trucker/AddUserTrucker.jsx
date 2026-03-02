@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Box,
   Typography,
@@ -29,16 +29,16 @@ import {
   DialogContent,
   DialogActions,
   Switch,
-} from '@mui/material';
-import { 
-  Add, 
-  Search, 
-  Clear, 
-  Close, 
+} from "@mui/material";
+import {
+  Add,
+  Search,
+  Clear,
+  Close,
   AssignmentInd,
-  Visibility, 
-  Edit, 
-  Delete, 
+  Visibility,
+  Edit,
+  Delete,
   PersonAdd,
   Business,
   Phone,
@@ -79,17 +79,20 @@ const AddUserTrucker = () => {
   }));
 
   const [permissionModalOpen, setPermissionModalOpen] = useState(false);
-  const [selectedUserForPermission, setSelectedUserForPermission] = useState(null);
+  const [selectedUserForPermission, setSelectedUserForPermission] =
+    useState(null);
   const [userPermissions, setUserPermissions] = useState({});
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [subUserToDelete, setSubUserToDelete] = useState(null);
 
   const sidebarOptions = TRUCKER_PERMISSION_KEYS.map((key) => ({ key, label: PERMISSION_LABELS[key] }));
 
-
   const { themeConfig } = useThemeConfig();
-  const brand = (themeConfig.header?.bg && themeConfig.header.bg !== 'white') ? themeConfig.header.bg : (themeConfig.tokens?.primary || '#1976d2');
-  const headerTextColor = themeConfig.header?.text || '#ffffff';
+  const brand =
+    themeConfig.header?.bg && themeConfig.header.bg !== "white"
+      ? themeConfig.header.bg
+      : themeConfig.tokens?.primary || "#1976d2";
+  const headerTextColor = themeConfig.header?.text || "#ffffff";
 
   useEffect(() => {
     fetchSubUsers();
@@ -305,23 +308,25 @@ const AddUserTrucker = () => {
 
   const handleFormInputChange = useCallback((e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   }, []);
-  
+
   const inputFieldSx = {
-    '& .MuiInputBase-root': {
+    "& .MuiInputBase-root": {
       borderRadius: 2,
-      backgroundColor: '#fff',
-      boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+      backgroundColor: "#fff",
+      boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
     },
-    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#E2E8F0' },
-    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
-    '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#4A90E2' },
-    '& .MuiInputBase-root.Mui-focused': { backgroundColor: '#fff' },
-    '& input:-webkit-autofill': { WebkitBoxShadow: '0 0 0 1000px #fff inset' },
+    "& .MuiOutlinedInput-notchedOutline": { borderColor: "#E2E8F0" },
+    "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#4A90E2" },
+    "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": {
+      borderColor: "#4A90E2",
+    },
+    "& .MuiInputBase-root.Mui-focused": { backgroundColor: "#fff" },
+    "& input:-webkit-autofill": { WebkitBoxShadow: "0 0 0 1000px #fff inset" },
   };
 
   const totalItems = filteredData?.length || 0;
@@ -335,15 +340,23 @@ const AddUserTrucker = () => {
     const maxVisible = 5;
     const start = Math.max(1, clampedPage + 1 - Math.floor(maxVisible / 2));
     const end = Math.min(totalPages, start + maxVisible - 1);
-    if (start > 1) pages.push(1, '…');
+    if (start > 1) pages.push(1, "…");
     for (let i = start; i <= end; i++) pages.push(i);
-    if (end < totalPages) pages.push('…', totalPages);
+    if (end < totalPages) pages.push("…", totalPages);
     return pages;
   };
 
   if (loading && subUsers.length === 0) {
     return (
-      <Box sx={{ p: 3, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+      <Box
+        sx={{
+          p: 3,
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "400px",
+        }}
+      >
         <CircularProgress />
         <Typography variant="h6" sx={{ ml: 2 }}>
           Loading sub-users...
@@ -360,7 +373,11 @@ const AddUserTrucker = () => {
         </Alert>
       )}
       {success && (
-        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>
+        <Alert
+          severity="success"
+          sx={{ mb: 2 }}
+          onClose={() => setSuccess(null)}
+        >
           {success}
         </Alert>
       )}
@@ -520,32 +537,33 @@ const AddUserTrucker = () => {
         </div>
       </div>
 
-
       {/* Add Customer Dialog */}
-      <Dialog 
-        open={addModalOpen} 
-        onClose={() => setAddModalOpen(false)} 
-        maxWidth="md" 
+      <Dialog
+        open={addModalOpen}
+        onClose={() => setAddModalOpen(false)}
+        maxWidth="md"
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: '16px',
-            boxShadow: '0 24px 48px rgba(0,0,0,0.2)',
-            overflow: 'hidden'
-          }
+            borderRadius: "16px",
+            boxShadow: "0 24px 48px rgba(0,0,0,0.2)",
+            overflow: "hidden",
+          },
         }}
       >
-        <DialogTitle sx={{ 
-          p: 0,
-          background: brand,
-          color: headerTextColor,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          px: 3,
-          py: 2
-        }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+        <DialogTitle
+          sx={{
+            p: 0,
+            background: brand,
+            color: headerTextColor,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            px: 3,
+            py: 2,
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
             <PersonAdd sx={{ fontSize: 28, color: "white" }} />
             <Typography variant="h6" fontWeight={700} color="white">
               {editModalOpen ? 'Edit User' : 'Add New User'}
@@ -567,29 +585,50 @@ const AddUserTrucker = () => {
             <Box sx={{ p: 3 }}>
               <Grid container spacing={3}>
                 {/* Company Information Section */}
-                <Grid 
-                  item xs={12}
+                <Grid
+                  item
+                  xs={12}
                   sx={{
                     border: 1,
-                    borderColor: 'divider',
+                    borderColor: "divider",
                     borderRadius: 3,
                     p: 3,
-                    boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
-                    transition: '0.3s',
-                    width: '100%',
-                    bgcolor: '#fff',
-                    '&:hover': { boxShadow: '0 6px 24px rgba(0,0,0,0.1)' },
+                    boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
+                    transition: "0.3s",
+                    width: "100%",
+                    bgcolor: "#fff",
+                    "&:hover": { boxShadow: "0 6px 24px rgba(0,0,0,0.1)" },
                   }}
                 >
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                    <Box sx={{ width: 44, height: 44, borderRadius: '50%', backgroundColor: '#e3f2fd', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <AssignmentInd sx={{ color: '#1976d2', fontSize: 22 }} />
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 2,
+                      mb: 2,
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: "50%",
+                        backgroundColor: "#e3f2fd",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <AssignmentInd sx={{ color: "#1976d2", fontSize: 22 }} />
                     </Box>
-                    <Typography variant="h6" sx={{ fontWeight: 600, color: '#2D3748' }}>
+                    <Typography
+                      variant="h6"
+                      sx={{ fontWeight: 600, color: "#2D3748" }}
+                    >
                       User Information
                     </Typography>
                   </Box>
-                  <Paper elevation={0} sx={{ p: 2, borderRadius: '12px' }}>
+                  <Paper elevation={0} sx={{ p: 2, borderRadius: "12px" }}>
                     <Grid container spacing={2}>
                       <Grid item xs={12} sm={6}>
                         <TextField 
@@ -616,8 +655,8 @@ const AddUserTrucker = () => {
                           label="Email" 
                           name="email" 
                           type="email"
-                          value={formData.email || ''} 
-                          onChange={handleFormInputChange} 
+                          value={formData.email || ""}
+                          onChange={handleFormInputChange}
                           fullWidth
                           required
                           variant="outlined"
@@ -677,17 +716,17 @@ const AddUserTrucker = () => {
                 onClick={() => { setAddModalOpen(false); setEditModalOpen(false); setSelectedSubUser(null); }} 
                 variant="outlined"
                 color="inherit"
-                sx={{ 
-                  borderRadius: '8px', 
-                  textTransform: 'none', 
-                  border: '1px solid red',
-                  color:"red",
+                sx={{
+                  borderRadius: "8px",
+                  textTransform: "none",
+                  border: "1px solid red",
+                  color: "red",
                   px: 3,
                   fontWeight: 600,
-                  '&:hover': {
+                  "&:hover": {
                     backgroundColor: "red",
-                    color: 'white'
-                  }
+                    color: "white",
+                  },
                 }}
               >
                 Cancel
@@ -726,38 +765,46 @@ const AddUserTrucker = () => {
       >
         <Box
           sx={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: '90%',
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: "90%",
             maxWidth: 850,
-            bgcolor: 'white',
-            borderRadius: '12px',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
-            maxHeight: '90vh',
-            overflow: 'auto',
-            border: '1px solid #e0e0e0'
+            bgcolor: "white",
+            borderRadius: "12px",
+            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.12)",
+            maxHeight: "90vh",
+            overflow: "auto",
+            border: "1px solid #e0e0e0",
           }}
         >
-          <Box sx={{ 
-            p: 3, 
-            borderBottom: '1px solid #e0e0e0',
-            background: brand,
-            borderRadius: '12px 12px 0 0'
-          }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Box
+            sx={{
+              p: 3,
+              borderBottom: "1px solid #e0e0e0",
+              background: brand,
+              borderRadius: "12px 12px 0 0",
+            }}
+          >
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
               <Typography variant="h6" fontWeight={700} sx={{ color: "white" }}>
                 Edit User
               </Typography>
-              <IconButton 
+              <IconButton
                 onClick={() => setEditModalOpen(false)}
                 sx={{
                   color: headerTextColor,
-                  backgroundColor: 'transparent',
-                  '&:hover': {
-                    background: 'rgba(255, 255, 255, 0.1)'
-                  }
+                  backgroundColor: "transparent",
+                  "&:hover": {
+                    background: "rgba(255, 255, 255, 0.1)",
+                  },
                 }}
               >
                 <Close sx={{ color: "white" }} />
@@ -768,114 +815,174 @@ const AddUserTrucker = () => {
             <Grid container spacing={2} sx={{ mb: 2, justifyContent: 'center' }}>
               {/* Company Name | MC/DOT No */}
               <Grid item xs={12} sm={6}>
-                <TextField 
-                  label="Name" 
-                  name="companyName" 
-                  value={formData.companyName || ''} 
-                  onChange={handleFormInputChange} 
+                <TextField
+                  label="Name"
+                  name="companyName"
+                  value={formData.companyName || ""}
+                  onChange={handleFormInputChange}
                   fullWidth
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
+                  sx={{
+                    minWidth: "100%",
+                    "& .MuiInputBase-root": {
+                      borderRadius: "12px",
+                      paddingRight: 3,
+                    },
+                  }}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
-                <TextField 
-                  label="Designation" 
-                  name="mcDotNo" 
-                  value={formData.mcDotNo || ''} 
-                  onChange={handleFormInputChange} 
+                <TextField
+                  label="Designation"
+                  name="mcDotNo"
+                  value={formData.mcDotNo || ""}
+                  onChange={handleFormInputChange}
                   fullWidth
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
+                  sx={{
+                    minWidth: "100%",
+                    "& .MuiInputBase-root": {
+                      borderRadius: "12px",
+                      paddingRight: 3,
+                    },
+                  }}
                 />
               </Grid>
 
               {/* Email | Mobile */}
               <Grid item xs={12} sm={6}>
-                <TextField 
-                  label="Email" 
-                  name="email" 
-                  value={formData.email || ''} 
-                  onChange={handleFormInputChange} 
+                <TextField
+                  label="Email"
+                  name="email"
+                  value={formData.email || ""}
+                  onChange={handleFormInputChange}
                   fullWidth
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
+                  sx={{
+                    minWidth: "100%",
+                    "& .MuiInputBase-root": {
+                      borderRadius: "12px",
+                      paddingRight: 3,
+                    },
+                  }}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
-                <TextField 
-                  label="Mobile" 
-                  name="mobile" 
-                  value={formData.mobile || ''} 
-                  onChange={handleFormInputChange} 
+                <TextField
+                  label="Mobile"
+                  name="mobile"
+                  value={formData.mobile || ""}
+                  onChange={handleFormInputChange}
                   fullWidth
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
+                  sx={{
+                    minWidth: "100%",
+                    "& .MuiInputBase-root": {
+                      borderRadius: "12px",
+                      paddingRight: 3,
+                    },
+                  }}
                 />
               </Grid>
 
               {/* Password */}
               <Grid item xs={12} sm={12}>
-                <TextField 
-                  label="Password" 
-                  name="password" 
+                <TextField
+                  label="Password"
+                  name="password"
                   type="password"
-                  value={formData.password || ''} 
-                  onChange={handleFormInputChange} 
+                  value={formData.password || ""}
+                  onChange={handleFormInputChange}
                   fullWidth
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
+                  sx={{
+                    minWidth: "100%",
+                    "& .MuiInputBase-root": {
+                      borderRadius: "12px",
+                      paddingRight: 3,
+                    },
+                  }}
                 />
               </Grid>
 
               {/* Company Address | City */}
               <Grid item xs={12} sm={6}>
-                <TextField 
-                  label="Address" 
-                  name="companyAddress" 
-                  value={formData.companyAddress || ''} 
-                  onChange={handleFormInputChange} 
+                <TextField
+                  label="Address"
+                  name="companyAddress"
+                  value={formData.companyAddress || ""}
+                  onChange={handleFormInputChange}
                   fullWidth
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
+                  sx={{
+                    minWidth: "100%",
+                    "& .MuiInputBase-root": {
+                      borderRadius: "12px",
+                      paddingRight: 3,
+                    },
+                  }}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
-                <TextField 
-                  label="City" 
-                  name="city" 
-                  value={formData.city || ''} 
-                  onChange={handleFormInputChange} 
+                <TextField
+                  label="City"
+                  name="city"
+                  value={formData.city || ""}
+                  onChange={handleFormInputChange}
                   fullWidth
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
+                  sx={{
+                    minWidth: "100%",
+                    "& .MuiInputBase-root": {
+                      borderRadius: "12px",
+                      paddingRight: 3,
+                    },
+                  }}
                 />
               </Grid>
 
               {/* State | Country */}
               <Grid item xs={12} sm={6}>
-                <TextField 
-                  label="State" 
-                  name="state" 
-                  value={formData.state || ''} 
-                  onChange={handleFormInputChange} 
+                <TextField
+                  label="State"
+                  name="state"
+                  value={formData.state || ""}
+                  onChange={handleFormInputChange}
                   fullWidth
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
+                  sx={{
+                    minWidth: "100%",
+                    "& .MuiInputBase-root": {
+                      borderRadius: "12px",
+                      paddingRight: 3,
+                    },
+                  }}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
-                <TextField 
-                  label="Country" 
-                  name="country" 
-                  value={formData.country || ''} 
-                  onChange={handleFormInputChange} 
+                <TextField
+                  label="Country"
+                  name="country"
+                  value={formData.country || ""}
+                  onChange={handleFormInputChange}
                   fullWidth
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
+                  sx={{
+                    minWidth: "100%",
+                    "& .MuiInputBase-root": {
+                      borderRadius: "12px",
+                      paddingRight: 3,
+                    },
+                  }}
                 />
               </Grid>
 
               {/* Zip Code | Notes */}
               <Grid item xs={12} sm={6}>
-                <TextField 
-                  label="Zip Code" 
-                  name="zipCode" 
-                  value={formData.zipCode || ''} 
-                  onChange={handleFormInputChange} 
+                <TextField
+                  label="Zip Code"
+                  name="zipCode"
+                  value={formData.zipCode || ""}
+                  onChange={handleFormInputChange}
                   fullWidth
-                  sx={{ minWidth: '100%', '& .MuiInputBase-root': { borderRadius: '12px', paddingRight: 3 } }}
+                  sx={{
+                    minWidth: "100%",
+                    "& .MuiInputBase-root": {
+                      borderRadius: "12px",
+                      paddingRight: 3,
+                    },
+                  }}
                 />
               </Grid>
               {/* <Grid item xs={12} sm={6}>
@@ -892,37 +999,51 @@ const AddUserTrucker = () => {
                 />
               </Grid> */}
             </Grid>
-            <Box sx={{ 
-              display: 'flex', 
-              justifyContent: 'flex-end', 
-              gap: 2,
-              mt: 3
-            }}>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: 2,
+                mt: 3,
+              }}
+            >
               <Button
                 variant="outlined"
                 onClick={() => setEditModalOpen(false)}
-              sx={{ borderRadius: 3, backgroundColor: '#ffff', color: '#d32f2f', textTransform: 'none', px: 4, borderColor: '#d32f2f', ":hover": { backgroundColor: '#d32f2f', color: '#ffff' } }}
+                sx={{
+                  borderRadius: 3,
+                  backgroundColor: "#ffff",
+                  color: "#d32f2f",
+                  textTransform: "none",
+                  px: 4,
+                  borderColor: "#d32f2f",
+                  ":hover": { backgroundColor: "#d32f2f", color: "#ffff" },
+                }}
               >
                 Cancel
               </Button>
               <Button
-  type="submit"
-  variant="contained"
-  disabled={loading}
-  color="primary"
-  sx={{
-    borderRadius: 3,
-    textTransform: 'none',
-    px: 4,
-    color: "#fff !important",
-    "&.Mui-disabled": {
-      opacity: 0.7,
-      color: "#fff !important",
-    },
-  }}
->
-  {loading ? <CircularProgress size={20} sx={{ color: "#fff" }} /> : 'Update User'}
-</Button>
+                type="submit"
+                variant="contained"
+                disabled={loading}
+                color="primary"
+                sx={{
+                  borderRadius: 3,
+                  textTransform: "none",
+                  px: 4,
+                  color: "#fff !important",
+                  "&.Mui-disabled": {
+                    opacity: 0.7,
+                    color: "#fff !important",
+                  },
+                }}
+              >
+                {loading ? (
+                  <CircularProgress size={20} sx={{ color: "#fff" }} />
+                ) : (
+                  "Update User"
+                )}
+              </Button>
             </Box>
           </Box>
         </Box>
@@ -937,18 +1058,19 @@ const AddUserTrucker = () => {
         PaperProps={{
           sx: {
             borderRadius: 2,
-            maxHeight: '75vh',
-            background: '#ffffff',
-            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
-            display: 'flex',
-            flexDirection: 'column',
-          }
+            maxHeight: "75vh",
+            background: "#ffffff",
+            boxShadow: "0 4px 20px rgba(0, 0, 0, 0.1)",
+            display: "flex",
+            flexDirection: "column",
+          },
         }}
       >
-          <DialogTitle sx={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center',
+        <DialogTitle
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
             pb: 2,
             pt: 2,
             px: 3,
@@ -986,17 +1108,52 @@ const AddUserTrucker = () => {
           <DialogContent sx={{ pt: 2, overflowY: 'auto', flex: 1 }}>
           {selectedSubUser && (
             <Box>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, p: 3 }}>
+              <Box
+                sx={{ display: "flex", flexDirection: "column", gap: 3, p: 3 }}
+              >
                 {/* Basic Information Card */}
-                <Paper elevation={0} sx={{ border: '1px solid #e0e0e0', borderRadius: 2, overflow: 'hidden' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, background: '#e3f2fd' }}>
-                    <Box sx={{ width: 32, height: 32, borderRadius: 1, background: '#1976d2', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                <Paper
+                  elevation={0}
+                  sx={{
+                    border: "1px solid #e0e0e0",
+                    borderRadius: 2,
+                    overflow: "hidden",
+                  }}
+                >
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1.5,
+                      px: 2,
+                      py: 1.5,
+                      background: "#e3f2fd",
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 1,
+                        background: "#1976d2",
+                        color: "white",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontWeight: 700,
+                      }}
+                    >
                       i
                     </Box>
-                    <Typography variant="h6" fontWeight={700} color="#0d47a1">Basic Information</Typography>
+                    <Typography variant="h6" fontWeight={700} color="#0d47a1">
+                      Basic Information
+                    </Typography>
                   </Box>
                   <Box sx={{ p: 2 }}>
-                    <Table size="small" sx={{ '& td, & th': { border: 0, py: 1.2 } }}>
+                    <Table
+                      size="small"
+                      sx={{ "& td, & th": { border: 0, py: 1.2 } }}
+                    >
                       <TableBody>
                         <TableRow>
                           <TableCell sx={{ width: 220, color: 'text.secondary' }}>Name</TableCell>
@@ -1009,8 +1166,10 @@ const AddUserTrucker = () => {
                           <TableCell sx={{ fontWeight: 600 }}>{selectedSubUser.email || 'N/A'}</TableCell>
                         </TableRow>
                         <TableRow>
-                          <TableCell sx={{ color: 'text.secondary' }}>Status</TableCell>
-                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ color: "text.secondary" }}>
+                            Status
+                          </TableCell>
+                          <TableCell sx={{ color: "#9e9e9e" }}>-----</TableCell>
                           <TableCell>
                             <Chip 
                               label={selectedSubUser.isActive !== false ? 'Active' : 'Inactive'} 
@@ -1019,7 +1178,9 @@ const AddUserTrucker = () => {
                                 backgroundColor: selectedSubUser.isActive !== false ? '#4caf50' : '#9e9e9e',
                                 color: '#fff',
                                 fontWeight: 600,
-                                fontSize: 11
+                                fontSize: 11,
+                                textTransform: "capitalize",
+                                border: `1px solid ${selectedCustomer.status === "active" ? "#a5d6a7" : "#e0e0e0"}`,
                               }}
                             />
                           </TableCell>
@@ -1035,15 +1196,48 @@ const AddUserTrucker = () => {
                 </Paper>
 
                 {/* Contact Information Card */}
-                <Paper elevation={0} sx={{ border: '1px solid #ffe0b2', borderRadius: 2, overflow: 'hidden' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, background: '#fff8e1' }}>
-                    <Box sx={{ width: 32, height: 32, borderRadius: 1, background: '#ffb300', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                <Paper
+                  elevation={0}
+                  sx={{
+                    border: "1px solid #ffe0b2",
+                    borderRadius: 2,
+                    overflow: "hidden",
+                  }}
+                >
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1.5,
+                      px: 2,
+                      py: 1.5,
+                      background: "#fff8e1",
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 1,
+                        background: "#ffb300",
+                        color: "white",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontWeight: 700,
+                      }}
+                    >
                       📞
                     </Box>
-                    <Typography variant="h6" fontWeight={700} color="#e65100">Contact Information</Typography>
+                    <Typography variant="h6" fontWeight={700} color="#e65100">
+                      Contact Information
+                    </Typography>
                   </Box>
                   <Box sx={{ p: 2 }}>
-                    <Table size="small" sx={{ '& td, & th': { border: 0, py: 1.2 } }}>
+                    <Table
+                      size="small"
+                      sx={{ "& td, & th": { border: 0, py: 1.2 } }}
+                    >
                       <TableBody>
                         <TableRow>
                           <TableCell sx={{ width: 220, color: 'text.secondary' }}>Email</TableCell>
@@ -1061,15 +1255,48 @@ const AddUserTrucker = () => {
                 </Paper>
 
                 {/* Location Details Card */}
-                <Paper elevation={0} sx={{ border: '1px solid #c8e6c9', borderRadius: 2, overflow: 'hidden' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, background: '#e8f5e9' }}>
-                    <Box sx={{ width: 32, height: 32, borderRadius: 1, background: '#2e7d32', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                <Paper
+                  elevation={0}
+                  sx={{
+                    border: "1px solid #c8e6c9",
+                    borderRadius: 2,
+                    overflow: "hidden",
+                  }}
+                >
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1.5,
+                      px: 2,
+                      py: 1.5,
+                      background: "#e8f5e9",
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 1,
+                        background: "#2e7d32",
+                        color: "white",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontWeight: 700,
+                      }}
+                    >
                       📍
                     </Box>
-                    <Typography variant="h6" fontWeight={700} color="#1b5e20">Location Details</Typography>
+                    <Typography variant="h6" fontWeight={700} color="#1b5e20">
+                      Location Details
+                    </Typography>
                   </Box>
                   <Box sx={{ p: 2 }}>
-                    <Table size="small" sx={{ '& td, & th': { border: 0, py: 1.2 } }}>
+                    <Table
+                      size="small"
+                      sx={{ "& td, & th": { border: 0, py: 1.2 } }}
+                    >
                       <TableBody>
                         <TableRow>
                           <TableCell sx={{ width: 220, color: 'text.secondary' }}>Address</TableCell>
@@ -1108,10 +1335,15 @@ const AddUserTrucker = () => {
                       <Box sx={{ width: 32, height: 32, borderRadius: 1, background: '#00897b', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
                         📝
                       </Box>
-                      <Typography variant="h6" fontWeight={700} color="#00695c">Additional Notes</Typography>
+                      <Typography variant="h6" fontWeight={700} color="#00695c">
+                        Additional Notes
+                      </Typography>
                     </Box>
                     <Box sx={{ p: 2 }}>
-                      <Table size="small" sx={{ '& td, & th': { border: 0, py: 1.2 } }}>
+                      <Table
+                        size="small"
+                        sx={{ "& td, & th": { border: 0, py: 1.2 } }}
+                      >
                         <TableBody>
                           <TableRow>
                             <TableCell sx={{ width: 220, color: 'text.secondary' }}>Notes</TableCell>
@@ -1125,15 +1357,48 @@ const AddUserTrucker = () => {
                 )}
 
                 {/* Added By Card */}
-                <Paper elevation={0} sx={{ border: '1px solid #ce93d8', borderRadius: 2, overflow: 'hidden' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, background: '#f3e5f5' }}>
-                    <Box sx={{ width: 32, height: 32, borderRadius: 1, background: '#6a1b9a', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                <Paper
+                  elevation={0}
+                  sx={{
+                    border: "1px solid #ce93d8",
+                    borderRadius: 2,
+                    overflow: "hidden",
+                  }}
+                >
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1.5,
+                      px: 2,
+                      py: 1.5,
+                      background: "#f3e5f5",
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 1,
+                        background: "#6a1b9a",
+                        color: "white",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontWeight: 700,
+                      }}
+                    >
                       👤
                     </Box>
-                    <Typography variant="h6" fontWeight={700} color="#4a148c">Added By</Typography>
+                    <Typography variant="h6" fontWeight={700} color="#4a148c">
+                      Added By
+                    </Typography>
                   </Box>
                   <Box sx={{ p: 2 }}>
-                    <Table size="small" sx={{ '& td, & th': { border: 0, py: 1.2 } }}>
+                    <Table
+                      size="small"
+                      sx={{ "& td, & th": { border: 0, py: 1.2 } }}
+                    >
                       <TableBody>
                         <TableRow>
                           <TableCell sx={{ width: 220, color: 'text.secondary' }}>Name</TableCell>
@@ -1152,7 +1417,7 @@ const AddUserTrucker = () => {
               </Box>
             </Box>
           )}
-          </DialogContent>
+        </DialogContent>
       </Dialog>
 
       {/* Permission Modal */}
@@ -1163,33 +1428,35 @@ const AddUserTrucker = () => {
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: '16px',
-            boxShadow: '0 24px 48px rgba(0,0,0,0.2)',
-            overflow: 'hidden'
-          }
+            borderRadius: "16px",
+            boxShadow: "0 24px 48px rgba(0,0,0,0.2)",
+            overflow: "hidden",
+          },
         }}
       >
-        <DialogTitle sx={{ 
-          p: 0,
-          background: brand,
-          color: headerTextColor,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          px: 3,
-          py: 2
-        }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+        <DialogTitle
+          sx={{
+            p: 0,
+            background: brand,
+            color: headerTextColor,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            px: 3,
+            py: 2,
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
             <AssignmentInd sx={{ fontSize: 28, color: "white" }} />
             <Typography variant="h6" fontWeight={700} color="white">
               User Permission
             </Typography>
           </Box>
-          <IconButton 
+          <IconButton
             onClick={() => setPermissionModalOpen(false)}
-            sx={{ 
-              color: 'white',
-              '&:hover': { backgroundColor: 'rgba(255,255,255,0.1)' }
+            sx={{
+              color: "white",
+              "&:hover": { backgroundColor: "rgba(255,255,255,0.1)" },
             }}
           >
             <Close />
@@ -1198,16 +1465,20 @@ const AddUserTrucker = () => {
         <DialogContent sx={{ p: 3 }}>
           {selectedUserForPermission && (
             <Box>
-              <Box sx={{ mb: 3, p: 2, bgcolor: '#f5f5f5', borderRadius: 2 }}>
+              <Box sx={{ mb: 3, p: 2, bgcolor: "#f5f5f5", borderRadius: 2 }}>
                 <Grid container spacing={2}>
                   <Grid item xs={12} sm={6}>
-                    <Typography variant="subtitle2" color="text.secondary">Name</Typography>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Name
+                    </Typography>
                     <Typography variant="body1" fontWeight={600}>
                       {selectedUserForPermission.name || 'N/A'}
                     </Typography>
                   </Grid>
                   <Grid item xs={12} sm={6}>
-                    <Typography variant="subtitle2" color="text.secondary">Email</Typography>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Email
+                    </Typography>
                     <Typography variant="body1" fontWeight={600}>
                       {selectedUserForPermission.email || 'N/A'}
                     </Typography>
@@ -1217,16 +1488,20 @@ const AddUserTrucker = () => {
 
               <Table size="small" sx={{ minWidth: 650 }}>
                 <TableHead>
-                  <TableRow sx={{ backgroundColor: '#f0f4f8' }}>
+                  <TableRow sx={{ backgroundColor: "#f0f4f8" }}>
                     <TableCell sx={{ fontWeight: 600 }}>Feature</TableCell>
-                    <TableCell sx={{ fontWeight: 600, width: 100, textAlign: 'center' }}>Action</TableCell>
+                    <TableCell
+                      sx={{ fontWeight: 600, width: 100, textAlign: "center" }}
+                    >
+                      Action
+                    </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {sidebarOptions.map((option) => (
                     <TableRow key={option.key} hover>
                       <TableCell>{option.label}</TableCell>
-                      <TableCell sx={{ textAlign: 'center' }}>
+                      <TableCell sx={{ textAlign: "center" }}>
                         <Switch
                           checked={!!userPermissions[option.key]}
                           onChange={() => handlePermissionToggle(option.key)}
@@ -1241,18 +1516,22 @@ const AddUserTrucker = () => {
             </Box>
           )}
         </DialogContent>
-        <DialogActions sx={{ p: 3, borderTop: '1px solid #eee' }}>
-          <Button onClick={() => setPermissionModalOpen(false)} sx={{ textTransform: 'none', color: '#666' }}>
+        <DialogActions sx={{ p: 3, borderTop: "1px solid #eee" }}>
+          <Button
+            onClick={() => setPermissionModalOpen(false)}
+            sx={{ textTransform: "none", border: "1px solid red", color: "red", ":hover": { color: "white", backgroundColor:"red" } }}
+          >
             Cancel
           </Button>
-          <Button 
-            variant="contained" 
+          <Button
+            variant="contained"
             onClick={savePermissions}
-            sx={{ 
+            sx={{
               bgcolor: brand,
-              textTransform: 'none',
+              textTransform: "none",
+              color:"white",
               px: 4,
-              '&:hover': { bgcolor: brand }
+              "&:hover": { bgcolor: brand },
             }}
           >
             Save Permissions
@@ -1268,27 +1547,27 @@ const AddUserTrucker = () => {
         PaperProps={{
           sx: {
             borderRadius: 2,
-            boxShadow: '0 12px 24px rgba(0,0,0,0.1)',
-          }
+            boxShadow: "0 12px 24px rgba(0,0,0,0.1)",
+          },
         }}
       >
-        <DialogTitle sx={{ textAlign: 'center', pt: 3 }}>
-          <Warning sx={{ fontSize: 48, color: 'warning.main', mb: 1 }} />
-          <Typography variant="h6" fontWeight={600}>
+        <DialogTitle sx={{ textAlign: "center", pt: 3 }}>
+          <Warning sx={{ fontSize: 48, color: "warning.main", mb: 1 }} />
+          <Typography variant="h6" fontWeight={600} sx={{color:"white"}}>
             Confirm Deletion
           </Typography>
         </DialogTitle>
-        <DialogContent sx={{ textAlign: 'center' }}>
+        <DialogContent sx={{ textAlign: "center" }}>
           <Typography variant="body1" color="text.secondary" marginTop={2}>
             Are you sure you want to delete this user?
           </Typography>
         </DialogContent>
-        <DialogActions sx={{ p: 3, justifyContent: 'center', gap: 2 }}>
+        <DialogActions sx={{ p: 3, justifyContent: "center", gap: 2 }}>
           <Button
             onClick={() => setDeleteModalOpen(false)}
             variant="outlined"
             color="inherit"
-            sx={{ borderRadius: 2, textTransform: 'none', px: 3 }}
+            sx={{ borderRadius: 2, textTransform: "none", px: 3, ":hover": { backgroundColor: "black", color: "white" } }}
           >
             Cancel
           </Button>
@@ -1297,9 +1576,13 @@ const AddUserTrucker = () => {
             variant="contained"
             color="error"
             disabled={loading}
-            sx={{ borderRadius: 2, textTransform: 'none', px: 3 }}
+            sx={{ borderRadius: 2, textTransform: "none", px: 3 }}
           >
-            {loading ? <CircularProgress size={20} color="inherit" /> : 'Delete'}
+            {loading ? (
+              <CircularProgress size={20} color="inherit" />
+            ) : (
+              "Delete"
+            )}
           </Button>
         </DialogActions>
       </Dialog>
