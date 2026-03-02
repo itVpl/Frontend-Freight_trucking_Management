@@ -41,6 +41,9 @@ const requestCache = {
 // Cache TTL in milliseconds (5 minutes)
 const CACHE_TTL = 5 * 60 * 1000;
 
+// Max items to request from my-loads-detailed so table/counts match dashboard (backend often defaults to 10)
+const LOADS_FETCH_LIMIT = 500;
+
 // Helper to check if cache is still valid
 const isCacheValid = (cacheKey) => {
   const cached = requestCache[cacheKey];
@@ -152,20 +155,21 @@ export const fetchActualCounts = createAsyncThunk(
       const role = userType === 'trucker' ? 'trucker' : 'shipper';
       const headers = createHeaders(authToken);
       
+      const limitParam = `limit=${LOADS_FETCH_LIMIT}`;
       const [totalResponse, biddingResponse, deliveredResponse, inTransitResponse, billsResponse] = await Promise.all([
-        fetch(`${BASE_API_URL}/api/v1/load/${role}/my-loads-detailed`, {
+        fetch(`${BASE_API_URL}/api/v1/load/${role}/my-loads-detailed?${limitParam}`, {
           headers,
           signal: controller.signal,
         }),
-        fetch(`${BASE_API_URL}/api/v1/load/${role}/my-loads-detailed?status=Bidding`, {
+        fetch(`${BASE_API_URL}/api/v1/load/${role}/my-loads-detailed?status=Bidding&${limitParam}`, {
           headers,
           signal: controller.signal,
         }),
-        fetch(`${BASE_API_URL}/api/v1/load/${role}/my-loads-detailed?status=Delivered`, {
+        fetch(`${BASE_API_URL}/api/v1/load/${role}/my-loads-detailed?status=Delivered&${limitParam}`, {
           headers,
           signal: controller.signal,
         }),
-        fetch(`${BASE_API_URL}/api/v1/load/${role}/my-loads-detailed?status=In Transit`, {
+        fetch(`${BASE_API_URL}/api/v1/load/${role}/my-loads-detailed?status=In Transit&${limitParam}`, {
           headers,
           signal: controller.signal,
         }),
@@ -240,7 +244,7 @@ export const fetchMapData = createAsyncThunk(
       const authToken = token || getAuthToken();
       const role = userType === 'trucker' ? 'trucker' : 'shipper';
       
-      const response = await fetch(`${BASE_API_URL}/api/v1/load/${role}/my-loads-detailed`, {
+      const response = await fetch(`${BASE_API_URL}/api/v1/load/${role}/my-loads-detailed?limit=${LOADS_FETCH_LIMIT}`, {
         method: 'GET',
         headers: createHeaders(authToken),
         signal: controller.signal,
@@ -313,10 +317,11 @@ export const fetchDetailedLoads = createAsyncThunk(
       const role = userType === 'trucker' ? 'trucker' : 'shipper';
       
       let url = `${BASE_API_URL}/api/v1/load/${role}/my-loads-detailed`;
-      if (status) {
-        url += `?status=${encodeURIComponent(status)}`;
-      }
-      
+      const params = new URLSearchParams();
+      if (status) params.set('status', status);
+      params.set('limit', String(LOADS_FETCH_LIMIT));
+      url += `?${params.toString()}`;
+
       const response = await fetch(url, {
         method: 'GET',
         headers: createHeaders(authToken),
@@ -426,7 +431,22 @@ export const fetchBills = createAsyncThunk(
       const data = await response.json();
       
       if (data.success && data.bills && Array.isArray(data.bills)) {
-        return data.bills;
+        // Map API bill shape to table row shape (Bill ID, Type, From, To, Due Date, Amount, Status)
+        return data.bills.map((bill) => {
+          const dueDate = bill.dueDate ? new Date(bill.dueDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A';
+          const status = bill.status ? String(bill.status).charAt(0).toUpperCase() + String(bill.status).slice(1).toLowerCase() : 'N/A';
+          return {
+            id: bill.billNumber || bill._id || 'N/A',
+            type: 'Invoice',
+            from: bill.pickup?.city || bill.pickup?.address || 'N/A',
+            to: bill.delivery?.city || bill.delivery?.address || 'N/A',
+            pickupDate: dueDate,
+            eta: dueDate,
+            rate: bill.billing?.total != null ? Number(bill.billing.total) : null,
+            status,
+            driverName: null,
+          };
+        });
       }
       return [];
     } catch (error) {
@@ -453,8 +473,8 @@ export const fetchPendingDeliveryData = createAsyncThunk(
     try {
       const role = userType === 'trucker' ? 'trucker' : 'shipper';
       
-      // Fetch only In Transit status loads
-      const inTransitResponse = await fetch(`${BASE_API_URL}/api/v1/load/${role}/my-loads-detailed?status=In%20Transit`, {
+      // Fetch only In Transit status loads (limit so table matches card count)
+      const inTransitResponse = await fetch(`${BASE_API_URL}/api/v1/load/${role}/my-loads-detailed?status=In%20Transit&limit=${LOADS_FETCH_LIMIT}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

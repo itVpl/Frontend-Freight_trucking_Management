@@ -2,8 +2,6 @@ import React, { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
-import { toast } from 'react-toastify';
-import { Avatar } from '@mui/material';
 
 const GlobalMessageListener = () => {
   const { socket } = useSocket();
@@ -32,22 +30,22 @@ const GlobalMessageListener = () => {
       const sameScreen = conversationPath && location.pathname === conversationPath;
       if (sameScreen) return;
 
-      const ToastContent = () => (
-        <div 
-            onClick={() => conversationPath && navigate(conversationPath)} 
-            style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column' }}
-        >
-            <span style={{ fontWeight: 'bold' }}>{senderName}</span>
-            <span style={{ fontSize: '0.9em', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                {message}
-            </span>
-        </div>
-      );
-
-      toast(<ToastContent />, {
-        icon: avatarUrl ? <Avatar src={avatarUrl} sx={{ width: 24, height: 24 }} /> : '💬',
-        onClick: () => conversationPath && navigate(conversationPath)
-      });
+      // Toast popups disabled – new messages still received; user can check notification bell or messages
+      // const ToastContent = () => (
+      //   <div 
+      //       onClick={() => conversationPath && navigate(conversationPath)} 
+      //       style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column' }}
+      //   >
+      //       <span style={{ fontWeight: 'bold' }}>{senderName}</span>
+      //       <span style={{ fontSize: '0.9em', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+      //           {message}
+      //       </span>
+      //   </div>
+      // );
+      // toast(<ToastContent />, {
+      //   icon: avatarUrl ? <Avatar src={avatarUrl} sx={{ width: 24, height: 24 }} /> : '💬',
+      //   onClick: () => conversationPath && navigate(conversationPath)
+      // });
     };
 
     // Listen to multiple event types to cover all bases

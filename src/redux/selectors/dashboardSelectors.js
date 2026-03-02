@@ -57,6 +57,29 @@ export const selectAnyError = createSelector(
 export const selectDashboardValue = createSelector(
   [selectDashboardData, selectActualCounts, (state, key) => key],
   (dashboardData, actualCounts, key) => {
+    // Pending Delivery / In Transit: prefer actualCounts so card matches the table (same my-loads-detailed API)
+    if (key === 'pendingDeliveries' || key === 'inTransitLoads') {
+      if (actualCounts.inTransit !== undefined && actualCounts.inTransit !== null) {
+        return actualCounts.inTransit;
+      }
+      if (dashboardData?.dashboard) {
+        const fromDashboard = dashboardData.dashboard.inTransitLoads ?? dashboardData.dashboard.inTransit ?? dashboardData.dashboard[key];
+        if (fromDashboard !== undefined && fromDashboard !== null) return fromDashboard;
+      }
+      return actualCounts.inTransit ?? 0;
+    }
+
+    // Bids On Loads: prefer actualCounts.bidding so card matches the table (same my-loads-detailed API)
+    if (key === 'bidding') {
+      if (actualCounts.bidding !== undefined && actualCounts.bidding !== null) {
+        return actualCounts.bidding;
+      }
+      if (dashboardData?.dashboard && (dashboardData.dashboard.bidding ?? dashboardData.dashboard[key]) != null) {
+        return dashboardData.dashboard.bidding ?? dashboardData.dashboard[key];
+      }
+      return actualCounts.bidding ?? 0;
+    }
+
     // Priority: dashboardData (from main API) > actualCounts (lazy loaded) > defaults
     if (dashboardData?.dashboard) {
       if (key === 'delivered') {
@@ -69,20 +92,6 @@ export const selectDashboardValue = createSelector(
       const dashboardValue = dashboardData.dashboard[key];
       if (dashboardValue !== undefined && dashboardValue !== null) {
         return dashboardValue;
-      }
-      
-      if (key === 'inTransitLoads' || key === 'pendingDeliveries') {
-        const inTransitValue = dashboardData.dashboard.inTransitLoads || dashboardData.dashboard.inTransit;
-        if (inTransitValue !== undefined && inTransitValue !== null) {
-          return inTransitValue;
-        }
-      }
-    }
-    
-    // Fallback to actualCounts
-    if (key === 'pendingDeliveries' || key === 'inTransitLoads') {
-      if (actualCounts.inTransit !== undefined && actualCounts.inTransit !== null) {
-        return actualCounts.inTransit;
       }
     }
     

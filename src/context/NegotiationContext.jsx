@@ -2,8 +2,6 @@ import React, { createContext, useState, useContext, useEffect, useRef } from 'r
 import axios from 'axios';
 import { BASE_API_URL } from '../apiConfig';
 import { useAuth } from './AuthContext';
-import { toast } from 'react-toastify';
-import { Button, Box, Typography, Avatar } from '@mui/material';
 
 const NegotiationContext = createContext();
 
@@ -74,25 +72,24 @@ export const NegotiationProvider = ({ children }) => {
         }
     }
 
-    // Show stacked popup unless silent
-    if (!options.silent) {
-        const ToastContent = () => (
-            <div 
-                onClick={() => notification.negotiationData && openNegotiation(notification.negotiationData)} 
-                style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column' }}
-            >
-                <span style={{ fontWeight: 'bold' }}>{notification.sender}</span>
-                <span style={{ fontSize: '0.9em', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                    {notification.content}
-                </span>
-            </div>
-        );
-
-        toast(<ToastContent />, {
-            icon: notification.senderImage ? <Avatar src={notification.senderImage} sx={{ width: 24, height: 24 }} /> : '💬',
-            onClick: () => notification.negotiationData && openNegotiation(notification.negotiationData)
-        });
-    }
+    // Toast popups disabled – notifications still appear in the notification bell/dropdown only
+    // if (!options.silent) {
+    //     const ToastContent = () => (
+    //         <div 
+    //             onClick={() => notification.negotiationData && openNegotiation(notification.negotiationData)} 
+    //             style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column' }}
+    //         >
+    //             <span style={{ fontWeight: 'bold' }}>{notification.sender}</span>
+    //             <span style={{ fontSize: '0.9em', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+    //                 {notification.content}
+    //             </span>
+    //         </div>
+    //     );
+    //     toast(<ToastContent />, {
+    //         icon: notification.senderImage ? <Avatar src={notification.senderImage} sx={{ width: 24, height: 24 }} /> : '💬',
+    //         onClick: () => notification.negotiationData && openNegotiation(notification.negotiationData)
+    //     });
+    // }
   };
 
   const markAsRead = (id) => {

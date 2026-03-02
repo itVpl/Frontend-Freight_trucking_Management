@@ -237,19 +237,19 @@ function App() {
                     {/* Protected Layout wrapper with no path */}
                     <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                       {/* Keep absolute paths as-is so URLs don't change */}
-                      <Route path="/dashboard" element={<Dashboard />} />
+                      <Route path="/dashboard" element={<ProtectedRoute requiredPermission="dashboard"><Dashboard /></ProtectedRoute>} />
                       {/* <Route path="/live-tracker" element={<LiveTracker />} /> */}
-                      <Route path="/consignment" element={<ErrorBoundary><Consignment /></ErrorBoundary>} />
-                      <Route path="/reports" element={<Reports />} />
+                      <Route path="/consignment" element={<ProtectedRoute requiredPermission="consignment"><ErrorBoundary><Consignment /></ErrorBoundary></ProtectedRoute>} />
+                      <Route path="/reports" element={<ProtectedRoute requiredPermission="report"><Reports /></ProtectedRoute>} />
                       <Route path="/reports/complete" element={<Completed />} />
                       <Route path="/profile" element={<Profile />} />
                      
-                      <Route path="/email" element={<Email />} />
+                      <Route path="/email" element={<ProtectedRoute requiredPermission="email"><Email /></ProtectedRoute>} />
                       <Route path="/debug-real-data" element={<RealDataDebugger />} />
 
                       {/* Trucker Only Routes */}
                       <Route path="/fleet" element={<ProtectedRoute userType="trucker"><Fleet /></ProtectedRoute>} />
-                      <Route path="/billing" element={<ProtectedRoute userType="trucker"><Billing /></ProtectedRoute>} />
+                      <Route path="/billing" element={<ProtectedRoute userType="trucker" requiredPermission="billing"><Billing /></ProtectedRoute>} />
                       <Route path="/driver" element={<ProtectedRoute userType="trucker"><Driver /></ProtectedRoute>} />
                       <Route path="/payments" element={<ProtectedRoute userType="trucker"><Payments /></ProtectedRoute>} />
                       <Route path="/bid-management" element={<ProtectedRoute userType="trucker"><BidManagement /></ProtectedRoute>} />
@@ -259,10 +259,10 @@ function App() {
                       <Route path="/yard-drop-container" element={<ProtectedRoute userType="trucker"><YardDropContainer /></ProtectedRoute>} />
 
                       {/* Shipper Only Routes */}
-                      <Route path="/bills" element={<ProtectedRoute userType="shipper"><Bills /></ProtectedRoute>} />
-                      <Route path="/loadboard" element={<ProtectedRoute userType="shipper"><Loadboard /></ProtectedRoute>} />
-                      <Route path="/add-user-shipper" element={<ProtectedRoute userType="shipper"><AddUserShipper /></ProtectedRoute>} />
-                      <Route path="/add-user-trucker" element={<ProtectedRoute userType="trucker"><AddUserTrucker /></ProtectedRoute>} />
+                      <Route path="/bills" element={<ProtectedRoute userType="shipper" requiredPermission="billing"><Bills /></ProtectedRoute>} />
+                      <Route path="/loadboard" element={<ProtectedRoute userType="shipper" requiredPermission="loadBoard"><Loadboard /></ProtectedRoute>} />
+                      <Route path="/add-user-shipper" element={<ProtectedRoute userType="shipper" requiredPermission="addUser"><AddUserShipper /></ProtectedRoute>} />
+                      <Route path="/add-user-trucker" element={<ProtectedRoute userType="trucker" requiredPermission="addUser"><AddUserTrucker /></ProtectedRoute>} />
                     </Route>
 
                     {/* Fallback: unknown routes -> Landing */}
