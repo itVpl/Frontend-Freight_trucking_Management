@@ -1407,9 +1407,9 @@ const Dashboard = () => {
               Message
             </Typography>
           </Box>
-          <Box sx={{ px: 2.5, py: 2.5 }}>
-            <Grid container>
-              <Grid item xs={12}>
+          <Box sx={{ px: 2.5, py: 2.5, width: '100%' }}>
+            <Grid container sx={{ width: '100%' }}>
+              <Grid item xs={12} sx={{ width: '100%' }}>
                 <TextField
                   label="Message"
                   name="message"
@@ -1417,10 +1417,10 @@ const Dashboard = () => {
                   onChange={handleBidFormChange}
                   fullWidth
                   multiline
-                  rows={2}
+                  rows={3}
                   placeholder="Write a message for the shipper..."
                   error={!!bidErrors.message}
-                  sx={fieldSx}
+                  sx={{ ...fieldSx, width: '100%' }}
                 />
               </Grid>
             </Grid>
@@ -2257,7 +2257,7 @@ const Dashboard = () => {
                 pt: 1,
                 justifyContent: "flex-end",
                 backgroundColor: "#fff",
-                gap: 2,
+                gap: 1,
                 borderTop: "1px solid #f3f4f6",
               }}
             >
@@ -2269,14 +2269,14 @@ const Dashboard = () => {
                   textTransform: "none",
                   fontWeight: 600,
                   px: 4,
-                  py: 1.2,
-                  borderColor: "#e5e7eb",
-                  color: "#6b7280",
+                  py: 1,
+                  borderColor: "red",
+                  color: "red",
                   fontSize: "0.95rem",
                   transition: "all 0.2s",
                   "&:hover": {
-                    borderColor: "#9ca3af",
-                    backgroundColor: "#f9fafb",
+                    color:"white",
+                    backgroundColor: "red",
                     transform: "translateY(-1px)",
                   },
                 }}

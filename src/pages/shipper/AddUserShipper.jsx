@@ -1032,7 +1032,7 @@ const AddUserShipper = () => {
                 </Paper>
 
                 {/* Contact Information Card */}
-                <Paper elevation={0} sx={{ border: '1px solid #ffe0b2', borderRadius: 2, overflow: 'hidden' }}>
+                {/* <Paper elevation={0} sx={{ border: '1px solid #ffe0b2', borderRadius: 2, overflow: 'hidden' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, background: '#fff8e1' }}>
                     <Box sx={{ width: 32, height: 32, borderRadius: 1, background: '#ffb300', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
                       📞
@@ -1055,10 +1055,10 @@ const AddUserShipper = () => {
                       </TableBody>
                     </Table>
                   </Box>
-                </Paper>
+                </Paper> */}
 
                 {/* Location Details Card */}
-                <Paper elevation={0} sx={{ border: '1px solid #c8e6c9', borderRadius: 2, overflow: 'hidden' }}>
+                {/* <Paper elevation={0} sx={{ border: '1px solid #c8e6c9', borderRadius: 2, overflow: 'hidden' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, background: '#e8f5e9' }}>
                     <Box sx={{ width: 32, height: 32, borderRadius: 1, background: '#2e7d32', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
                       📍
@@ -1096,7 +1096,7 @@ const AddUserShipper = () => {
                       </TableBody>
                     </Table>
                   </Box>
-                </Paper>
+                </Paper> */}
 
                 {/* Additional Notes Card */}
                 {selectedSubUser.notes && (
@@ -1122,7 +1122,7 @@ const AddUserShipper = () => {
                 )}
 
                 {/* Added By Card */}
-                <Paper elevation={0} sx={{ border: '1px solid #ce93d8', borderRadius: 2, overflow: 'hidden' }}>
+                {/* <Paper elevation={0} sx={{ border: '1px solid #ce93d8', borderRadius: 2, overflow: 'hidden' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, background: '#f3e5f5' }}>
                     <Box sx={{ width: 32, height: 32, borderRadius: 1, background: '#6a1b9a', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
                       👤
@@ -1145,7 +1145,7 @@ const AddUserShipper = () => {
                       </TableBody>
                     </Table>
                   </Box>
-                </Paper>
+                </Paper> */}
               </Box>
             </Box>
           )}

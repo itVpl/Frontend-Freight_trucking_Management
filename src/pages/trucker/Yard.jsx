@@ -1355,7 +1355,7 @@ const Yard = () => {
               borderColor: 'red',
               color: 'red',
               px: 4,
-              py: 1,
+              py: 0.8,
               fontWeight: 500,
               fontSize: '0.95rem',
               '&:hover': {
@@ -1575,7 +1575,7 @@ const Yard = () => {
             </Box>
           )}
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 3, justifyContent: 'flex-end', backgroundColor: '#f5f5f5' }}>
+        {/* <DialogActions sx={{ px: 3, pb: 3, justifyContent: 'flex-end', backgroundColor: '#f5f5f5' }}>
           <Button
             onClick={() => {
               setViewModalOpen(false);
@@ -1597,7 +1597,7 @@ const Yard = () => {
           >
             Close
           </Button>
-        </DialogActions>
+        </DialogActions> */}
       </Dialog>
     </Box>
   );

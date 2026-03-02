@@ -3670,7 +3670,7 @@ const AddLoad = () => {
             backgroundColor: '#f9fafb',
             borderTop: '1px solid #e5e7eb',
             justifyContent: 'flex-end',
-            gap: 2,
+            gap: 1,
           }}
         >
           <Button
@@ -3682,16 +3682,15 @@ const AddLoad = () => {
             sx={{
               borderRadius: 2,
               textTransform: 'none',
-              color: '#4A90E2',
-              borderColor: '#4A90E2',
+              color: 'red',
+              borderColor: 'red',
               px: 4,
-              py: 1,
+              py: 0.8,
               fontWeight: 500,
               fontSize: '0.95rem',
               '&:hover': {
-                backgroundColor: '#f0f7ff',
-                borderColor: '#357ABD',
-                color: '#357ABD',
+                backgroundColor: 'red',
+                color: 'white',
               },
             }}
           >
@@ -4104,7 +4103,7 @@ const AddLoad = () => {
             </Box>
           )}
         </DialogContent>
-        {/* <DialogActions sx={{ px: 3, pb: 3, justifyContent: 'flex-end', backgroundColor: '#f5f5f5' }}>
+        {/* <DialogActions sx={{ px: 3, pb: 3, justifyContent: 'flex-end', backgroundColor: '#f5f5f5' }}> kkkkk
           <Button
             onClick={() => {
               setViewModalOpen(false);
@@ -4699,7 +4698,7 @@ const AddLoad = () => {
             pt: 2.5, 
             justifyContent: 'flex-end', 
             backgroundColor: '#fff', 
-            gap: 2,
+            gap: 1,
             borderTop: '1px solid #f3f4f6'
           }}
         >
@@ -4711,14 +4710,14 @@ const AddLoad = () => {
               textTransform: 'none',
               fontWeight: 600,
               px: 4,
-              py: 1.2,
-              borderColor: '#e5e7eb',
-              color: '#6b7280',
+              py: 1,
+              borderColor: 'red',
+              color: 'red',
               fontSize: '0.95rem',
               transition: 'all 0.2s',
               '&:hover': {
-                borderColor: '#9ca3af',
-                backgroundColor: '#f9fafb',
+               color:"white",
+                backgroundColor: 'red',
                 transform: 'translateY(-1px)',
               },
             }}
