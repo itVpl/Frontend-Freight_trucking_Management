@@ -33,7 +33,7 @@ const Profile = () => {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const { user } = useAuth();
+  const { user, updateUserFromProfile } = useAuth();
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -69,6 +69,18 @@ const Profile = () => {
 
         if (result.success && result.data) {
           setUserData(result.data);
+          // Merge profile permissions into auth so sidebar/route guards use them (trucker/shipper profile now returns isSubUser, permissions, etc.)
+          const profilePayload = {
+            ...result.data,
+            ...(result.permissions != null && { permissions: result.permissions }),
+            ...(result.isSubUser != null && { isSubUser: result.isSubUser }),
+            ...(result.subUserId != null && { subUserId: result.subUserId }),
+            ...(result.displayName != null && { displayName: result.displayName }),
+            ...(result.displayEmail != null && { displayEmail: result.displayEmail }),
+          };
+          if (profilePayload.permissions != null || profilePayload.isSubUser != null) {
+            updateUserFromProfile(profilePayload);
+          }
         } else {
           throw new Error(result.message || 'No profile data found');
         }

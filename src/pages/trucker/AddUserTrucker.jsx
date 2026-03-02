@@ -47,39 +47,35 @@ import {
   Save,
   Cancel,
   Warning,
-  Lock,
-} from "@mui/icons-material";
-import CloseIcon from "@mui/icons-material/Close";
+  Lock
+} from '@mui/icons-material';
+import CloseIcon from '@mui/icons-material/Close';
+ 
+import { BASE_API_URL } from '../../apiConfig';
+import { useThemeConfig } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
+import { TRUCKER_PERMISSION_KEYS, PERMISSION_LABELS } from '../../config/permissions';
 
-import { BASE_API_URL } from "../../apiConfig";
-import { useThemeConfig } from "../../context/ThemeContext";
-import { useAuth } from "../../context/AuthContext";
+const SUB_USERS_BASE = '/api/v1/shipper_driver/my-sub-users';
 
 const AddUserTrucker = () => {
   const { userType } = useAuth();
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(7);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [customersData, setCustomersData] = useState([]);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [subUsers, setSubUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [viewModalOpen, setViewModalOpen] = useState(false);
-  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [selectedSubUser, setSelectedSubUser] = useState(null);
   const [formData, setFormData] = useState(() => ({
-    companyName: "",
-    mcDotNo: "",
-    email: "",
-    mobile: "",
-    companyAddress: "",
-    city: "",
-    state: "",
-    country: "USA",
-    zipCode: "",
-    notes: "",
-    password: "",
+    name: '',
+    email: '',
+    password: '',
+    ...Object.fromEntries(TRUCKER_PERMISSION_KEYS.map((k) => [k, false])),
   }));
 
   const [permissionModalOpen, setPermissionModalOpen] = useState(false);
@@ -87,23 +83,9 @@ const AddUserTrucker = () => {
     useState(null);
   const [userPermissions, setUserPermissions] = useState({});
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [customerToDelete, setCustomerToDelete] = useState(null);
+  const [subUserToDelete, setSubUserToDelete] = useState(null);
 
-  const sidebarOptions = [
-    { key: "dashboard", label: "Dashboard" },
-    { key: "liveTracker", label: "Live Tracker" },
-    { key: "addLoad", label: "Add Load" },
-    { key: "addUsers", label: "Add Users" },
-    { key: "addCustomer", label: "Add Customer" },
-    { key: "driver", label: "Driver" },
-    { key: "fleet", label: "Fleet" },
-    { key: "billing", label: "Billing" },
-    { key: "consignment", label: "Consignment" },
-    { key: "bidManagement", label: "Bid Management" },
-    { key: "email", label: "Email" },
-    { key: "report", label: "Report" },
-    { key: "loadCalculator", label: "Load Calculator" },
-  ];
+  const sidebarOptions = TRUCKER_PERMISSION_KEYS.map((key) => ({ key, label: PERMISSION_LABELS[key] }));
 
   const { themeConfig } = useThemeConfig();
   const brand =
@@ -112,157 +94,71 @@ const AddUserTrucker = () => {
       : themeConfig.tokens?.primary || "#1976d2";
   const headerTextColor = themeConfig.header?.text || "#ffffff";
 
-  // Fetch all customers on component mount
   useEffect(() => {
-    fetchAllCustomers();
+    fetchSubUsers();
   }, []);
 
-  // API Functions
-  const fetchAllCustomers = async () => {
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error('No authentication token found');
+    return {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    };
+  };
+
+  const fetchSubUsers = async () => {
     try {
       setLoading(true);
       setError(null);
-
-      const token = localStorage.getItem("token");
-      if (!token) {
-        throw new Error("No authentication token found");
-      }
-
-      const response = await fetch(
-        `${BASE_API_URL}/api/v1/${userType}-customer/all`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
+      const response = await fetch(`${BASE_API_URL}${SUB_USERS_BASE}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
       const result = await response.json();
-
-      if (result.success) {
-        setCustomersData(result.data || []);
+      if (result.success && Array.isArray(result.subUsers)) {
+        setSubUsers(result.subUsers);
       } else {
-        throw new Error(result.message || "Failed to fetch customers");
+        throw new Error(result.message || 'Failed to fetch sub-users');
       }
     } catch (err) {
-      console.error("Error fetching customers:", err);
-      setError(err.message || "Failed to fetch customers");
+      console.error('Error fetching sub-users:', err);
+      setError(err.message || 'Failed to fetch sub-users');
     } finally {
       setLoading(false);
     }
   };
 
-  const addCustomer = async (customerData) => {
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        throw new Error("No authentication token found");
-      }
-
-      const response = await fetch(
-        `${BASE_API_URL}/api/v1/${userType}-customer/add`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(customerData),
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-
-      if (result.success) {
-        return result.data;
-      } else {
-        throw new Error(result.message || "Failed to add User");
-      }
-    } catch (err) {
-      console.error("Error adding customer:", err);
-      throw err;
-    }
+  const createSubUser = async (payload) => {
+    const response = await fetch(`${BASE_API_URL}${SUB_USERS_BASE}`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const result = await response.json();
+    if (!result.success) throw new Error(result.message || 'Failed to create sub-user');
+    return result.subUser;
   };
 
-  const updateCustomer = async (customerId, updateData) => {
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        throw new Error("No authentication token found");
-      }
-
-      const response = await fetch(
-        `${BASE_API_URL}/api/v1/${userType}-customer/${customerId}`,
-        {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(updateData),
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-
-      if (result.success) {
-        return result.data;
-      } else {
-        throw new Error(result.message || "Failed to update customer");
-      }
-    } catch (err) {
-      console.error("Error updating customer:", err);
-      throw err;
-    }
+  const updateSubUser = async (subUserId, updateData) => {
+    const response = await fetch(`${BASE_API_URL}${SUB_USERS_BASE}/${subUserId}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(updateData),
+    });
+    const result = await response.json();
+    if (!result.success) throw new Error(result.message || 'Failed to update sub-user');
+    return result.subUser;
   };
 
-  const deleteCustomer = async (customerId) => {
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        throw new Error("No authentication token found");
-      }
-
-      const response = await fetch(
-        `${BASE_API_URL}/api/v1/${userType}-customer/${customerId}`,
-        {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-
-      if (result.success) {
-        return true;
-      } else {
-        throw new Error(result.message || "Failed to delete customer");
-      }
-    } catch (err) {
-      console.error("Error deleting customer:", err);
-      throw err;
-    }
+  const deleteSubUser = async (subUserId) => {
+    const response = await fetch(`${BASE_API_URL}${SUB_USERS_BASE}/${subUserId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+    const result = await response.json();
+    if (!result.success) throw new Error(result.message || 'Failed to remove sub-user');
+    return true;
   };
 
   const handleChangePage = useCallback((event, newPage) => {
@@ -278,150 +174,137 @@ const AddUserTrucker = () => {
     setSearchTerm(e.target.value);
   }, []);
 
-  const handleAddCustomer = useCallback(() => {
+  const handleAddSubUser = useCallback(() => {
     setFormData({
-      companyName: "",
-      mcDotNo: "",
-      email: "",
-      mobile: "",
-      companyAddress: "",
-      city: "",
-      state: "",
-      country: "USA",
-      zipCode: "",
-      notes: "",
-      password: "",
+      name: '',
+      email: '',
+      password: '',
+      ...Object.fromEntries(TRUCKER_PERMISSION_KEYS.map((k) => [k, false])),
     });
+    setSelectedSubUser(null);
+    setAddModalOpen(true);
+    setEditModalOpen(false);
+  }, []);
+
+  const handleEditSubUser = useCallback((subUser) => {
+    const perms = subUser.permissions || {};
+    setFormData({
+        name: subUser.name || '',
+      email: subUser.email || '',
+      password: '',
+      ...Object.fromEntries(TRUCKER_PERMISSION_KEYS.map((k) => [k, !!perms[k]])),
+    });
+    setSelectedSubUser(subUser);
+    setEditModalOpen(true);
     setAddModalOpen(true);
   }, []);
 
-  const handleEditCustomer = useCallback((customer) => {
-    // Map API response to form data
-    setFormData({
-      companyName: customer.companyInfo?.companyName || "",
-      mcDotNo: customer.companyInfo?.mcDotNo || "",
-      email: customer.contactInfo?.email || "",
-      mobile: customer.contactInfo?.mobile || "",
-      companyAddress: customer.locationDetails?.companyAddress || "",
-      city: customer.locationDetails?.city || "",
-      state: customer.locationDetails?.state || "",
-      country: customer.locationDetails?.country || "USA",
-      zipCode: customer.locationDetails?.zipCode || "",
-      notes: customer.notes || "",
-      password: "",
-    });
-    setSelectedCustomer(customer);
-    setEditModalOpen(true);
-  }, []);
-
-  const handleViewCustomer = useCallback((customer) => {
-    setSelectedCustomer(customer);
+  const handleViewSubUser = useCallback((subUser) => {
+    setSelectedSubUser(subUser);
     setViewModalOpen(true);
-  }, []);
+  }, []); 
 
-  const handleAssignPermission = useCallback((customer) => {
-    setSelectedUserForPermission(customer);
-    // Initialize permissions - in a real app, you'd fetch existing permissions here
-    const initialPermissions = {};
-    sidebarOptions.forEach((option) => {
-      initialPermissions[option.key] = false; // Default to false or fetch from backend
-    });
-    setUserPermissions(initialPermissions);
+  const handleAssignPermission = useCallback((subUser) => {
+    setSelectedUserForPermission(subUser);
+    const perms = subUser.permissions || {};
+    const initial = Object.fromEntries(TRUCKER_PERMISSION_KEYS.map((k) => [k, !!perms[k]]));
+    setUserPermissions(initial);
     setPermissionModalOpen(true);
   }, []);
 
   const handlePermissionToggle = (key) => {
-    setUserPermissions((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
+    setUserPermissions((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const savePermissions = () => {
-    // Here you would save the permissions to the backend
-    console.log(
-      "Saving permissions for:",
-      selectedUserForPermission?.companyInfo?.companyName,
-      userPermissions,
-    );
-    setSuccess("Permissions assigned successfully");
-    setPermissionModalOpen(false);
-    setTimeout(() => setSuccess(null), 3000);
+  const savePermissions = async () => {
+    if (!selectedUserForPermission?.subUserId) return;
+    try {
+      setLoading(true);
+      await updateSubUser(selectedUserForPermission.subUserId, { permissions: userPermissions });
+      setSuccess('Permissions saved successfully');
+      setPermissionModalOpen(false);
+      await fetchSubUsers();
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError(err.message || 'Failed to save permissions');
+      setTimeout(() => setError(null), 3000);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleDeleteCustomer = (customerId) => {
-    setCustomerToDelete(customerId);
+  const handleDeleteSubUser = (subUserId) => {
+    setSubUserToDelete(subUserId);
     setDeleteModalOpen(true);
   };
 
   const confirmDelete = async () => {
-    if (!customerToDelete) return;
-
+    if (!subUserToDelete) return;
     try {
       setLoading(true);
-      await deleteCustomer(customerToDelete);
-
-      // Refresh the customer list
-      await fetchAllCustomers();
-      setSuccess("User deleted successfully");
+      await deleteSubUser(subUserToDelete);
+      await fetchSubUsers();
+      setSuccess('User removed successfully');
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
-      setError(err.message || "Failed to delete user");
+      setError(err.message || 'Failed to remove user');
       setTimeout(() => setError(null), 3000);
     } finally {
       setLoading(false);
       setDeleteModalOpen(false);
-      setCustomerToDelete(null);
+      setSubUserToDelete(null);
     }
   };
 
-  const handleSaveCustomer = async (e) => {
-    if (e) {
-      e.preventDefault();
-    }
-
+  const handleSaveSubUser = async (e) => {
+    if (e) e.preventDefault();
     try {
       setLoading(true);
-
-      if (editModalOpen) {
-        // Update existing customer with form data
-        await updateCustomer(selectedCustomer.customerId, formData);
-        setSuccess("Customer updated successfully");
+      const permissionsPayload = Object.fromEntries(
+        TRUCKER_PERMISSION_KEYS.map((k) => [k, !!formData[k]])
+      );
+      if (editModalOpen && selectedSubUser?.subUserId) {
+        const updateData = { name: formData.name, email: formData.email, permissions: permissionsPayload };
+        if (formData.password && formData.password.trim()) updateData.password = formData.password;
+        await updateSubUser(selectedSubUser.subUserId, updateData);
+        setSuccess('Sub-user updated successfully');
       } else {
-        // Add new customer
-        await addCustomer(formData);
-        setSuccess("Customer added successfully");
+        if (!formData.password || formData.password.trim().length < 6) {
+          setError('Password must be at least 6 characters');
+          setTimeout(() => setError(null), 3000);
+          return;
+        }
+        await createSubUser({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+          permissions: permissionsPayload,
+        });
+        setSuccess('Sub-user created successfully');
       }
-
-      // Refresh the customer list
-      await fetchAllCustomers();
+      await fetchSubUsers();
       setAddModalOpen(false);
       setEditModalOpen(false);
+      setSelectedSubUser(null);
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
-      setError(err.message || "Failed to save customer");
+      setError(err.message || 'Failed to save sub-user');
       setTimeout(() => setError(null), 3000);
     } finally {
       setLoading(false);
     }
   };
 
-  // Filter customers based on search term - memoized for performance
-  const filteredData = useMemo(() => {
-    if (!searchTerm.trim()) return customersData;
 
+  const filteredData = useMemo(() => {
+    if (!searchTerm.trim()) return subUsers;
     const searchLower = searchTerm.toLowerCase();
-    return customersData.filter(
-      (customer) =>
-        customer.companyInfo?.companyName
-          ?.toLowerCase()
-          .includes(searchLower) ||
-        customer.contactInfo?.email?.toLowerCase().includes(searchLower) ||
-        customer.contactInfo?.mobile?.includes(searchTerm) ||
-        customer.locationDetails?.city?.toLowerCase().includes(searchLower) ||
-        customer.locationDetails?.state?.toLowerCase().includes(searchLower),
+    return subUsers.filter(
+      (u) =>
+        (u.name || '').toLowerCase().includes(searchLower) ||
+        (u.email || '').toLowerCase().includes(searchLower)
     );
-  }, [customersData, searchTerm]);
+  }, [subUsers, searchTerm]);
 
   const handleFormInputChange = useCallback((e) => {
     const { name, value } = e.target;
@@ -446,71 +329,12 @@ const AddUserTrucker = () => {
     "& input:-webkit-autofill": { WebkitBoxShadow: "0 0 0 1000px #fff inset" },
   };
 
-  const exportToCSV = useCallback(() => {
-    const base = (() => {
-      if (!searchTerm?.trim()) return customersData || [];
-      const s = searchTerm.toLowerCase();
-      return (customersData || []).filter(
-        (customer) =>
-          customer.companyInfo?.companyName?.toLowerCase().includes(s) ||
-          customer.contactInfo?.email?.toLowerCase().includes(s) ||
-          customer.contactInfo?.mobile?.includes(searchTerm) ||
-          customer.locationDetails?.city?.toLowerCase().includes(s) ||
-          customer.locationDetails?.state?.toLowerCase().includes(s),
-      );
-    })();
-    const data = base.map((c) => ({
-      Name: c.companyInfo?.companyName || "",
-      "MC/DOT": c.companyInfo?.mcDotNo || "",
-      Email: c.contactInfo?.email || "",
-      Mobile: c.contactInfo?.mobile || "",
-      Location: [
-        c.locationDetails?.city,
-        c.locationDetails?.state,
-        c.locationDetails?.zipCode,
-      ]
-        .filter(Boolean)
-        .join(", "),
-      Status: c.status || "",
-    }));
-    const headers = Object.keys(
-      data[0] || {
-        Name: "",
-        "MC/DOT": "",
-        Email: "",
-        Mobile: "",
-        Location: "",
-        Status: "",
-      },
-    );
-    const csvRows = [
-      headers.join(","),
-      ...data.map((row) =>
-        headers
-          .map((h) => {
-            const val = row[h] ?? "";
-            const s = String(val).replace(/"/g, '""');
-            return `"${s}"`;
-          })
-          .join(","),
-      ),
-    ];
-    const csvContent = csvRows.join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "users.csv";
-    link.click();
-    URL.revokeObjectURL(url);
-  }, [customersData, searchTerm]);
-
-  const totalItems = filteredData ? filteredData.length : 0;
+  const totalItems = filteredData?.length || 0;
   const totalPages = Math.max(1, Math.ceil((totalItems || 1) / rowsPerPage));
   const clampedPage = Math.min(page, totalPages - 1);
   const pageStart = clampedPage * rowsPerPage;
   const pageEnd = Math.min(totalItems, pageStart + rowsPerPage);
-  const visibleCustomers = (filteredData || []).slice(pageStart, pageEnd);
+  const visibleRows = (filteredData || []).slice(pageStart, pageEnd);
   const getPageNumbers = () => {
     const pages = [];
     const maxVisible = 5;
@@ -522,7 +346,7 @@ const AddUserTrucker = () => {
     return pages;
   };
 
-  if (loading && customersData.length === 0) {
+  if (loading && subUsers.length === 0) {
     return (
       <Box
         sx={{
@@ -535,7 +359,7 @@ const AddUserTrucker = () => {
       >
         <CircularProgress />
         <Typography variant="h6" sx={{ ml: 2 }}>
-          Loading customers...
+          Loading sub-users...
         </Typography>
       </Box>
     );
@@ -560,7 +384,7 @@ const AddUserTrucker = () => {
       <div className="mb-2 flex items-center gap-3">
         <span className="text-2xl font-semibold text-gray-700">Add Users</span>
         <span className="bg-blue-600 text-white text-sm font-semibold px-3 py-1.5 rounded-full">
-          {customersData.length} Customer{customersData.length !== 1 ? "s" : ""}
+          {subUsers.length} {subUsers.length === 1 ? 'User' : 'Users'}
         </span>
       </div>
       <div className="mb-6">
@@ -583,7 +407,7 @@ const AddUserTrucker = () => {
             </svg>
             <input
               type="text"
-              placeholder="Search customers..."
+              placeholder="Search users..."
               value={searchTerm}
               onChange={(e) => {
                 handleSearch(e);
@@ -593,13 +417,7 @@ const AddUserTrucker = () => {
             />
           </div>
           <button
-            onClick={exportToCSV}
-            className="h-11 px-6 rounded-md border border-blue-600 text-blue-600 text-base font-medium cursor-pointer hover:bg-blue-600 hover:text-white"
-          >
-            Export CSV
-          </button>
-          <button
-            onClick={handleAddCustomer}
+            onClick={handleAddSubUser}
             className="h-11 px-6 rounded-md bg-blue-600 text-white text-base font-medium cursor-pointer flex items-center gap-1.5"
           >
             <svg
@@ -622,143 +440,52 @@ const AddUserTrucker = () => {
       </div>
 
       <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
-        <div className="overflow-x-auto p-4">
-          <table className="min-w-full border-separate border-spacing-y-4">
-            <thead>
-              <tr className="text-left bg-slate-100">
-                <th className="px-4 py-3 text-base font-semibold text-gray-500 rounded-l-xl border-t border-b border-l border-gray-200">
-                  Name
-                </th>
-                <th className="px-4 py-3 text-base font-semibold text-gray-500 border-t border-b border-gray-200">
-                  MC/DOT
-                </th>
-                <th className="px-4 py-3 text-base font-semibold text-gray-500 border-t border-b border-gray-200">
-                  Email
-                </th>
-                <th className="px-4 py-3 text-base font-semibold text-gray-500 border-t border-b border-gray-200">
-                  Mobile
-                </th>
-                <th className="px-4 py-3 text-base font-semibold text-gray-500 border-t border-b border-gray-200">
-                  Location
-                </th>
-                <th className="px-4 py-3 text-base font-semibold text-gray-500 border-t border-b border-gray-200">
-                  Status
-                </th>
-                <th className="px-4 py-3 text-base font-semibold text-gray-500 rounded-r-xl border-t border-b border-r border-gray-200">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td
-                    className="px-4 py-6 text-center text-sm text-slate-500"
-                    colSpan={7}
-                  >
-                    Loading…
-                  </td>
-                </tr>
-              ) : totalItems === 0 ? (
-                <tr>
-                  <td
-                    className="px-4 py-6 text-center text-sm text-slate-500"
-                    colSpan={7}
-                  >
-                    {customersData.length === 0
-                      ? "No customers found. Add your first customer!"
-                      : "No customers match your search criteria"}
-                  </td>
-                </tr>
-              ) : (
-                visibleCustomers.map((customer) => (
-                  <tr key={customer._id} className="hover:bg-slate-50">
-                    <td className="px-5 py-4 font-medium text-gray-700 truncate rounded-l-xl border-t border-b border-l border-gray-200">
-                      {customer.companyInfo?.companyName || "-"}
-                    </td>
-                    <td className="px-5 py-4 font-medium text-gray-700 truncate border-t border-b border-gray-200">
-                      {customer.companyInfo?.mcDotNo || "-"}
-                    </td>
-                    <td className="px-5 py-4 font-medium text-gray-700 border-t border-b border-gray-200">
-                      <div className="relative group max-w-[160px]">
-                        <span className="block truncate">
-                          {customer.contactInfo?.email || "-"}
-                        </span>
-
-                        {/* Tooltip */}
-                        {customer.contactInfo?.email && (
-                          <div
-                            className="absolute left-0 top-full mt-1 hidden group-hover:block 
-                      bg-gray-900 text-white text-sm px-3 py-1.5 
-                      rounded-md shadow-lg whitespace-nowrap z-50"
-                          >
-                            {customer.contactInfo.email}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-5 py-4 font-medium text-gray-700 truncate border-t border-b border-gray-200">
-                      {customer.contactInfo?.mobile || "-"}
-                    </td>
-                    <td className="px-5 py-4 font-medium text-gray-700 truncate border-t border-b border-gray-200">
-                      {[
-                        customer.locationDetails?.city,
-                        customer.locationDetails?.state,
-                        customer.locationDetails?.zipCode,
-                      ]
-                        .filter(Boolean)
-                        .join(", ") || "-"}
-                    </td>
-                    <td className="px-5 py-4 text-gray-700 border-t border-b border-gray-200">
-                      <span
-                        className={`inline-block rounded-full px-3 py-1 text-base font-medium border ${String(customer.status).toLowerCase() === "active" ? "bg-green-50 text-green-700 border-green-200" : "bg-slate-50 text-slate-700 border-slate-200"}`}
-                      >
-                        {customer.status || "N/A"}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 rounded-r-xl border-t border-b border-r border-gray-200">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <button
-                          onClick={() => handleViewCustomer(customer)}
-                          className="h-8 px-3 rounded-md border border-blue-600 text-blue-600 text-base cursor-pointer font-medium hover:bg-blue-600 hover:text-white"
-                        >
-                          View
-                        </button>
-                        <button
-                          onClick={() => handleAssignPermission(customer)}
-                          className="h-8 px-3 rounded-md border border-cyan-600 text-cyan-600 text-base cursor-pointer font-medium hover:bg-cyan-600 hover:text-white"
-                        >
-                          Assign
-                        </button>
-                        <button
-                          onClick={() => handleEditCustomer(customer)}
-                          className="h-8 px-3 rounded-md border border-slate-600 text-slate-700 text-base cursor-pointer font-medium hover:bg-slate-700 hover:text-white"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() =>
-                            handleDeleteCustomer(
-                              customer._id || customer.customerId,
-                            )
-                          }
-                          className="h-8 px-3 rounded-md border border-red-600 text-red-600 text-base cursor-pointer font-medium hover:bg-red-600 hover:text-white"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+  <div className="overflow-x-auto p-4">
+    <table className="min-w-full border-separate border-spacing-y-4">
+      <thead>
+        <tr className="text-left bg-slate-100">
+          <th className="px-4 py-3 text-base font-semibold text-gray-500 rounded-l-xl border-t border-b border-l border-gray-200">Name</th>
+          <th className="px-4 py-3 text-base font-semibold text-gray-500 border-t border-b border-gray-200">Email</th>
+          <th className="px-4 py-3 text-base font-semibold text-gray-500 border-t border-b border-gray-200">Status</th>
+          <th className="px-4 py-3 text-base font-semibold text-gray-500 rounded-r-xl border-t border-b border-r border-gray-200">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {totalItems > 0 ? (
+          visibleRows.map((subUser) => (
+            <tr key={subUser.subUserId} className="hover:bg-slate-50">
+              <td className="px-5 py-4 font-medium text-gray-700 truncate rounded-l-xl border-t border-b border-l border-gray-200">{subUser.name}</td>
+              <td className="px-5 py-4 font-medium text-gray-700 truncate border-t border-b border-gray-200">{subUser.email}</td>
+              <td className="px-5 py-4 text-gray-700 border-t border-b border-gray-200">
+                <span className={`inline-block rounded-full px-3 py-1 text-base font-medium border ${subUser.isActive !== false ? 'bg-green-50 text-green-700 border-green-200' : 'bg-slate-50 text-slate-700 border-slate-200'}`}>
+                  {subUser.isActive !== false ? 'Active' : 'Inactive'}
+                </span>
+              </td>
+              <td className="px-5 py-4 rounded-r-xl border-t border-b border-r border-gray-200">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button onClick={() => handleViewSubUser(subUser)} className="h-8 px-3 rounded-md border border-blue-600 text-blue-600 text-base cursor-pointer font-medium hover:bg-blue-600 hover:text-white">View</button>
+                  <button onClick={() => handleAssignPermission(subUser)} className="h-8 px-3 rounded-md border border-cyan-600 text-cyan-600 text-base cursor-pointer font-medium hover:bg-cyan-600 hover:text-white">Assign</button>
+                  <button onClick={() => handleEditSubUser(subUser)} className="h-8 px-3 rounded-md border border-slate-600 text-slate-700 text-base cursor-pointer font-medium hover:bg-slate-700 hover:text-white">Edit</button>
+                  <button onClick={() => handleDeleteSubUser(subUser.subUserId)} className="h-8 px-3 rounded-md border border-red-600 text-red-600 text-base cursor-pointer font-medium hover:bg-red-600 hover:text-white">Delete</button>
+                </div>
+              </td>
+            </tr>
+          ))
+        ) : (
+          <tr>
+            <td className="px-4 py-6 text-center text-sm text-slate-500" colSpan={4}>
+              {subUsers.length === 0 ? 'No sub-users yet. Add your first sub-user!' : 'No users match your search'}
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+</div>
 
       <div className="mt-2 border border-gray-200 rounded-lg bg-white px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3 text-sm text-slate-600">
-          <span>{`Showing ${totalItems === 0 ? 0 : pageStart + 1} to ${pageEnd} of ${totalItems} customers`}</span>
+          <span>{`Showing ${totalItems === 0 ? 0 : pageStart + 1} to ${pageEnd} of ${totalItems} users`}</span>
         </div>
         <div className="flex items-center gap-2">
           <label className="inline-flex items-center gap-2 font-medium text-gray-700">
@@ -839,22 +566,22 @@ const AddUserTrucker = () => {
           <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
             <PersonAdd sx={{ fontSize: 28, color: "white" }} />
             <Typography variant="h6" fontWeight={700} color="white">
-              Add New Users
+              {editModalOpen ? 'Edit User' : 'Add New User'}
             </Typography>
           </Box>
-          <IconButton
-            onClick={() => setAddModalOpen(false)}
-            sx={{
-              color: "white",
-              "&:hover": { bgcolor: "rgba(255,255,255,0.1)" },
+          <IconButton 
+            onClick={() => { setAddModalOpen(false); setEditModalOpen(false); setSelectedSubUser(null); }}
+            sx={{ 
+              color: 'white',
+              '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' }
             }}
           >
             <Close />
           </IconButton>
         </DialogTitle>
-
-        <DialogContent sx={{ p: 0, bgcolor: "#f8f9fa" }}>
-          <Box component="form" onSubmit={handleSaveCustomer}>
+        
+        <DialogContent sx={{ p: 0, bgcolor: '#f8f9fa' }}>
+          <Box component="form" onSubmit={handleSaveSubUser}>
             <Box sx={{ p: 3 }}>
               <Grid container spacing={3}>
                 {/* Company Information Section */}
@@ -904,11 +631,11 @@ const AddUserTrucker = () => {
                   <Paper elevation={0} sx={{ p: 2, borderRadius: "12px" }}>
                     <Grid container spacing={2}>
                       <Grid item xs={12} sm={6}>
-                        <TextField
-                          label="Name"
-                          name="companyName"
-                          value={formData.companyName || ""}
-                          onChange={handleFormInputChange}
+                        <TextField 
+                          label="Name" 
+                          name="name" 
+                          value={formData.name || ''} 
+                          onChange={handleFormInputChange} 
                           fullWidth
                           required
                           variant="outlined"
@@ -924,278 +651,69 @@ const AddUserTrucker = () => {
                         />
                       </Grid>
                       <Grid item xs={12} sm={6}>
-                        <TextField
-                          label="Designation"
-                          name="mcDotNo"
-                          value={formData.mcDotNo || ""}
-                          onChange={handleFormInputChange}
-                          fullWidth
-                          required
-                          variant="outlined"
-                          size="medium"
-                          InputProps={{
-                            startAdornment: (
-                              <InputAdornment position="start">
-                                <Typography
-                                  variant="caption"
-                                  sx={{
-                                    fontWeight: 700,
-                                    color: "text.secondary",
-                                  }}
-                                >
-                                  #
-                                </Typography>
-                              </InputAdornment>
-                            ),
-                          }}
-                          sx={inputFieldSx}
-                        />
-                      </Grid>
-                      <Grid item xs={12}>
-                        <TextField
-                          label="Password"
-                          name="password"
-                          type="password"
-                          value={formData.password || ""}
-                          onChange={handleFormInputChange}
-                          fullWidth
-                          required
-                          variant="outlined"
-                          InputProps={{
-                            startAdornment: (
-                              <InputAdornment position="start">
-                                <Lock color="action" fontSize="small" />
-                              </InputAdornment>
-                            ),
-                          }}
-                          sx={inputFieldSx}
-                        />
-                      </Grid>
-                    </Grid>
-                  </Paper>
-                </Grid>
-
-                {/* Contact Information Section */}
-                <Grid
-                  item
-                  xs={12}
-                  sx={{
-                    border: 1,
-                    borderColor: "divider",
-                    borderRadius: 3,
-                    p: 3,
-                    boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
-                    transition: "0.3s",
-                    width: "100%",
-                    bgcolor: "#fff",
-                    "&:hover": { boxShadow: "0 6px 24px rgba(0,0,0,0.1)" },
-                  }}
-                >
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 2,
-                      mb: 2,
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: "50%",
-                        backgroundColor: "#e3f2fd",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <Phone sx={{ color: "#1976d2", fontSize: 22 }} />
-                    </Box>
-                    <Typography
-                      variant="h6"
-                      sx={{ fontWeight: 600, color: "#2D3748" }}
-                    >
-                      Contact Details
-                    </Typography>
-                  </Box>
-                  <Paper elevation={0} sx={{ p: 2, borderRadius: "12px" }}>
-                    <Grid container spacing={2}>
-                      <Grid item xs={12} sm={6}>
-                        <TextField
-                          label="Email Address"
-                          name="email"
+                        <TextField 
+                          label="Email" 
+                          name="email" 
                           type="email"
                           value={formData.email || ""}
                           onChange={handleFormInputChange}
                           fullWidth
                           required
                           variant="outlined"
-                          InputProps={{
-                            startAdornment: (
-                              <InputAdornment position="start">
-                                <Email color="action" fontSize="small" />
-                              </InputAdornment>
-                            ),
-                          }}
                           sx={inputFieldSx}
                         />
                       </Grid>
                       <Grid item xs={12} sm={6}>
-                        <TextField
-                          label="Phone Number"
-                          name="mobile"
-                          value={formData.mobile || ""}
-                          onChange={handleFormInputChange}
+                        <TextField 
+                          label={editModalOpen ? 'New password (leave blank to keep current)' : 'Password'} 
+                          name="password" 
+                          type="password"
+                          value={formData.password || ''} 
+                          onChange={handleFormInputChange} 
                           fullWidth
-                          required
+                          required={!editModalOpen}
                           variant="outlined"
-                          InputProps={{
-                            startAdornment: (
-                              <InputAdornment position="start">
-                                <Phone color="action" fontSize="small" />
-                              </InputAdornment>
-                            ),
-                          }}
+                          placeholder={editModalOpen ? 'Optional' : 'Min 6 characters'}
                           sx={inputFieldSx}
                         />
                       </Grid>
                     </Grid>
                   </Paper>
                 </Grid>
-
-                {/* Location Section */}
-                <Grid
-                  item
-                  xs={12}
-                  sx={{
-                    border: 1,
-                    borderColor: "divider",
-                    borderRadius: 3,
-                    p: 3,
-                    boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
-                    transition: "0.3s",
-                    width: "100%",
-                    bgcolor: "#fff",
-                    "&:hover": { boxShadow: "0 6px 24px rgba(0,0,0,0.1)" },
-                  }}
-                >
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 2,
-                      mb: 2,
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: "50%",
-                        backgroundColor: "#e3f2fd",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <LocationOn sx={{ color: "#1976d2", fontSize: 22 }} />
-                    </Box>
-                    <Typography
-                      variant="h6"
-                      sx={{ fontWeight: 600, color: "#2D3748" }}
-                    >
-                      Location
-                    </Typography>
-                  </Box>
-                  <Paper elevation={0} sx={{ p: 2, borderRadius: "12px" }}>
-                    <Grid container spacing={2}>
-                      <Grid item xs={12}>
-                        <TextField
-                          label="Street Address"
-                          name="companyAddress"
-                          value={formData.companyAddress || ""}
-                          onChange={handleFormInputChange}
-                          fullWidth
-                          variant="outlined"
-                          placeholder="e.g. 123 Logistics Way"
-                          sx={inputFieldSx}
-                        />
-                      </Grid>
-                      <Grid item xs={12} sm={6}>
-                        <TextField
-                          label="City"
-                          name="city"
-                          value={formData.city || ""}
-                          onChange={handleFormInputChange}
-                          fullWidth
-                          variant="outlined"
-                          sx={inputFieldSx}
-                        />
-                      </Grid>
-                      <Grid item xs={12} sm={6}>
-                        <TextField
-                          label="State/Province"
-                          name="state"
-                          value={formData.state || ""}
-                          onChange={handleFormInputChange}
-                          fullWidth
-                          variant="outlined"
-                          sx={inputFieldSx}
-                        />
-                      </Grid>
-                      <Grid item xs={12} sm={6}>
-                        <TextField
-                          label="Zip/Postal Code"
-                          name="zipCode"
-                          value={formData.zipCode || ""}
-                          onChange={handleFormInputChange}
-                          fullWidth
-                          variant="outlined"
-                          sx={inputFieldSx}
-                        />
-                      </Grid>
-                      <Grid item xs={12} sm={6}>
-                        <TextField
-                          label="Country"
-                          name="country"
-                          value={formData.country || ""}
-                          onChange={handleFormInputChange}
-                          fullWidth
-                          variant="outlined"
-                          sx={inputFieldSx}
-                        />
-                      </Grid>
-                    </Grid>
-                  </Paper>
+                <Grid item xs={12} sx={{ border: 1, borderColor: 'divider', borderRadius: 3, p: 3, bgcolor: '#fff' }}>
+                  <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2 }}>Permissions</Typography>
+                  <Table size="small" sx={{ minWidth: 400 }}>
+                    <TableHead>
+                      <TableRow sx={{ backgroundColor: '#f0f4f8' }}>
+                        <TableCell sx={{ fontWeight: 600 }}>Feature</TableCell>
+                        <TableCell sx={{ fontWeight: 600, width: 100, textAlign: 'center' }}>Allow</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {sidebarOptions.map((opt) => (
+                        <TableRow key={opt.key}>
+                          <TableCell>{opt.label}</TableCell>
+                          <TableCell sx={{ textAlign: 'center' }}>
+                            <Switch
+                              checked={!!formData[opt.key]}
+                              onChange={(e) => setFormData((prev) => ({ ...prev, [opt.key]: e.target.checked }))}
+                              color="primary"
+                              size="small"
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </Grid>
-
-                {/* Additional Info Section jhgjhgj*/}
-                {/* <Grid item xs={12}>
-                  <TextField 
-                    label="Additional Notes" 
-                    name="notes" 
-                    value={formData.notes || ''} 
-                    onChange={handleFormInputChange} 
-                    fullWidth
-                    multiline
-                    rows={3}
-                    variant="outlined"s
-                    placeholder="Any specific requirements or details..."
-                    sx={{ 
-                      '& .MuiOutlinedInput-root': { borderRadius: '12px' },
-                      bgcolor: 'white'
-                    }}
-                  />
-                </Grid> */}
-              </Grid>
+                              </Grid>
             </Box>
 
             <Divider />
-
-            <DialogActions sx={{ p: 3, bgcolor: "#fff" }}>
-              <Button
-                onClick={() => setAddModalOpen(false)}
+            
+            <DialogActions sx={{ p: 3, bgcolor: '#fff' }}>
+              <Button 
+                onClick={() => { setAddModalOpen(false); setEditModalOpen(false); setSelectedSubUser(null); }} 
                 variant="outlined"
                 color="inherit"
                 sx={{
@@ -1213,39 +731,35 @@ const AddUserTrucker = () => {
               >
                 Cancel
               </Button>
-              <Button
-                type="submit"
-                variant="contained"
-                disabled={loading}
-                sx={{
-                  borderRadius: "8px",
-                  textTransform: "none",
-                  px: 4,
-                  fontWeight: 600,
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                  background: brand,
-                  color: "#fff !important",
-                  "&.Mui-disabled": {
-                    background: brand,
-                    opacity: 0.7,
-                    color: "#fff !important",
-                  },
-                }}
-              >
-                {loading ? (
-                  <CircularProgress size={24} sx={{ color: "#fff" }} />
-                ) : (
-                  "Create Users"
-                )}
-              </Button>
+             <Button 
+  type="submit" 
+  variant="contained" 
+  disabled={loading}
+  sx={{ 
+    borderRadius: '8px', 
+    textTransform: 'none', 
+    px: 4,
+    fontWeight: 600,
+    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+    background: brand,
+    color: "#fff !important",
+    "&.Mui-disabled": {
+      background: brand,
+      opacity: 0.7,
+      color: "#fff !important",
+    },
+  }}
+>
+  {loading ? <CircularProgress size={24} sx={{ color: "#fff" }} /> : (editModalOpen ? 'Update User' : 'Create User')}
+</Button>
             </DialogActions>
           </Box>
         </DialogContent>
       </Dialog>
 
-      {/* Edit Customer Modal */}
+      {/* Edit is handled by the Add User Dialog above */}
       <Modal
-        open={editModalOpen}
+        open={false}
         onClose={() => setEditModalOpen(false)}
         aria-labelledby="edit-customer-modal"
       >
@@ -1297,12 +811,8 @@ const AddUserTrucker = () => {
               </IconButton>
             </Box>
           </Box>
-          <Box component="form" onSubmit={handleSaveCustomer} sx={{ p: 3 }}>
-            <Grid
-              container
-              spacing={2}
-              sx={{ mb: 2, justifyContent: "center" }}
-            >
+          <Box component="form" onSubmit={handleSaveSubUser} sx={{ p: 3 }}>
+            <Grid container spacing={2} sx={{ mb: 2, justifyContent: 'center' }}>
               {/* Company Name | MC/DOT No */}
               <Grid item xs={12} sm={6}>
                 <TextField
@@ -1566,38 +1076,37 @@ const AddUserTrucker = () => {
             px: 3,
             background: brand,
             color: headerTextColor,
-            borderRadius: "8px 8px 0 0",
-            minHeight: 64,
-          }}
-        >
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-            <Business sx={{ fontSize: 28, color: "white" }} />
-            <Typography variant="h5" fontWeight={600} color="white">
-              User Details
-            </Typography>
-          </Box>
-          <Button
-            onClick={() => setViewModalOpen(false)}
-            sx={{
-              color: "white",
-              minWidth: "auto",
-              padding: 1,
-              "&:hover": {
-                background: "rgba(255, 255, 255, 0.1)",
-              },
-            }}
-          >
-            <CloseIcon
-              sx={{
-                fontSize: 28, // Increase size
-                strokeWidth: 2.5, // Increase thickness
-              }}
-            />
-          </Button>
-        </DialogTitle>
+            borderRadius: '8px 8px 0 0',
+            minHeight: 64
+          }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Business sx={{ fontSize: 28, color:"white" }} />
+              <Typography variant="h5" fontWeight={600} color="white">
+                User Details
+              </Typography>
+            </Box>
+           <Button
+  onClick={() => setViewModalOpen(false)}
+  sx={{
+    color: "white",
+    minWidth: "auto",
+    padding: 1,
+    '&:hover': {
+      background: 'rgba(255, 255, 255, 0.1)',
+    }
+  }}
+>
+  <CloseIcon
+    sx={{
+      fontSize: 28,          // Increase size
+      strokeWidth: 2.5,      // Increase thickness
+    }}
+  />
+</Button>
+          </DialogTitle>
 
-        <DialogContent sx={{ pt: 2, overflowY: "auto", flex: 1 }}>
-          {selectedCustomer && (
+          <DialogContent sx={{ pt: 2, overflowY: 'auto', flex: 1 }}>
+          {selectedSubUser && (
             <Box>
               <Box
                 sx={{ display: "flex", flexDirection: "column", gap: 3, p: 3 }}
@@ -1647,26 +1156,14 @@ const AddUserTrucker = () => {
                     >
                       <TableBody>
                         <TableRow>
-                          <TableCell
-                            sx={{ width: 220, color: "text.secondary" }}
-                          >
-                            Company Name
-                          </TableCell>
-                          <TableCell sx={{ width: 80, color: "#9e9e9e" }}>
-                            -----
-                          </TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>
-                            {selectedCustomer.companyInfo?.companyName || "N/A"}
-                          </TableCell>
+                          <TableCell sx={{ width: 220, color: 'text.secondary' }}>Name</TableCell>
+                          <TableCell sx={{ width: 80, color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{selectedSubUser.name || 'N/A'}</TableCell>
                         </TableRow>
                         <TableRow>
-                          <TableCell sx={{ color: "text.secondary" }}>
-                            MC/DOT Number
-                          </TableCell>
-                          <TableCell sx={{ color: "#9e9e9e" }}>-----</TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>
-                            {selectedCustomer.companyInfo?.mcDotNo || "N/A"}
-                          </TableCell>
+                          <TableCell sx={{ color: 'text.secondary' }}>Email</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{selectedSubUser.email || 'N/A'}</TableCell>
                         </TableRow>
                         <TableRow>
                           <TableCell sx={{ color: "text.secondary" }}>
@@ -1674,18 +1171,12 @@ const AddUserTrucker = () => {
                           </TableCell>
                           <TableCell sx={{ color: "#9e9e9e" }}>-----</TableCell>
                           <TableCell>
-                            <Chip
-                              label={selectedCustomer.status}
+                            <Chip 
+                              label={selectedSubUser.isActive !== false ? 'Active' : 'Inactive'} 
                               size="small"
-                              sx={{
-                                backgroundColor:
-                                  selectedCustomer.status === "active"
-                                    ? "#e8f5e9"
-                                    : "#f5f5f5",
-                                color:
-                                  selectedCustomer.status === "active"
-                                    ? "#2e7d32"
-                                    : "#757575",
+                              sx={{ 
+                                backgroundColor: selectedSubUser.isActive !== false ? '#4caf50' : '#9e9e9e',
+                                color: '#fff',
                                 fontWeight: 600,
                                 fontSize: 11,
                                 textTransform: "capitalize",
@@ -1695,15 +1186,9 @@ const AddUserTrucker = () => {
                           </TableCell>
                         </TableRow>
                         <TableRow>
-                          <TableCell sx={{ color: "text.secondary" }}>
-                            Created Date
-                          </TableCell>
-                          <TableCell sx={{ color: "#9e9e9e" }}>-----</TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>
-                            {new Date(
-                              selectedCustomer.createdAt,
-                            ).toLocaleDateString()}
-                          </TableCell>
+                          <TableCell sx={{ color: 'text.secondary' }}>Created Date</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{new Date(selectedSubUser.createdAt).toLocaleDateString()}</TableCell>
                         </TableRow>
                       </TableBody>
                     </Table>
@@ -1755,26 +1240,14 @@ const AddUserTrucker = () => {
                     >
                       <TableBody>
                         <TableRow>
-                          <TableCell
-                            sx={{ width: 220, color: "text.secondary" }}
-                          >
-                            Email
-                          </TableCell>
-                          <TableCell sx={{ width: 80, color: "#9e9e9e" }}>
-                            -----
-                          </TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>
-                            {selectedCustomer.contactInfo?.email || "N/A"}
-                          </TableCell>
+                          <TableCell sx={{ width: 220, color: 'text.secondary' }}>Email</TableCell>
+                          <TableCell sx={{ width: 80, color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{selectedSubUser.email || 'N/A'}</TableCell>
                         </TableRow>
                         <TableRow>
-                          <TableCell sx={{ color: "text.secondary" }}>
-                            Mobile
-                          </TableCell>
-                          <TableCell sx={{ color: "#9e9e9e" }}>-----</TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>
-                            {selectedCustomer.contactInfo?.mobile || "N/A"}
-                          </TableCell>
+                          <TableCell sx={{ color: 'text.secondary' }}>Mobile</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{'N/A' || 'N/A'}</TableCell>
                         </TableRow>
                       </TableBody>
                     </Table>
@@ -1826,54 +1299,29 @@ const AddUserTrucker = () => {
                     >
                       <TableBody>
                         <TableRow>
-                          <TableCell
-                            sx={{ width: 220, color: "text.secondary" }}
-                          >
-                            Address
-                          </TableCell>
-                          <TableCell sx={{ width: 80, color: "#9e9e9e" }}>
-                            -----
-                          </TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>
-                            {selectedCustomer.locationDetails?.companyAddress ||
-                              "N/A"}
-                          </TableCell>
+                          <TableCell sx={{ width: 220, color: 'text.secondary' }}>Address</TableCell>
+                          <TableCell sx={{ width: 80, color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{selectedSubUser.locationDetails?.companyAddress || 'N/A'}</TableCell>
                         </TableRow>
                         <TableRow>
-                          <TableCell sx={{ color: "text.secondary" }}>
-                            City
-                          </TableCell>
-                          <TableCell sx={{ color: "#9e9e9e" }}>-----</TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>
-                            {selectedCustomer.locationDetails?.city || "N/A"}
-                          </TableCell>
+                          <TableCell sx={{ color: 'text.secondary' }}>City</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{selectedSubUser.locationDetails?.city || 'N/A'}</TableCell>
                         </TableRow>
                         <TableRow>
-                          <TableCell sx={{ color: "text.secondary" }}>
-                            State
-                          </TableCell>
-                          <TableCell sx={{ color: "#9e9e9e" }}>-----</TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>
-                            {selectedCustomer.locationDetails?.state || "N/A"}
-                          </TableCell>
+                          <TableCell sx={{ color: 'text.secondary' }}>State</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{selectedSubUser.locationDetails?.state || 'N/A'}</TableCell>
                         </TableRow>
                         <TableRow>
-                          <TableCell sx={{ color: "text.secondary" }}>
-                            Zip Code
-                          </TableCell>
-                          <TableCell sx={{ color: "#9e9e9e" }}>-----</TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>
-                            {selectedCustomer.locationDetails?.zipCode || "N/A"}
-                          </TableCell>
+                          <TableCell sx={{ color: 'text.secondary' }}>Zip Code</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{selectedSubUser.locationDetails?.zipCode || 'N/A'}</TableCell>
                         </TableRow>
                         <TableRow>
-                          <TableCell sx={{ color: "text.secondary" }}>
-                            Country
-                          </TableCell>
-                          <TableCell sx={{ color: "#9e9e9e" }}>-----</TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>
-                            {selectedCustomer.locationDetails?.country || "N/A"}
-                          </TableCell>
+                          <TableCell sx={{ color: 'text.secondary' }}>Country</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{selectedSubUser.locationDetails?.country || 'N/A'}</TableCell>
                         </TableRow>
                       </TableBody>
                     </Table>
@@ -1881,38 +1329,10 @@ const AddUserTrucker = () => {
                 </Paper>
 
                 {/* Additional Notes Card */}
-                {selectedCustomer.notes && (
-                  <Paper
-                    elevation={0}
-                    sx={{
-                      border: "1px solid #b2dfdb",
-                      borderRadius: 2,
-                      overflow: "hidden",
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 1.5,
-                        px: 2,
-                        py: 1.5,
-                        background: "#e0f2f1",
-                      }}
-                    >
-                      <Box
-                        sx={{
-                          width: 32,
-                          height: 32,
-                          borderRadius: 1,
-                          background: "#00897b",
-                          color: "white",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontWeight: 700,
-                        }}
-                      >
+                {selectedSubUser.notes && (
+                  <Paper elevation={0} sx={{ border: '1px solid #b2dfdb', borderRadius: 2, overflow: 'hidden' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, background: '#e0f2f1' }}>
+                      <Box sx={{ width: 32, height: 32, borderRadius: 1, background: '#00897b', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
                         📝
                       </Box>
                       <Typography variant="h6" fontWeight={700} color="#00695c">
@@ -1926,19 +1346,9 @@ const AddUserTrucker = () => {
                       >
                         <TableBody>
                           <TableRow>
-                            <TableCell
-                              sx={{ width: 220, color: "text.secondary" }}
-                            >
-                              Notes
-                            </TableCell>
-                            <TableCell sx={{ width: 80, color: "#9e9e9e" }}>
-                              -----
-                            </TableCell>
-                            <TableCell
-                              sx={{ fontWeight: 600, fontStyle: "italic" }}
-                            >
-                              {selectedCustomer.notes}
-                            </TableCell>
+                            <TableCell sx={{ width: 220, color: 'text.secondary' }}>Notes</TableCell>
+                            <TableCell sx={{ width: 80, color: '#9e9e9e' }}>-----</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontStyle: 'italic' }}>{selectedSubUser.notes}</TableCell>
                           </TableRow>
                         </TableBody>
                       </Table>
@@ -1991,28 +1401,14 @@ const AddUserTrucker = () => {
                     >
                       <TableBody>
                         <TableRow>
-                          <TableCell
-                            sx={{ width: 220, color: "text.secondary" }}
-                          >
-                            Name
-                          </TableCell>
-                          <TableCell sx={{ width: 80, color: "#9e9e9e" }}>
-                            -----
-                          </TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>
-                            {selectedCustomer.addedByTrucker?.truckerName ||
-                              "N/A"}
-                          </TableCell>
+                          <TableCell sx={{ width: 220, color: 'text.secondary' }}>Name</TableCell>
+                          <TableCell sx={{ width: 80, color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{selectedSubUser.addedByTrucker?.truckerName || 'N/A'}</TableCell>
                         </TableRow>
                         <TableRow>
-                          <TableCell sx={{ color: "text.secondary" }}>
-                            Email
-                          </TableCell>
-                          <TableCell sx={{ color: "#9e9e9e" }}>-----</TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>
-                            {selectedCustomer.addedByTrucker?.truckerEmail ||
-                              "N/A"}
-                          </TableCell>
+                          <TableCell sx={{ color: 'text.secondary' }}>Email</TableCell>
+                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{selectedSubUser.addedByTrucker?.truckerEmail || 'N/A'}</TableCell>
                         </TableRow>
                       </TableBody>
                     </Table>
@@ -2076,8 +1472,7 @@ const AddUserTrucker = () => {
                       Name
                     </Typography>
                     <Typography variant="body1" fontWeight={600}>
-                      {selectedUserForPermission.companyInfo?.companyName ||
-                        "N/A"}
+                      {selectedUserForPermission.name || 'N/A'}
                     </Typography>
                   </Grid>
                   <Grid item xs={12} sm={6}>
@@ -2085,7 +1480,7 @@ const AddUserTrucker = () => {
                       Email
                     </Typography>
                     <Typography variant="body1" fontWeight={600}>
-                      {selectedUserForPermission.contactInfo?.email || "N/A"}
+                      {selectedUserForPermission.email || 'N/A'}
                     </Typography>
                   </Grid>
                 </Grid>

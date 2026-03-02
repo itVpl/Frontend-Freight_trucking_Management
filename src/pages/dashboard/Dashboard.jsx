@@ -169,6 +169,7 @@ const Dashboard = () => {
   const delivered = useSelector((state) => selectDashboardValue(state, 'delivered'));
   const bills = useSelector((state) => selectDashboardValue(state, 'bills') || 0);
   const inTransitLoads = useSelector((state) => selectDashboardValue(state, 'inTransitLoads'));
+  const bidsOnLoads = useSelector((state) => selectDashboardValue(state, 'bidding'));
 
   // Render function for Google Maps wrapper
   const render = (status) => {
@@ -670,7 +671,7 @@ const Dashboard = () => {
         <Box sx={{ gridColumn: 'span 1' }}>
           <StatCard 
             title="Bids On Loads" 
-            value={0} 
+            value={bidsOnLoads} 
             icon={cancel} 
             image={localshipping}
             onClick={handleBidsOnLoadsClick}
@@ -766,7 +767,7 @@ const Dashboard = () => {
                       <TableCell>{row.to}</TableCell>
                       <TableCell>{row.pickupDate || row.eta}</TableCell>
                       <TableCell>
-                        {selectedCard === 'Bills' ? `$${row.rate || 'N/A'}` : (row.eta || 'N/A')}
+                        {selectedCard === 'Bills' ? (row.rate != null ? `$${Number(row.rate).toLocaleString()}` : 'N/A') : (row.eta || 'N/A')}
                       </TableCell>
                       <TableCell>
                         {selectedCard === 'Bills' ? row.status : (row.driverName || 'N/A')}
@@ -787,6 +788,7 @@ const Dashboard = () => {
                               row.status === 'Assigned' ? '#9c27b0' :
                               row.status === 'Posted' ? '#607d8b' :
                               row.status === 'Paid' ? '#4caf50' :
+                              row.status === 'Draft' ? '#9e9e9e' :
                               row.status === 'Overdue' ? '#f44336' :
                               row.status === 'Pending' ? '#ff9800' : '#e0e0e0',
                             color: 'white',

@@ -75,8 +75,22 @@ const Login = () => {
 
       const data = response.data;
       if (data.success) {
-        const user = { ...data.user, type: data.user.userType };
-        if (data.user.token) localStorage.setItem('token', data.user.token);
+        const u = data.user;
+        const userType = u.userType ?? u.type;
+        let permissions = u.permissions ?? null;
+        if (userType === 'trucker' && permissions && typeof permissions === 'object') {
+          permissions = { ...permissions, addLoad: permissions.addLoad ?? permissions.loadBoard };
+        }
+        const user = {
+          ...u,
+          type: userType,
+          userType,
+          isSubUser: u.isSubUser ?? false,
+          permissions,
+          name: u.name ?? u.displayName ?? u.compName,
+          userId: u.userId,
+        };
+        if (u.token) localStorage.setItem('token', u.token);
         login(user);
         alertify.success('Login successful! Welcome back.');
         navigate('/dashboard');

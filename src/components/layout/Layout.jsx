@@ -105,7 +105,9 @@ const Layout = () => {
   const [tableButtonText, setTableButtonText] = useState('#ffffff');
   const [tableBgImage, setTableBgImage] = useState('');
   const [tableBgImageOpacity, setTableBgImageOpacity] = useState(0);
-  const { user, logout, userType } = useAuth();
+  const { user, logout, userType, isSubUser, permissions } = useAuth();
+  const isTruckerSubUser = userType === 'trucker' && isSubUser;
+  const isShipperSubUser = userType === 'shipper' && isSubUser;
   const { themeConfig, updateTokens, updateSectionColors, resetSection, resetThemeAll, resetTokens } = useThemeConfig();
   const { notifications, unreadCount, markAsRead, addNotification } = useNegotiation();
   const [notificationAnchorEl, setNotificationAnchorEl] = useState(null);
@@ -361,40 +363,48 @@ const Layout = () => {
   // Define menu items based on userType
   let menuItems = [];
   if (userType === 'trucker') {
-    menuItems = [
-      { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
-      { text: 'Live Tracker', icon: <LocationOn />, path: '/live-tracker' },
-      { text: 'Add Load', icon: <Add />, path: '/add-load' },
-      { text: 'Add Users', icon: <PersonAdd />, path: '/add-user-trucker' },
-      { text: 'Add Customer', icon: <PersonAdd />, path: '/add-customer' },
-      { text: 'Driver', icon: <Person />, path: '/driver' },
-      { text: 'Fleet', icon: <LocalShipping />, path: '/fleet' },
-      { text: 'Billing', icon: <Receipt />, path: '/billing' },
-      { text: 'Consignment', icon: <Assignment />, path: '/consignment' },
-      { text: 'Bid Management', icon: <ListAlt />, path: '/bid-management' },
-      { text: 'Payments', icon: <Payment />, path: '/payments' },
-      // { text: 'Driver', icon: <Person />, path: '/driver' },
-      // { text: 'Consignment', icon: <Assignment />, path: '/consignment' },
-      // { text: 'Add Customer', icon: <PersonAdd />, path: '/add-customer' },
-      // { text: 'Add Load', icon: <Add />, path: '/add-load' },
-      { text: 'Yard', icon: <Warehouse />, path: '/yard' },
-      { text: 'Yard Drop Container', icon: <ContainerIcon />, path: '/yard-drop-container' },
-      { text: 'Email', icon: <EmailIcon />, path: '/email' },
-      { text: 'Report', icon: <Assessment />, path: '/reports' },
-      { text: 'Load Calculator', icon: <AccountBalance />, path: '/loadcalculator' },
+    const allTruckerItems = [
+      { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard', permissionKey: 'dashboard' },
+      { text: 'Live Tracker', icon: <LocationOn />, path: '/live-tracker', permissionKey: 'liveTracker' },
+      { text: 'Add Load', icon: <Add />, path: '/add-load', permissionKey: 'addLoad' },
+      { text: 'Add Users', icon: <PersonAdd />, path: '/add-user-trucker', permissionKey: 'addUser' },
+      { text: 'Add Customer', icon: <PersonAdd />, path: '/add-customer', permissionKey: 'addCustomer' },
+      { text: 'Driver', icon: <Person />, path: '/driver', permissionKey: 'driver' },
+      { text: 'Fleet', icon: <LocalShipping />, path: '/fleet', permissionKey: 'fleet' },
+      { text: 'Billing', icon: <Receipt />, path: '/billing', permissionKey: 'billing' },
+      { text: 'Consignment', icon: <Assignment />, path: '/consignment', permissionKey: 'consignment' },
+      { text: 'Bid Management', icon: <ListAlt />, path: '/bid-management', permissionKey: 'bidManagement' },
+      { text: 'Payments', icon: <Payment />, path: '/payments', permissionKey: 'payments' },
+      { text: 'Yard', icon: <Warehouse />, path: '/yard', permissionKey: 'yard' },
+      { text: 'Yard Drop Container', icon: <ContainerIcon />, path: '/yard-drop-container', permissionKey: 'yardDropContainer' },
+      { text: 'Email', icon: <EmailIcon />, path: '/email', permissionKey: 'email' },
+      { text: 'Report', icon: <Assessment />, path: '/reports', permissionKey: 'report' },
+      { text: 'Load Calculator', icon: <AccountBalance />, path: '/loadcalculator', permissionKey: 'loadCalculator' },
     ];
+    // Sub-user: only show items they have permission for. Main trucker: show all.
+    if (isTruckerSubUser && permissions && typeof permissions === 'object') {
+      menuItems = allTruckerItems.filter((item) => item.permissionKey && Boolean(permissions[item.permissionKey]));
+    } else {
+      menuItems = allTruckerItems;
+    }
   } else if (userType === 'shipper') {
-    menuItems = [
-      { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
-      { text: 'Live Tracker', icon: <LocationOn />, path: '/live-tracker' },
-      { text: 'Load Board', icon: <ListAlt />, path: '/loadboard' },
-      { text: 'Add User', icon: <PersonAdd />, path: '/add-user-shipper' },
-      { text: 'Billing', icon: <Receipt />, path: '/bills' },
-      { text: 'Consignment', icon: <Assignment />, path: '/consignment' },
-      { text: 'Email', icon: <EmailIcon />, path: '/email' },
-      { text: 'Report', icon: <Assessment />, path: '/reports' },
-      { text: 'Load Calculator', icon: <AccountBalance />, path: '/loadcalculator' },
+    const allShipperItems = [
+      { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard', permissionKey: 'dashboard' },
+      { text: 'Live Tracker', icon: <LocationOn />, path: '/live-tracker', permissionKey: 'liveTracker' },
+      { text: 'Load Board', icon: <ListAlt />, path: '/loadboard', permissionKey: 'loadBoard' },
+      { text: 'Add User', icon: <PersonAdd />, path: '/add-user-shipper', permissionKey: 'addUser' },
+      { text: 'Billing', icon: <Receipt />, path: '/bills', permissionKey: 'billing' },
+      { text: 'Consignment', icon: <Assignment />, path: '/consignment', permissionKey: 'consignment' },
+      { text: 'Email', icon: <EmailIcon />, path: '/email', permissionKey: 'email' },
+      { text: 'Report', icon: <Assessment />, path: '/reports', permissionKey: 'report' },
+      { text: 'Load Calculator', icon: <AccountBalance />, path: '/loadcalculator', permissionKey: 'loadCalculator' },
     ];
+    // Sub-user: only show items they have permission for. Main shipper: show all.
+    if (isShipperSubUser && permissions && typeof permissions === 'object') {
+      menuItems = allShipperItems.filter((item) => Boolean(permissions[item.permissionKey]));
+    } else {
+      menuItems = allShipperItems;
+    }
   }
 
   const drawer = (
