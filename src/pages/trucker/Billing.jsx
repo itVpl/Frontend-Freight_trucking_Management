@@ -1222,11 +1222,11 @@ const Dashboard = () => {
                       />
                     </Grid>
 
-                    <Grid item xs={12}>
+                    <Grid item xs={12} sx={{ flexBasis: '100% !important', maxWidth: '100% !important' }}>
                       <TextField
                         label="Customer Address *"
                         multiline
-                        rows={2}
+                        rows={3}
                         value={billForm.customerAddress}
                         onChange={handleBillFormChange("customerAddress")}
                         fullWidth
@@ -1618,7 +1618,7 @@ const Dashboard = () => {
                       />
                     </Grid>
 
-                    <Grid item xs={12}>
+                    <Grid item xs={12} sx={{ flexBasis: '100% !important', maxWidth: '100% !important' }}>
                       <TextField
                         label="Notes"
                         multiline
@@ -1627,6 +1627,7 @@ const Dashboard = () => {
                         onChange={handleBillFormChange("notes")}
                         fullWidth
                         sx={{
+                          width: "100%",
                           "& .MuiInputBase-root": {
                             borderRadius: 2,
                           },
@@ -1653,7 +1654,7 @@ const Dashboard = () => {
                 borderRadius: 2,
                 textTransform: "none",
                 px: 3,
-                py: 1,
+                py: 0.8,
                 borderColor: "red",
                 color: "red",
                 "&:hover": {

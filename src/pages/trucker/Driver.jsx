@@ -939,7 +939,7 @@ const Dashboard = () => {
           />
         </Grid>
         
-        <Grid item xs={12} sm={4}>
+        <Grid item xs={12} sx={{ flexBasis: '100% !important', maxWidth: '100% !important' }}>
           <TextField
             label="Full Address"
             name="address"
@@ -1073,7 +1073,7 @@ const Dashboard = () => {
           borderRadius: 3,
           textTransform: "none",
           px: 4,
-          py: 1.2,
+          py: 1.1,
           fontWeight: 600,
           backgroundColor: "transparent",
           color: "#d32f2f",
@@ -1555,7 +1555,7 @@ const Dashboard = () => {
                     }}
                   />
                 </Grid>
-                <Grid item xs={12}>
+                 <Grid item xs={12} sx={{ flexBasis: '100% !important', maxWidth: '100% !important' }}>
                   <TextField
                     label="Full Address"
                     name="address"
@@ -1605,7 +1605,7 @@ const Dashboard = () => {
     borderRadius: 3,
     textTransform: "none",
     px: 4,
-    py: 1.2,
+    py: 1,
     fontWeight: 600,
     backgroundColor: "transparent",
     color: "#d32f2f",

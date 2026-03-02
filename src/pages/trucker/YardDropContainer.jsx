@@ -1759,7 +1759,7 @@ const YardDropContainer = () => {
               borderColor: "red",
               color: "red",
               px: 4,
-              py: 1,
+              py: 0.8,
               fontWeight: 500,
               fontSize: "0.95rem",
               "&:hover": {
@@ -2127,7 +2127,7 @@ const YardDropContainer = () => {
             </Box>
           )}
         </DialogContent>
-        <DialogActions
+        {/* <DialogActions
           sx={{
             px: 3,
             pb: 3,
@@ -2156,7 +2156,7 @@ const YardDropContainer = () => {
           >
             Close
           </Button>
-        </DialogActions>
+        </DialogActions> */}
       </Dialog>
     </Box>
   );

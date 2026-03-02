@@ -47,22 +47,25 @@ import {
   Save,
   Cancel,
   Warning,
-  Lock
-} from '@mui/icons-material';
-import CloseIcon from '@mui/icons-material/Close';
- 
-import { BASE_API_URL } from '../../apiConfig';
-import { useThemeConfig } from '../../context/ThemeContext';
-import { useAuth } from '../../context/AuthContext';
-import { TRUCKER_PERMISSION_KEYS, PERMISSION_LABELS } from '../../config/permissions';
+  Lock,
+} from "@mui/icons-material";
+import CloseIcon from "@mui/icons-material/Close";
 
-const SUB_USERS_BASE = '/api/v1/shipper_driver/my-sub-users';
+import { BASE_API_URL } from "../../apiConfig";
+import { useThemeConfig } from "../../context/ThemeContext";
+import { useAuth } from "../../context/AuthContext";
+import {
+  TRUCKER_PERMISSION_KEYS,
+  PERMISSION_LABELS,
+} from "../../config/permissions";
+
+const SUB_USERS_BASE = "/api/v1/shipper_driver/my-sub-users";
 
 const AddUserTrucker = () => {
   const { userType } = useAuth();
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [subUsers, setSubUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -72,9 +75,9 @@ const AddUserTrucker = () => {
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [selectedSubUser, setSelectedSubUser] = useState(null);
   const [formData, setFormData] = useState(() => ({
-    name: '',
-    email: '',
-    password: '',
+    name: "",
+    email: "",
+    password: "",
     ...Object.fromEntries(TRUCKER_PERMISSION_KEYS.map((k) => [k, false])),
   }));
 
@@ -85,7 +88,10 @@ const AddUserTrucker = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [subUserToDelete, setSubUserToDelete] = useState(null);
 
-  const sidebarOptions = TRUCKER_PERMISSION_KEYS.map((key) => ({ key, label: PERMISSION_LABELS[key] }));
+  const sidebarOptions = TRUCKER_PERMISSION_KEYS.map((key) => ({
+    key,
+    label: PERMISSION_LABELS[key],
+  }));
 
   const { themeConfig } = useThemeConfig();
   const brand =
@@ -99,11 +105,11 @@ const AddUserTrucker = () => {
   }, []);
 
   const getAuthHeaders = () => {
-    const token = localStorage.getItem('token');
-    if (!token) throw new Error('No authentication token found');
+    const token = localStorage.getItem("token");
+    if (!token) throw new Error("No authentication token found");
     return {
       Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     };
   };
 
@@ -112,18 +118,18 @@ const AddUserTrucker = () => {
       setLoading(true);
       setError(null);
       const response = await fetch(`${BASE_API_URL}${SUB_USERS_BASE}`, {
-        method: 'GET',
+        method: "GET",
         headers: getAuthHeaders(),
       });
       const result = await response.json();
       if (result.success && Array.isArray(result.subUsers)) {
         setSubUsers(result.subUsers);
       } else {
-        throw new Error(result.message || 'Failed to fetch sub-users');
+        throw new Error(result.message || "Failed to fetch sub-users");
       }
     } catch (err) {
-      console.error('Error fetching sub-users:', err);
-      setError(err.message || 'Failed to fetch sub-users');
+      console.error("Error fetching sub-users:", err);
+      setError(err.message || "Failed to fetch sub-users");
     } finally {
       setLoading(false);
     }
@@ -131,33 +137,42 @@ const AddUserTrucker = () => {
 
   const createSubUser = async (payload) => {
     const response = await fetch(`${BASE_API_URL}${SUB_USERS_BASE}`, {
-      method: 'POST',
+      method: "POST",
       headers: getAuthHeaders(),
       body: JSON.stringify(payload),
     });
     const result = await response.json();
-    if (!result.success) throw new Error(result.message || 'Failed to create sub-user');
+    if (!result.success)
+      throw new Error(result.message || "Failed to create sub-user");
     return result.subUser;
   };
 
   const updateSubUser = async (subUserId, updateData) => {
-    const response = await fetch(`${BASE_API_URL}${SUB_USERS_BASE}/${subUserId}`, {
-      method: 'PUT',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(updateData),
-    });
+    const response = await fetch(
+      `${BASE_API_URL}${SUB_USERS_BASE}/${subUserId}`,
+      {
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(updateData),
+      },
+    );
     const result = await response.json();
-    if (!result.success) throw new Error(result.message || 'Failed to update sub-user');
+    if (!result.success)
+      throw new Error(result.message || "Failed to update sub-user");
     return result.subUser;
   };
 
   const deleteSubUser = async (subUserId) => {
-    const response = await fetch(`${BASE_API_URL}${SUB_USERS_BASE}/${subUserId}`, {
-      method: 'DELETE',
-      headers: getAuthHeaders(),
-    });
+    const response = await fetch(
+      `${BASE_API_URL}${SUB_USERS_BASE}/${subUserId}`,
+      {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+      },
+    );
     const result = await response.json();
-    if (!result.success) throw new Error(result.message || 'Failed to remove sub-user');
+    if (!result.success)
+      throw new Error(result.message || "Failed to remove sub-user");
     return true;
   };
 
@@ -176,9 +191,9 @@ const AddUserTrucker = () => {
 
   const handleAddSubUser = useCallback(() => {
     setFormData({
-      name: '',
-      email: '',
-      password: '',
+      name: "",
+      email: "",
+      password: "",
       ...Object.fromEntries(TRUCKER_PERMISSION_KEYS.map((k) => [k, false])),
     });
     setSelectedSubUser(null);
@@ -189,10 +204,12 @@ const AddUserTrucker = () => {
   const handleEditSubUser = useCallback((subUser) => {
     const perms = subUser.permissions || {};
     setFormData({
-        name: subUser.name || '',
-      email: subUser.email || '',
-      password: '',
-      ...Object.fromEntries(TRUCKER_PERMISSION_KEYS.map((k) => [k, !!perms[k]])),
+      name: subUser.name || "",
+      email: subUser.email || "",
+      password: "",
+      ...Object.fromEntries(
+        TRUCKER_PERMISSION_KEYS.map((k) => [k, !!perms[k]]),
+      ),
     });
     setSelectedSubUser(subUser);
     setEditModalOpen(true);
@@ -202,12 +219,14 @@ const AddUserTrucker = () => {
   const handleViewSubUser = useCallback((subUser) => {
     setSelectedSubUser(subUser);
     setViewModalOpen(true);
-  }, []); 
+  }, []);
 
   const handleAssignPermission = useCallback((subUser) => {
     setSelectedUserForPermission(subUser);
     const perms = subUser.permissions || {};
-    const initial = Object.fromEntries(TRUCKER_PERMISSION_KEYS.map((k) => [k, !!perms[k]]));
+    const initial = Object.fromEntries(
+      TRUCKER_PERMISSION_KEYS.map((k) => [k, !!perms[k]]),
+    );
     setUserPermissions(initial);
     setPermissionModalOpen(true);
   }, []);
@@ -220,13 +239,15 @@ const AddUserTrucker = () => {
     if (!selectedUserForPermission?.subUserId) return;
     try {
       setLoading(true);
-      await updateSubUser(selectedUserForPermission.subUserId, { permissions: userPermissions });
-      setSuccess('Permissions saved successfully');
+      await updateSubUser(selectedUserForPermission.subUserId, {
+        permissions: userPermissions,
+      });
+      setSuccess("Permissions saved successfully");
       setPermissionModalOpen(false);
       await fetchSubUsers();
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
-      setError(err.message || 'Failed to save permissions');
+      setError(err.message || "Failed to save permissions");
       setTimeout(() => setError(null), 3000);
     } finally {
       setLoading(false);
@@ -244,10 +265,10 @@ const AddUserTrucker = () => {
       setLoading(true);
       await deleteSubUser(subUserToDelete);
       await fetchSubUsers();
-      setSuccess('User removed successfully');
+      setSuccess("User removed successfully");
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
-      setError(err.message || 'Failed to remove user');
+      setError(err.message || "Failed to remove user");
       setTimeout(() => setError(null), 3000);
     } finally {
       setLoading(false);
@@ -261,16 +282,21 @@ const AddUserTrucker = () => {
     try {
       setLoading(true);
       const permissionsPayload = Object.fromEntries(
-        TRUCKER_PERMISSION_KEYS.map((k) => [k, !!formData[k]])
+        TRUCKER_PERMISSION_KEYS.map((k) => [k, !!formData[k]]),
       );
       if (editModalOpen && selectedSubUser?.subUserId) {
-        const updateData = { name: formData.name, email: formData.email, permissions: permissionsPayload };
-        if (formData.password && formData.password.trim()) updateData.password = formData.password;
+        const updateData = {
+          name: formData.name,
+          email: formData.email,
+          permissions: permissionsPayload,
+        };
+        if (formData.password && formData.password.trim())
+          updateData.password = formData.password;
         await updateSubUser(selectedSubUser.subUserId, updateData);
-        setSuccess('Sub-user updated successfully');
+        setSuccess("Sub-user updated successfully");
       } else {
         if (!formData.password || formData.password.trim().length < 6) {
-          setError('Password must be at least 6 characters');
+          setError("Password must be at least 6 characters");
           setTimeout(() => setError(null), 3000);
           return;
         }
@@ -280,7 +306,7 @@ const AddUserTrucker = () => {
           password: formData.password,
           permissions: permissionsPayload,
         });
-        setSuccess('Sub-user created successfully');
+        setSuccess("Sub-user created successfully");
       }
       await fetchSubUsers();
       setAddModalOpen(false);
@@ -288,21 +314,20 @@ const AddUserTrucker = () => {
       setSelectedSubUser(null);
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
-      setError(err.message || 'Failed to save sub-user');
+      setError(err.message || "Failed to save sub-user");
       setTimeout(() => setError(null), 3000);
     } finally {
       setLoading(false);
     }
   };
 
-
   const filteredData = useMemo(() => {
     if (!searchTerm.trim()) return subUsers;
     const searchLower = searchTerm.toLowerCase();
     return subUsers.filter(
       (u) =>
-        (u.name || '').toLowerCase().includes(searchLower) ||
-        (u.email || '').toLowerCase().includes(searchLower)
+        (u.name || "").toLowerCase().includes(searchLower) ||
+        (u.email || "").toLowerCase().includes(searchLower),
     );
   }, [subUsers, searchTerm]);
 
@@ -384,7 +409,7 @@ const AddUserTrucker = () => {
       <div className="mb-2 flex items-center gap-3">
         <span className="text-2xl font-semibold text-gray-700">Add Users</span>
         <span className="bg-blue-600 text-white text-sm font-semibold px-3 py-1.5 rounded-full">
-          {subUsers.length} {subUsers.length === 1 ? 'User' : 'Users'}
+          {subUsers.length} {subUsers.length === 1 ? "User" : "Users"}
         </span>
       </div>
       <div className="mb-6">
@@ -440,48 +465,87 @@ const AddUserTrucker = () => {
       </div>
 
       <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
-  <div className="overflow-x-auto p-4">
-    <table className="min-w-full border-separate border-spacing-y-4">
-      <thead>
-        <tr className="text-left bg-slate-100">
-          <th className="px-4 py-3 text-base font-semibold text-gray-500 rounded-l-xl border-t border-b border-l border-gray-200">Name</th>
-          <th className="px-4 py-3 text-base font-semibold text-gray-500 border-t border-b border-gray-200">Email</th>
-          <th className="px-4 py-3 text-base font-semibold text-gray-500 border-t border-b border-gray-200">Status</th>
-          <th className="px-4 py-3 text-base font-semibold text-gray-500 rounded-r-xl border-t border-b border-r border-gray-200">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {totalItems > 0 ? (
-          visibleRows.map((subUser) => (
-            <tr key={subUser.subUserId} className="hover:bg-slate-50">
-              <td className="px-5 py-4 font-medium text-gray-700 truncate rounded-l-xl border-t border-b border-l border-gray-200">{subUser.name}</td>
-              <td className="px-5 py-4 font-medium text-gray-700 truncate border-t border-b border-gray-200">{subUser.email}</td>
-              <td className="px-5 py-4 text-gray-700 border-t border-b border-gray-200">
-                <span className={`inline-block rounded-full px-3 py-1 text-base font-medium border ${subUser.isActive !== false ? 'bg-green-50 text-green-700 border-green-200' : 'bg-slate-50 text-slate-700 border-slate-200'}`}>
-                  {subUser.isActive !== false ? 'Active' : 'Inactive'}
-                </span>
-              </td>
-              <td className="px-5 py-4 rounded-r-xl border-t border-b border-r border-gray-200">
-                <div className="flex flex-wrap items-center gap-2">
-                  <button onClick={() => handleViewSubUser(subUser)} className="h-8 px-3 rounded-md border border-blue-600 text-blue-600 text-base cursor-pointer font-medium hover:bg-blue-600 hover:text-white">View</button>
-                  <button onClick={() => handleAssignPermission(subUser)} className="h-8 px-3 rounded-md border border-cyan-600 text-cyan-600 text-base cursor-pointer font-medium hover:bg-cyan-600 hover:text-white">Assign</button>
-                  <button onClick={() => handleEditSubUser(subUser)} className="h-8 px-3 rounded-md border border-slate-600 text-slate-700 text-base cursor-pointer font-medium hover:bg-slate-700 hover:text-white">Edit</button>
-                  <button onClick={() => handleDeleteSubUser(subUser.subUserId)} className="h-8 px-3 rounded-md border border-red-600 text-red-600 text-base cursor-pointer font-medium hover:bg-red-600 hover:text-white">Delete</button>
-                </div>
-              </td>
-            </tr>
-          ))
-        ) : (
-          <tr>
-            <td className="px-4 py-6 text-center text-sm text-slate-500" colSpan={4}>
-              {subUsers.length === 0 ? 'No sub-users yet. Add your first sub-user!' : 'No users match your search'}
-            </td>
-          </tr>
-        )}
-      </tbody>
-    </table>
-  </div>
-</div>
+        <div className="overflow-x-auto p-4">
+          <table className="min-w-full border-separate border-spacing-y-4">
+            <thead>
+              <tr className="text-left bg-slate-100">
+                <th className="px-4 py-3 text-base font-semibold text-gray-500 rounded-l-xl border-t border-b border-l border-gray-200">
+                  Name
+                </th>
+                <th className="px-4 py-3 text-base font-semibold text-gray-500 border-t border-b border-gray-200">
+                  Email
+                </th>
+                <th className="px-4 py-3 text-base font-semibold text-gray-500 border-t border-b border-gray-200">
+                  Status
+                </th>
+                <th className="px-4 py-3 text-base font-semibold text-gray-500 rounded-r-xl border-t border-b border-r border-gray-200">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {totalItems > 0 ? (
+                visibleRows.map((subUser) => (
+                  <tr key={subUser.subUserId} className="hover:bg-slate-50">
+                    <td className="px-5 py-4 font-medium text-gray-700 truncate rounded-l-xl border-t border-b border-l border-gray-200">
+                      {subUser.name}
+                    </td>
+                    <td className="px-5 py-4 font-medium text-gray-700 truncate border-t border-b border-gray-200">
+                      {subUser.email}
+                    </td>
+                    <td className="px-5 py-4 text-gray-700 border-t border-b border-gray-200">
+                      <span
+                        className={`inline-block rounded-full px-3 py-1 text-base font-medium border ${subUser.isActive !== false ? "bg-green-50 text-green-700 border-green-200" : "bg-slate-50 text-slate-700 border-slate-200"}`}
+                      >
+                        {subUser.isActive !== false ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4 rounded-r-xl border-t border-b border-r border-gray-200">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          onClick={() => handleViewSubUser(subUser)}
+                          className="h-8 px-3 rounded-md border border-blue-600 text-blue-600 text-base cursor-pointer font-medium hover:bg-blue-600 hover:text-white"
+                        >
+                          View
+                        </button>
+                        <button
+                          onClick={() => handleAssignPermission(subUser)}
+                          className="h-8 px-3 rounded-md border border-cyan-600 text-cyan-600 text-base cursor-pointer font-medium hover:bg-cyan-600 hover:text-white"
+                        >
+                          Assign
+                        </button>
+                        <button
+                          onClick={() => handleEditSubUser(subUser)}
+                          className="h-8 px-3 rounded-md border border-slate-600 text-slate-700 text-base cursor-pointer font-medium hover:bg-slate-700 hover:text-white"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteSubUser(subUser.subUserId)}
+                          className="h-8 px-3 rounded-md border border-red-600 text-red-600 text-base cursor-pointer font-medium hover:bg-red-600 hover:text-white"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td
+                    className="px-4 py-6 text-center text-sm text-slate-500"
+                    colSpan={4}
+                  >
+                    {subUsers.length === 0
+                      ? "No sub-users yet. Add your first sub-user!"
+                      : "No users match your search"}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       <div className="mt-2 border border-gray-200 rounded-lg bg-white px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3 text-sm text-slate-600">
@@ -566,21 +630,25 @@ const AddUserTrucker = () => {
           <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
             <PersonAdd sx={{ fontSize: 28, color: "white" }} />
             <Typography variant="h6" fontWeight={700} color="white">
-              {editModalOpen ? 'Edit User' : 'Add New User'}
+              {editModalOpen ? "Edit User" : "Add New User"}
             </Typography>
           </Box>
-          <IconButton 
-            onClick={() => { setAddModalOpen(false); setEditModalOpen(false); setSelectedSubUser(null); }}
-            sx={{ 
-              color: 'white',
-              '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' }
+          <IconButton
+            onClick={() => {
+              setAddModalOpen(false);
+              setEditModalOpen(false);
+              setSelectedSubUser(null);
+            }}
+            sx={{
+              color: "white",
+              "&:hover": { bgcolor: "rgba(255,255,255,0.1)" },
             }}
           >
             <Close />
           </IconButton>
         </DialogTitle>
-        
-        <DialogContent sx={{ p: 0, bgcolor: '#f8f9fa' }}>
+
+        <DialogContent sx={{ p: 0, bgcolor: "#f8f9fa" }}>
           <Box component="form" onSubmit={handleSaveSubUser}>
             <Box sx={{ p: 3 }}>
               <Grid container spacing={3}>
@@ -631,11 +699,11 @@ const AddUserTrucker = () => {
                   <Paper elevation={0} sx={{ p: 2, borderRadius: "12px" }}>
                     <Grid container spacing={2}>
                       <Grid item xs={12} sm={6}>
-                        <TextField 
-                          label="Name" 
-                          name="name" 
-                          value={formData.name || ''} 
-                          onChange={handleFormInputChange} 
+                        <TextField
+                          label="Name"
+                          name="name"
+                          value={formData.name || ""}
+                          onChange={handleFormInputChange}
                           fullWidth
                           required
                           variant="outlined"
@@ -651,9 +719,9 @@ const AddUserTrucker = () => {
                         />
                       </Grid>
                       <Grid item xs={12} sm={6}>
-                        <TextField 
-                          label="Email" 
-                          name="email" 
+                        <TextField
+                          label="Email"
+                          name="email"
                           type="email"
                           value={formData.email || ""}
                           onChange={handleFormInputChange}
@@ -664,39 +732,74 @@ const AddUserTrucker = () => {
                         />
                       </Grid>
                       <Grid item xs={12} sm={6}>
-                        <TextField 
-                          label={editModalOpen ? 'New password (leave blank to keep current)' : 'Password'} 
-                          name="password" 
+                        <TextField
+                          label={
+                            editModalOpen
+                              ? "New password (leave blank to keep current)"
+                              : "Password"
+                          }
+                          name="password"
                           type="password"
-                          value={formData.password || ''} 
-                          onChange={handleFormInputChange} 
+                          value={formData.password || ""}
+                          onChange={handleFormInputChange}
                           fullWidth
                           required={!editModalOpen}
                           variant="outlined"
-                          placeholder={editModalOpen ? 'Optional' : 'Min 6 characters'}
+                          placeholder={
+                            editModalOpen ? "Optional" : "Min 6 characters"
+                          }
                           sx={inputFieldSx}
                         />
                       </Grid>
                     </Grid>
                   </Paper>
                 </Grid>
-                <Grid item xs={12} sx={{ border: 1, borderColor: 'divider', borderRadius: 3, p: 3, bgcolor: '#fff' }}>
-                  <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2 }}>Permissions</Typography>
+                <Grid
+                  item
+                  xs={12}
+                  sx={{
+                    border: 1,
+                    borderColor: "divider",
+                    borderRadius: 3,
+                    p: 3,
+                    bgcolor: "#fff",
+                  }}
+                >
+                  <Typography
+                    variant="subtitle1"
+                    fontWeight={600}
+                    sx={{ mb: 2 }}
+                  >
+                    Permissions
+                  </Typography>
                   <Table size="small" sx={{ minWidth: 400 }}>
                     <TableHead>
-                      <TableRow sx={{ backgroundColor: '#f0f4f8' }}>
+                      <TableRow sx={{ backgroundColor: "#f0f4f8" }}>
                         <TableCell sx={{ fontWeight: 600 }}>Feature</TableCell>
-                        <TableCell sx={{ fontWeight: 600, width: 100, textAlign: 'center' }}>Allow</TableCell>
+                        <TableCell
+                          sx={{
+                            fontWeight: 600,
+                            width: 100,
+                            textAlign: "center",
+                          }}
+                        >
+                          Allow
+                        </TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
                       {sidebarOptions.map((opt) => (
                         <TableRow key={opt.key}>
                           <TableCell>{opt.label}</TableCell>
-                          <TableCell sx={{ textAlign: 'center' }}>
+                          <TableCell sx={{ textAlign: "center" }}>
                             <Switch
                               checked={!!formData[opt.key]}
-                              onChange={(e) => setFormData((prev) => ({ ...prev, [opt.key]: e.target.checked }))}
+                              onChange={(e) =>
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  [opt.key]: e.target.checked,
+                                }))
+                              }
                               color="primary"
                               size="small"
                             />
@@ -706,14 +809,18 @@ const AddUserTrucker = () => {
                     </TableBody>
                   </Table>
                 </Grid>
-                              </Grid>
+              </Grid>
             </Box>
 
             <Divider />
-            
-            <DialogActions sx={{ p: 3, bgcolor: '#fff' }}>
-              <Button 
-                onClick={() => { setAddModalOpen(false); setEditModalOpen(false); setSelectedSubUser(null); }} 
+
+            <DialogActions sx={{ p: 3, bgcolor: "#fff" }}>
+              <Button
+                onClick={() => {
+                  setAddModalOpen(false);
+                  setEditModalOpen(false);
+                  setSelectedSubUser(null);
+                }}
                 variant="outlined"
                 color="inherit"
                 sx={{
@@ -731,27 +838,33 @@ const AddUserTrucker = () => {
               >
                 Cancel
               </Button>
-             <Button 
-  type="submit" 
-  variant="contained" 
-  disabled={loading}
-  sx={{ 
-    borderRadius: '8px', 
-    textTransform: 'none', 
-    px: 4,
-    fontWeight: 600,
-    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-    background: brand,
-    color: "#fff !important",
-    "&.Mui-disabled": {
-      background: brand,
-      opacity: 0.7,
-      color: "#fff !important",
-    },
-  }}
->
-  {loading ? <CircularProgress size={24} sx={{ color: "#fff" }} /> : (editModalOpen ? 'Update User' : 'Create User')}
-</Button>
+              <Button
+                type="submit"
+                variant="contained"
+                disabled={loading}
+                sx={{
+                  borderRadius: "8px",
+                  textTransform: "none",
+                  px: 4,
+                  fontWeight: 600,
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                  background: brand,
+                  color: "#fff !important",
+                  "&.Mui-disabled": {
+                    background: brand,
+                    opacity: 0.7,
+                    color: "#fff !important",
+                  },
+                }}
+              >
+                {loading ? (
+                  <CircularProgress size={24} sx={{ color: "#fff" }} />
+                ) : editModalOpen ? (
+                  "Update User"
+                ) : (
+                  "Create User"
+                )}
+              </Button>
             </DialogActions>
           </Box>
         </DialogContent>
@@ -812,7 +925,11 @@ const AddUserTrucker = () => {
             </Box>
           </Box>
           <Box component="form" onSubmit={handleSaveSubUser} sx={{ p: 3 }}>
-            <Grid container spacing={2} sx={{ mb: 2, justifyContent: 'center' }}>
+            <Grid
+              container
+              spacing={2}
+              sx={{ mb: 2, justifyContent: "center" }}
+            >
               {/* Company Name | MC/DOT No */}
               <Grid item xs={12} sm={6}>
                 <TextField
@@ -1076,36 +1193,37 @@ const AddUserTrucker = () => {
             px: 3,
             background: brand,
             color: headerTextColor,
-            borderRadius: '8px 8px 0 0',
-            minHeight: 64
-          }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <Business sx={{ fontSize: 28, color:"white" }} />
-              <Typography variant="h5" fontWeight={600} color="white">
-                User Details
-              </Typography>
-            </Box>
-           <Button
-  onClick={() => setViewModalOpen(false)}
-  sx={{
-    color: "white",
-    minWidth: "auto",
-    padding: 1,
-    '&:hover': {
-      background: 'rgba(255, 255, 255, 0.1)',
-    }
-  }}
->
-  <CloseIcon
-    sx={{
-      fontSize: 28,          // Increase size
-      strokeWidth: 2.5,      // Increase thickness
-    }}
-  />
-</Button>
-          </DialogTitle>
+            borderRadius: "8px 8px 0 0",
+            minHeight: 64,
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+            <Business sx={{ fontSize: 28, color: "white" }} />
+            <Typography variant="h5" fontWeight={600} color="white">
+              User Details
+            </Typography>
+          </Box>
+          <Button
+            onClick={() => setViewModalOpen(false)}
+            sx={{
+              color: "white",
+              minWidth: "auto",
+              padding: 1,
+              "&:hover": {
+                background: "rgba(255, 255, 255, 0.1)",
+              },
+            }}
+          >
+            <CloseIcon
+              sx={{
+                fontSize: 28, // Increase size
+                strokeWidth: 2.5, // Increase thickness
+              }}
+            />
+          </Button>
+        </DialogTitle>
 
-          <DialogContent sx={{ pt: 2, overflowY: 'auto', flex: 1 }}>
+        <DialogContent sx={{ pt: 2, overflowY: "auto", flex: 1 }}>
           {selectedSubUser && (
             <Box>
               <Box
@@ -1156,14 +1274,26 @@ const AddUserTrucker = () => {
                     >
                       <TableBody>
                         <TableRow>
-                          <TableCell sx={{ width: 220, color: 'text.secondary' }}>Name</TableCell>
-                          <TableCell sx={{ width: 80, color: '#9e9e9e' }}>-----</TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>{selectedSubUser.name || 'N/A'}</TableCell>
+                          <TableCell
+                            sx={{ width: 220, color: "text.secondary" }}
+                          >
+                            Name
+                          </TableCell>
+                          <TableCell sx={{ width: 80, color: "#9e9e9e" }}>
+                            -----
+                          </TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>
+                            {selectedSubUser.name || "N/A"}
+                          </TableCell>
                         </TableRow>
                         <TableRow>
-                          <TableCell sx={{ color: 'text.secondary' }}>Email</TableCell>
-                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>{selectedSubUser.email || 'N/A'}</TableCell>
+                          <TableCell sx={{ color: "text.secondary" }}>
+                            Email
+                          </TableCell>
+                          <TableCell sx={{ color: "#9e9e9e" }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>
+                            {selectedSubUser.email || "N/A"}
+                          </TableCell>
                         </TableRow>
                         <TableRow>
                           <TableCell sx={{ color: "text.secondary" }}>
@@ -1171,12 +1301,19 @@ const AddUserTrucker = () => {
                           </TableCell>
                           <TableCell sx={{ color: "#9e9e9e" }}>-----</TableCell>
                           <TableCell>
-                            <Chip 
-                              label={selectedSubUser.isActive !== false ? 'Active' : 'Inactive'} 
+                            <Chip
+                              label={
+                                selectedSubUser.isActive !== false
+                                  ? "Active"
+                                  : "Inactive"
+                              }
                               size="small"
-                              sx={{ 
-                                backgroundColor: selectedSubUser.isActive !== false ? '#4caf50' : '#9e9e9e',
-                                color: '#fff',
+                              sx={{
+                                backgroundColor:
+                                  selectedSubUser.isActive !== false
+                                    ? "#4caf50"
+                                    : "#9e9e9e",
+                                color: "#fff",
                                 fontWeight: 600,
                                 fontSize: 11,
                                 textTransform: "capitalize",
@@ -1186,9 +1323,15 @@ const AddUserTrucker = () => {
                           </TableCell>
                         </TableRow>
                         <TableRow>
-                          <TableCell sx={{ color: 'text.secondary' }}>Created Date</TableCell>
-                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>{new Date(selectedSubUser.createdAt).toLocaleDateString()}</TableCell>
+                          <TableCell sx={{ color: "text.secondary" }}>
+                            Created Date
+                          </TableCell>
+                          <TableCell sx={{ color: "#9e9e9e" }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>
+                            {new Date(
+                              selectedSubUser.createdAt,
+                            ).toLocaleDateString()}
+                          </TableCell>
                         </TableRow>
                       </TableBody>
                     </Table>
@@ -1196,7 +1339,7 @@ const AddUserTrucker = () => {
                 </Paper>
 
                 {/* Contact Information Card */}
-                <Paper
+                {/* <Paper
                   elevation={0}
                   sx={{
                     border: "1px solid #ffe0b2",
@@ -1240,22 +1383,34 @@ const AddUserTrucker = () => {
                     >
                       <TableBody>
                         <TableRow>
-                          <TableCell sx={{ width: 220, color: 'text.secondary' }}>Email</TableCell>
-                          <TableCell sx={{ width: 80, color: '#9e9e9e' }}>-----</TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>{selectedSubUser.email || 'N/A'}</TableCell>
+                          <TableCell
+                            sx={{ width: 220, color: "text.secondary" }}
+                          >
+                            Email
+                          </TableCell>
+                          <TableCell sx={{ width: 80, color: "#9e9e9e" }}>
+                            -----
+                          </TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>
+                            {selectedSubUser.email || "N/A"}
+                          </TableCell>
                         </TableRow>
                         <TableRow>
-                          <TableCell sx={{ color: 'text.secondary' }}>Mobile</TableCell>
-                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>{'N/A' || 'N/A'}</TableCell>
+                          <TableCell sx={{ color: "text.secondary" }}>
+                            Mobile
+                          </TableCell>
+                          <TableCell sx={{ color: "#9e9e9e" }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>
+                            {"N/A" || "N/A"}
+                          </TableCell>
                         </TableRow>
                       </TableBody>
                     </Table>
                   </Box>
-                </Paper>
+                </Paper> */}
 
                 {/* Location Details Card */}
-                <Paper
+                {/* <Paper
                   elevation={0}
                   sx={{
                     border: "1px solid #c8e6c9",
@@ -1299,40 +1454,93 @@ const AddUserTrucker = () => {
                     >
                       <TableBody>
                         <TableRow>
-                          <TableCell sx={{ width: 220, color: 'text.secondary' }}>Address</TableCell>
-                          <TableCell sx={{ width: 80, color: '#9e9e9e' }}>-----</TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>{selectedSubUser.locationDetails?.companyAddress || 'N/A'}</TableCell>
+                          <TableCell
+                            sx={{ width: 220, color: "text.secondary" }}
+                          >
+                            Address
+                          </TableCell>
+                          <TableCell sx={{ width: 80, color: "#9e9e9e" }}>
+                            -----
+                          </TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>
+                            {selectedSubUser.locationDetails?.companyAddress ||
+                              "N/A"}
+                          </TableCell>
                         </TableRow>
                         <TableRow>
-                          <TableCell sx={{ color: 'text.secondary' }}>City</TableCell>
-                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>{selectedSubUser.locationDetails?.city || 'N/A'}</TableCell>
+                          <TableCell sx={{ color: "text.secondary" }}>
+                            City
+                          </TableCell>
+                          <TableCell sx={{ color: "#9e9e9e" }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>
+                            {selectedSubUser.locationDetails?.city || "N/A"}
+                          </TableCell>
                         </TableRow>
                         <TableRow>
-                          <TableCell sx={{ color: 'text.secondary' }}>State</TableCell>
-                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>{selectedSubUser.locationDetails?.state || 'N/A'}</TableCell>
+                          <TableCell sx={{ color: "text.secondary" }}>
+                            State
+                          </TableCell>
+                          <TableCell sx={{ color: "#9e9e9e" }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>
+                            {selectedSubUser.locationDetails?.state || "N/A"}
+                          </TableCell>
                         </TableRow>
                         <TableRow>
-                          <TableCell sx={{ color: 'text.secondary' }}>Zip Code</TableCell>
-                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>{selectedSubUser.locationDetails?.zipCode || 'N/A'}</TableCell>
+                          <TableCell sx={{ color: "text.secondary" }}>
+                            Zip Code
+                          </TableCell>
+                          <TableCell sx={{ color: "#9e9e9e" }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>
+                            {selectedSubUser.locationDetails?.zipCode || "N/A"}
+                          </TableCell>
                         </TableRow>
                         <TableRow>
-                          <TableCell sx={{ color: 'text.secondary' }}>Country</TableCell>
-                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>{selectedSubUser.locationDetails?.country || 'N/A'}</TableCell>
+                          <TableCell sx={{ color: "text.secondary" }}>
+                            Country
+                          </TableCell>
+                          <TableCell sx={{ color: "#9e9e9e" }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>
+                            {selectedSubUser.locationDetails?.country || "N/A"}
+                          </TableCell>
                         </TableRow>
                       </TableBody>
                     </Table>
                   </Box>
-                </Paper>
+                </Paper> */}
 
                 {/* Additional Notes Card */}
                 {selectedSubUser.notes && (
-                  <Paper elevation={0} sx={{ border: '1px solid #b2dfdb', borderRadius: 2, overflow: 'hidden' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, background: '#e0f2f1' }}>
-                      <Box sx={{ width: 32, height: 32, borderRadius: 1, background: '#00897b', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                  <Paper
+                    elevation={0}
+                    sx={{
+                      border: "1px solid #b2dfdb",
+                      borderRadius: 2,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1.5,
+                        px: 2,
+                        py: 1.5,
+                        background: "#e0f2f1",
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: 1,
+                          background: "#00897b",
+                          color: "white",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontWeight: 700,
+                        }}
+                      >
                         📝
                       </Box>
                       <Typography variant="h6" fontWeight={700} color="#00695c">
@@ -1346,9 +1554,19 @@ const AddUserTrucker = () => {
                       >
                         <TableBody>
                           <TableRow>
-                            <TableCell sx={{ width: 220, color: 'text.secondary' }}>Notes</TableCell>
-                            <TableCell sx={{ width: 80, color: '#9e9e9e' }}>-----</TableCell>
-                            <TableCell sx={{ fontWeight: 600, fontStyle: 'italic' }}>{selectedSubUser.notes}</TableCell>
+                            <TableCell
+                              sx={{ width: 220, color: "text.secondary" }}
+                            >
+                              Notes
+                            </TableCell>
+                            <TableCell sx={{ width: 80, color: "#9e9e9e" }}>
+                              -----
+                            </TableCell>
+                            <TableCell
+                              sx={{ fontWeight: 600, fontStyle: "italic" }}
+                            >
+                              {selectedSubUser.notes}
+                            </TableCell>
                           </TableRow>
                         </TableBody>
                       </Table>
@@ -1357,7 +1575,7 @@ const AddUserTrucker = () => {
                 )}
 
                 {/* Added By Card */}
-                <Paper
+                {/* <Paper
                   elevation={0}
                   sx={{
                     border: "1px solid #ce93d8",
@@ -1401,19 +1619,33 @@ const AddUserTrucker = () => {
                     >
                       <TableBody>
                         <TableRow>
-                          <TableCell sx={{ width: 220, color: 'text.secondary' }}>Name</TableCell>
-                          <TableCell sx={{ width: 80, color: '#9e9e9e' }}>-----</TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>{selectedSubUser.addedByTrucker?.truckerName || 'N/A'}</TableCell>
+                          <TableCell
+                            sx={{ width: 220, color: "text.secondary" }}
+                          >
+                            Name
+                          </TableCell>
+                          <TableCell sx={{ width: 80, color: "#9e9e9e" }}>
+                            -----
+                          </TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>
+                            {selectedSubUser.addedByTrucker?.truckerName ||
+                              "N/A"}
+                          </TableCell>
                         </TableRow>
                         <TableRow>
-                          <TableCell sx={{ color: 'text.secondary' }}>Email</TableCell>
-                          <TableCell sx={{ color: '#9e9e9e' }}>-----</TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>{selectedSubUser.addedByTrucker?.truckerEmail || 'N/A'}</TableCell>
+                          <TableCell sx={{ color: "text.secondary" }}>
+                            Email
+                          </TableCell>
+                          <TableCell sx={{ color: "#9e9e9e" }}>-----</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>
+                            {selectedSubUser.addedByTrucker?.truckerEmail ||
+                              "N/A"}
+                          </TableCell>
                         </TableRow>
                       </TableBody>
                     </Table>
                   </Box>
-                </Paper>
+                </Paper> */}
               </Box>
             </Box>
           )}
@@ -1472,7 +1704,7 @@ const AddUserTrucker = () => {
                       Name
                     </Typography>
                     <Typography variant="body1" fontWeight={600}>
-                      {selectedUserForPermission.name || 'N/A'}
+                      {selectedUserForPermission.name || "N/A"}
                     </Typography>
                   </Grid>
                   <Grid item xs={12} sm={6}>
@@ -1480,7 +1712,7 @@ const AddUserTrucker = () => {
                       Email
                     </Typography>
                     <Typography variant="body1" fontWeight={600}>
-                      {selectedUserForPermission.email || 'N/A'}
+                      {selectedUserForPermission.email || "N/A"}
                     </Typography>
                   </Grid>
                 </Grid>
@@ -1519,7 +1751,12 @@ const AddUserTrucker = () => {
         <DialogActions sx={{ p: 3, borderTop: "1px solid #eee" }}>
           <Button
             onClick={() => setPermissionModalOpen(false)}
-            sx={{ textTransform: "none", border: "1px solid red", color: "red", ":hover": { color: "white", backgroundColor:"red" } }}
+            sx={{
+              textTransform: "none",
+              border: "1px solid red",
+              color: "red",
+              ":hover": { color: "white", backgroundColor: "red" },
+            }}
           >
             Cancel
           </Button>
@@ -1529,7 +1766,7 @@ const AddUserTrucker = () => {
             sx={{
               bgcolor: brand,
               textTransform: "none",
-              color:"white",
+              color: "white",
               px: 4,
               "&:hover": { bgcolor: brand },
             }}
@@ -1553,7 +1790,7 @@ const AddUserTrucker = () => {
       >
         <DialogTitle sx={{ textAlign: "center", pt: 3 }}>
           <Warning sx={{ fontSize: 48, color: "warning.main", mb: 1 }} />
-          <Typography variant="h6" fontWeight={600} sx={{color:"white"}}>
+          <Typography variant="h6" fontWeight={600} sx={{ color: "white" }}>
             Confirm Deletion
           </Typography>
         </DialogTitle>
@@ -1567,7 +1804,12 @@ const AddUserTrucker = () => {
             onClick={() => setDeleteModalOpen(false)}
             variant="outlined"
             color="inherit"
-            sx={{ borderRadius: 2, textTransform: "none", px: 3, ":hover": { backgroundColor: "black", color: "white" } }}
+            sx={{
+              borderRadius: 2,
+              textTransform: "none",
+              px: 3,
+              ":hover": { backgroundColor: "black", color: "white" },
+            }}
           >
             Cancel
           </Button>
