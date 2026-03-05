@@ -4419,7 +4419,7 @@ const handleEditLoad = (load) => {
 
                         <Grid item xs={12} sm={6} md={3}>
                           <TextField
-                            label="FRC (%)"
+                            label="FSC (%)"
                             name="fsc"
                             value={form.fsc}
                             onChange={handleFormChange}
