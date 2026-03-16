@@ -570,7 +570,7 @@ const Yard = () => {
                       </div>
                     </td>
                     <td className="px-5 py-4 rounded-r-xl border-t border-b border-r border-gray-200">
-                      <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex flex-nowrap items-center gap-2">
                         <button
                           onClick={() => handleViewYard(yard)}
                           className="h-8 px-3 rounded-md border border-blue-600 text-blue-600 text-base cursor-pointer font-medium hover:bg-blue-600 hover:text-white"

@@ -810,7 +810,7 @@ const Dashboard = () => {
                         <td className="px-4 py-4 rounded-r-xl border-t border-b border-r border-gray-200">
                           <button
                             onClick={() => handleBidNow(row)}
-                            className="h-8 px-3 rounded-md border border-blue-600 text-blue-600 text-base cursor-pointer font-medium hover:bg-blue-600 hover:text-white"
+                            className="whitespace-nowrap h-8 px-3 rounded-md border border-blue-600 text-blue-600 text-base cursor-pointer font-medium hover:bg-blue-600 hover:text-white"
                           >
                             Bid Now
                           </button>
@@ -968,7 +968,7 @@ const Dashboard = () => {
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => handleViewDetails(row)}
-                              className="relative h-8 px-3 rounded-md border border-blue-600 text-blue-600 text-base cursor-pointer font-medium hover:bg-blue-600 hover:text-white"
+                              className="whitespace-nowrap relative h-8 px-3 rounded-md border border-blue-600 text-blue-600 text-base cursor-pointer font-medium hover:bg-blue-600 hover:text-white"
                             >
                               View Details
                               {unreadBids.has(row._id || row.bidId) && (
@@ -977,7 +977,7 @@ const Dashboard = () => {
                             </button>
                             <button
                               onClick={() => handleAssignDriver(row)}
-                              className="h-8 px-3 rounded-md border border-green-600 text-green-600 text-base cursor-pointer font-medium hover:bg-green-600 hover:text-white"
+                              className="whitespace-nowrap h-8 px-3 rounded-md border border-green-600 text-green-600 text-base cursor-pointer font-medium hover:bg-green-600 hover:text-white"
                             >
                               Assign Driver
                             </button>

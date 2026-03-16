@@ -438,7 +438,7 @@ const AddUserTrucker = () => {
                 handleSearch(e);
                 setPage(0);
               }}
-              className="w-full h-12 rounded-md border border-gray-200 pl-10 pr-3 text-lg outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full h-11 rounded-md border border-gray-200 pl-10 pr-3 text-lg outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <button
@@ -501,7 +501,7 @@ const AddUserTrucker = () => {
                       </span>
                     </td>
                     <td className="px-5 py-4 rounded-r-xl border-t border-b border-r border-gray-200">
-                      <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex flex-nowrap items-center gap-2">
                         <button
                           onClick={() => handleViewSubUser(subUser)}
                           className="h-8 px-3 rounded-md border border-blue-600 text-blue-600 text-base cursor-pointer font-medium hover:bg-blue-600 hover:text-white"
