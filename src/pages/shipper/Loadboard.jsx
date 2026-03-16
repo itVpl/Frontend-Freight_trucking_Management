@@ -3113,6 +3113,7 @@ const handleEditLoad = (load) => {
     minWidth: 'auto',
     color: 'blue.700',
     borderColor: 'blue.400',
+    whiteSpace: 'nowrap',
     '&:hover': {
       backgroundColor: 'primary.main',
       borderColor: 'primary.main',

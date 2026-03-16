@@ -1444,7 +1444,8 @@ const Bills = () => {
               }} />
             )}
           <Box sx={{ position: 'relative', zIndex: 1 }}>
-          <Table>
+          <Box sx={{ width: '100%', overflowX: 'auto' }}>
+          <Table sx={{ minWidth: 1100 }}>
             <TableHead>
             <TableRow sx={{ backgroundColor: (themeConfig.table?.headerBg || '#f0f4f8') }}>
                 <TableCell sx={{ fontWeight: 600, color: (themeConfig.table?.headerText || themeConfig.table?.text || '#333333') }}>Shipment #</TableCell>
@@ -1522,6 +1523,7 @@ const Bills = () => {
                 })}
             </TableBody>
           </Table>
+          </Box>
           </Box>
           <TablePagination
             component="div"
@@ -1914,8 +1916,8 @@ const Bills = () => {
           minHeight: 64
         }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <LocalShipping sx={{ fontSize: 28, color: headerTextColor }} />
-            <Typography variant="h5" fontWeight={600} color={headerTextColor}>
+            <LocalShipping sx={{ fontSize: 28, color: "white" }} />
+            <Typography variant="h5" fontWeight={600} color="white">
               Consignment Details
             </Typography>
           </Box>
