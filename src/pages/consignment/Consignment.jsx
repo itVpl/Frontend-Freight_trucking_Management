@@ -615,123 +615,127 @@ const Consignment = () => {
         )}
 
         <Box sx={{ px: 2, py:4 }}>
-          <div className="rounded-lg border border-gray-200 bg-white">
-            <div className="grid grid-cols-7 text-[0.75rem] uppercase tracking-wide text-slate-500">
-              <div className="py-4 px-6 font-semibold text-gray-700 text-sm">Load ID</div>
-              <div className="py-4 px-6 font-semibold text-gray-700 text-sm whitespace-nowrap">Consignment No</div>
-              <div className="py-4 px-6 font-semibold text-gray-700 text-sm">Weight</div>
-              <div className="py-4 px-6 font-semibold text-gray-700 text-sm">Pick Up</div>  
-              <div className="py-4 px-6 font-semibold text-gray-700 text-sm">Drop</div>
-              <div className="py-4 px-6 font-semibold text-gray-700 text-sm">Load Type</div>
-              <div className="py-4 px-6 font-semibold text-gray-700 text-sm">Action</div>
-            </div>
-          </div>
-
-          {loading ? (
-            <Box sx={{ mt: 2 }}>
-              {Array.from({ length: 5 }).map((_, index) => (
-                <div key={index} className="mt-3 rounded-lg border border-gray-200 bg-white">
-                  <div className="grid grid-cols-7 items-center">
-                    <div className="py-4 px-6"><Skeleton variant="text" width={120} /></div>
-                    <div className="py-4 px-6"><Skeleton variant="text" width={150} /></div>
-                    <div className="py-4 px-6"><Skeleton variant="text" width={150} /></div>
-                    <div className="py-4 px-6"><Skeleton variant="text" width={100} /></div>
-                    <div className="py-4 px-6"><Skeleton variant="text" width={100} /></div>
-                    <div className="py-4 px-6"><Skeleton variant="rectangular" width={80} height={26} sx={{ borderRadius: 1 }} /></div>
-                    <div className="py-4 px-6"><Skeleton variant="rectangular" width={80} height={32} sx={{ borderRadius: 9999 }} /></div>
-                  </div>
+          <div className="overflow-x-auto">
+            <div className="min-w-[980px]">
+              <div className="rounded-lg border border-gray-200 bg-white">
+                <div className="grid grid-cols-7 text-[0.75rem] uppercase tracking-wide text-slate-500">
+                  <div className="py-4 px-6 font-semibold text-gray-700 text-sm">Load ID</div>
+                  <div className="py-4 px-6 font-semibold text-gray-700 text-sm whitespace-nowrap">Consignment No</div>
+                  <div className="py-4 px-6 font-semibold text-gray-700 text-sm">Weight</div>
+                  <div className="py-4 px-6 font-semibold text-gray-700 text-sm">Pick Up</div>  
+                  <div className="py-4 px-6 font-semibold text-gray-700 text-sm">Drop</div>
+                  <div className="py-4 px-6 font-semibold text-gray-700 text-sm">Load Type</div>
+                  <div className="py-4 px-6 font-semibold text-gray-700 text-sm">Action</div>
                 </div>
-              ))}
-            </Box>
-          ) : filteredData && filteredData.length > 0 ? (
-            <div className="mt-3 space-y-3">
-              {filteredData
-                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                .map((row, i) => {
-                  const isSearchedItem = isFiltered && location.state?.selectedShipment &&
-                    (row.consignmentNo === location.state.selectedShipment.shipmentNumber ||
-                     row.loadId === location.state.selectedShipment.id);
-                  return (
-                    <div
-                      key={i}
-                      className={`rounded-lg border bg-white transition-all ${isSearchedItem ? 'border-blue-600 ring-2 ring-blue-400/30' : 'border-gray-200'}`}
-                    >
+              </div>
+    
+              {loading ? (
+                <Box sx={{ mt: 2 }}>
+                  {Array.from({ length: 5 }).map((_, index) => (
+                    <div key={index} className="mt-3 rounded-lg border border-gray-200 bg-white">
                       <div className="grid grid-cols-7 items-center">
-                        <div className="py-4 px-6 font-semibold text-slate-900 flex items-center gap-2">
-                          {/* <LocalShipping sx={{ fontSize: 18, color: '#64748b' }} /> */}
-                          <span className="font-medium text-gray-900">{row.loadId}</span>
-                        </div>
-                        <div className="py-4 px-6 font-semibold text-slate-900">
-                          <span className="font-medium text-gray-900">{row.consignmentNo}</span>
-                        </div>
-                        <div className="py-4 px-6 text-slate-600">
-                          <span className="font-medium text-gray-900">{row.weight}</span>
-                        </div>
-                        <div className="py-4 px-6 text-slate-700">
-                          <div className="flex items-start gap-1">
-                            {/* <LocationOn sx={{ fontSize: 16, color: '#94a3b8' }} /> */}
-                            <span className="font-medium text-gray-900">{row.pickup}</span>
-                          </div>
-                        </div>
-                        <div className="py-4 px-6 text-slate-700">
-                          <div className="flex items-start gap-1">
-                            {/* <LocationOn sx={{ fontSize: 16, color: '#94a3b8' }} /> */}
-                            <span className="font-medium text-gray-900">{row.drop}</span>
-                          </div>
-                        </div>
-                        <div className="py-4 px-6">
-                          <Chip
-                            label={row.loadType}
-                            size="small"
-                            sx={{
-                              fontWeight: 600,
-                              fontSize: '0.75rem',
-                              height: 26,
-                              backgroundColor: row.loadType === 'DRAYAGE' ? '#dbeafe' : '#e0e7ff',
-                              color: row.loadType === 'DRAYAGE' ? '#1e40af' : '#3730a3',
-                              border: row.loadType === 'DRAYAGE' ? '1px solid #bfdbfe' : '1px solid #c7d2fe',
-                              borderRadius: 9999,
-                            }}
-                          />
-                        </div>
-                        <div className="py-4 px-6">
-                         <button
-  onClick={() => handleViewDetail(row)}
-  className="font-medium px-6 py-1 rounded-full border bg-white transition-colors duration-200 cursor-pointer"
-  style={{
-    color: themeConfig?.tokens?.primary || '#1976d2',
-    borderColor: themeConfig?.tokens?.primary || '#1976d2',
-  }}
-  onMouseEnter={(e) => {
-    const primary = themeConfig?.tokens?.primary || '#1976d2'
-    e.currentTarget.style.backgroundColor = primary
-    e.currentTarget.style.color = '#fff'
-  }}
-  onMouseLeave={(e) => {
-    const primary = themeConfig?.tokens?.primary || '#1976d2'
-    e.currentTarget.style.backgroundColor = '#fff'
-    e.currentTarget.style.color = primary
-  }}
->
-  View
-</button>
-                        </div>
+                        <div className="py-4 px-6"><Skeleton variant="text" width={120} /></div>
+                        <div className="py-4 px-6"><Skeleton variant="text" width={150} /></div>
+                        <div className="py-4 px-6"><Skeleton variant="text" width={150} /></div>
+                        <div className="py-4 px-6"><Skeleton variant="text" width={100} /></div>
+                        <div className="py-4 px-6"><Skeleton variant="text" width={100} /></div>
+                        <div className="py-4 px-6"><Skeleton variant="rectangular" width={80} height={26} sx={{ borderRadius: 1 }} /></div>
+                        <div className="py-4 px-6"><Skeleton variant="rectangular" width={80} height={32} sx={{ borderRadius: 9999 }} /></div>
                       </div>
                     </div>
-                  );
-                })}
+                  ))}
+                </Box>
+              ) : filteredData && filteredData.length > 0 ? (
+                <div className="mt-3 space-y-3">
+                  {filteredData
+                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                    .map((row, i) => {
+                      const isSearchedItem = isFiltered && location.state?.selectedShipment &&
+                        (row.consignmentNo === location.state.selectedShipment.shipmentNumber ||
+                         row.loadId === location.state.selectedShipment.id);
+                      return (
+                        <div
+                          key={i}
+                          className={`rounded-lg border bg-white transition-all ${isSearchedItem ? 'border-blue-600 ring-2 ring-blue-400/30' : 'border-gray-200'}`}
+                        >
+                          <div className="grid grid-cols-7 items-center">
+                            <div className="py-4 px-6 font-semibold text-slate-900 flex items-center gap-2">
+                              {/* <LocalShipping sx={{ fontSize: 18, color: '#64748b' }} /> */}
+                              <span className="font-medium text-gray-900">{row.loadId}</span>
+                            </div>
+                            <div className="py-4 px-6 font-semibold text-slate-900">
+                              <span className="font-medium text-gray-900">{row.consignmentNo}</span>
+                            </div>
+                            <div className="py-4 px-6 text-slate-600">
+                              <span className="font-medium text-gray-900">{row.weight}</span>
+                            </div>
+                            <div className="py-4 px-6 text-slate-700">
+                              <div className="flex items-start gap-1">
+                                {/* <LocationOn sx={{ fontSize: 16, color: '#94a3b8' }} /> */}
+                                <span className="font-medium text-gray-900">{row.pickup}</span>
+                              </div>
+                            </div>
+                            <div className="py-4 px-6 text-slate-700">
+                              <div className="flex items-start gap-1">
+                                {/* <LocationOn sx={{ fontSize: 16, color: '#94a3b8' }} /> */}
+                                <span className="font-medium text-gray-900">{row.drop}</span>
+                              </div>
+                            </div>
+                            <div className="py-4 px-6">
+                              <Chip
+                                label={row.loadType}
+                                size="small"
+                                sx={{
+                                  fontWeight: 600,
+                                  fontSize: '0.75rem',
+                                  height: 26,
+                                  backgroundColor: row.loadType === 'DRAYAGE' ? '#dbeafe' : '#e0e7ff',
+                                  color: row.loadType === 'DRAYAGE' ? '#1e40af' : '#3730a3',
+                                  border: row.loadType === 'DRAYAGE' ? '1px solid #bfdbfe' : '1px solid #c7d2fe',
+                                  borderRadius: 9999,
+                                }}
+                              />
+                            </div>
+                            <div className="py-4 px-6">
+                             <button
+      onClick={() => handleViewDetail(row)}
+      className="font-medium px-6 py-1 rounded-full border bg-white transition-colors duration-200 cursor-pointer"
+      style={{
+        color: themeConfig?.tokens?.primary || '#1976d2',
+        borderColor: themeConfig?.tokens?.primary || '#1976d2',
+      }}
+      onMouseEnter={(e) => {
+        const primary = themeConfig?.tokens?.primary || '#1976d2'
+        e.currentTarget.style.backgroundColor = primary
+        e.currentTarget.style.color = '#fff'
+      }}
+      onMouseLeave={(e) => {
+        const primary = themeConfig?.tokens?.primary || '#1976d2'
+        e.currentTarget.style.backgroundColor = '#fff'
+        e.currentTarget.style.color = primary
+      }}
+    >
+      View
+    </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              ) : (
+                <Box sx={{ py: 6, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                  <LocalShipping sx={{ fontSize: 48, color: '#cbd5e1' }} />
+                  <Typography variant="h6" color="text.secondary" fontWeight={600}>
+                    No consignments found
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {loadsData.length === 0 ? 'No consignment data available' : 'Try adjusting your search criteria'}
+                  </Typography>
+                </Box>
+              )}
             </div>
-          ) : (
-            <Box sx={{ py: 6, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-              <LocalShipping sx={{ fontSize: 48, color: '#cbd5e1' }} />
-              <Typography variant="h6" color="text.secondary" fontWeight={600}>
-                No consignments found
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {loadsData.length === 0 ? 'No consignment data available' : 'Try adjusting your search criteria'}
-              </Typography>
-            </Box>
-          )}
+          </div>
         </Box>
         
       </Paper>

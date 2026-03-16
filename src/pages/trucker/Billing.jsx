@@ -989,7 +989,7 @@ const Dashboard = () => {
                             {bill.status.toLowerCase() !== "paid" ? (
                               <button
                                 onClick={() => handleMarkAsPaid(bill)}
-                                className="h-8 px-3 rounded-md border border-green-600 text-green-600 text-base cursor-pointer font-medium hover:bg-green-600 hover:text-white"
+                                className="whitespace-nowrap h-8 px-3 rounded-md border border-green-600 text-green-600 text-base cursor-pointer font-medium hover:bg-green-600 hover:text-white"
                               >
                                 Mark Paid
                               </button>

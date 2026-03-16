@@ -1453,7 +1453,7 @@ const AddLoad = () => {
                 handleSearch(e);
                 setPage(0);
               }}
-              className="w-full h-12 rounded-md border border-gray-200 pl-10 pr-3 text-lg outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full h-11 rounded-md border border-gray-200 pl-10 pr-3 text-lg outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <button
@@ -1585,17 +1585,17 @@ const AddLoad = () => {
                 {load.customerLoadDetails?.customerName || load.customerName || "N/A"}
               </td>
               <td className="px-5 py-4 font-medium rounded-r-xl border-t border-b border-r border-gray-200">
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-nowrap items-center gap-2 whitespace-nowrap min-w-max">
                   <button
                     onClick={() => handleViewLoad(load)}
-                    className="h-8 px-3 rounded-md border border-blue-600 text-blue-600 text-base cursor-pointer font-medium hover:bg-blue-600 hover:text-white"
+                    className="h-8 px-3 rounded-md border border-blue-600 text-blue-600 text-base cursor-pointer font-medium hover:bg-blue-600 hover:text-white shrink-0"
                   >
                     View
                   </button>
                   <button
                     onClick={() => handleEditLoad(load)}
                     disabled={load.status === 'Assigned'}
-                    className={`h-8 px-3 rounded-md border text-base font-medium cursor-pointer ${
+                    className={`h-8 px-3 rounded-md border text-base font-medium cursor-pointer shrink-0 ${
                       load.status === 'Assigned'
                         ? 'border-slate-300 text-slate-400 cursor-not-allowed'
                         : 'border-cyan-600 text-cyan-600 hover:bg-cyan-600 hover:text-white'
@@ -1606,7 +1606,7 @@ const AddLoad = () => {
                   <button
                     onClick={() => handleOpenAssignDriver(load)}
                     disabled={load.status === 'Assigned'}
-                    className={`h-8 px-3 rounded-md border text-base font-medium cursor-pointer ${
+                    className={`h-8 px-3 rounded-md border text-base font-medium cursor-pointer shrink-0 ${
                       load.status === 'Assigned'
                         ? 'border-slate-300 text-slate-400 cursor-not-allowed'
                         : 'border-green-600 text-green-600 hover:bg-green-600 hover:text-white'
@@ -1617,7 +1617,7 @@ const AddLoad = () => {
                   <button
                     onClick={() => openDeleteConfirm(load._id)}
                     disabled={load.status === 'Assigned'}
-                    className={`h-8 px-3 rounded-md border text-base font-medium cursor-pointer ${
+                    className={`h-8 px-3 rounded-md border text-base font-medium cursor-pointer shrink-0 ${
                       load.status === 'Assigned'
                         ? 'border-slate-300 text-slate-400 cursor-not-allowed'
                         : 'border-red-600 text-red-600 hover:bg-red-600 hover:text-white'
