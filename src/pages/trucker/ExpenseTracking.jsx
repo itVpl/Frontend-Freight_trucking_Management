@@ -558,13 +558,14 @@ const ExpenseTracking = () => {
         <Paper sx={{ p: 2, mb: 2 }}>
           <Typography variant="subtitle2" sx={{ mb: 1 }}>Filters</Typography>
           <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} sm={6} md={2}>
-              <FormControl fullWidth size="small">
+            <Grid item xs={12} sm={6} md={2} sx={{ minWidth: 220 }}>
+              <FormControl fullWidth size="small" sx={{ width: 1 }}>
                 <InputLabel>Status</InputLabel>
                 <Select
                   value={filters.status}
                   label="Status"
                   onChange={(e) => handleFilterChange("status", e.target.value)}
+                  sx={{ width: 1 }}
                 >
                   {STATUS_OPTIONS.map((o) => (
                     <MenuItem key={o.value || "all"} value={o.value}>{o.label}</MenuItem>
@@ -572,13 +573,14 @@ const ExpenseTracking = () => {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} sm={6} md={2}>
-              <FormControl fullWidth size="small">
+            <Grid item xs={12} sm={6} md={2} sx={{ minWidth: 220 }}>
+              <FormControl fullWidth size="small" sx={{ width: 1 }}>
                 <InputLabel>Category</InputLabel>
                 <Select
                   value={filters.category}
                   label="Category"
                   onChange={(e) => handleFilterChange("category", e.target.value)}
+                  sx={{ width: 1 }}
                 >
                   <MenuItem value="">All</MenuItem>
                   {categories.map((c) => (
@@ -587,13 +589,14 @@ const ExpenseTracking = () => {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} sm={6} md={2}>
-              <FormControl fullWidth size="small">
+            <Grid item xs={12} sm={6} md={2} sx={{ minWidth: 220 }}>
+              <FormControl fullWidth size="small" sx={{ width: 1 }}>
                 <InputLabel>Truck</InputLabel>
                 <Select
                   value={filters.truck}
                   label="Truck"
                   onChange={(e) => handleFilterChange("truck", e.target.value)}
+                  sx={{ width: 1 }}
                 >
                   <MenuItem value="">All</MenuItem>
                   {trucks.map((t) => (
@@ -602,20 +605,20 @@ const ExpenseTracking = () => {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} sm={6} md={2}>
+            <Grid item xs={12} sm={6} md={2} sx={{ minWidth: 220 }}>
               <DatePicker
                 label="Start Date"
                 value={filters.startDate}
                 onChange={(d) => handleFilterChange("startDate", d)}
-                slotProps={{ textField: { size: "small", fullWidth: true } }}
+                slotProps={{ textField: { size: "small", fullWidth: true, sx: { width: 1 } } }}
               />
             </Grid>
-            <Grid item xs={12} sm={6} md={2}>
+            <Grid item xs={12} sm={6} md={2} sx={{ minWidth: 220 }}>
               <DatePicker
                 label="End Date"
                 value={filters.endDate}
                 onChange={(d) => handleFilterChange("endDate", d)}
-                slotProps={{ textField: { size: "small", fullWidth: true } }}
+                slotProps={{ textField: { size: "small", fullWidth: true, sx: { width: 1 } } }}
               />
             </Grid>
             <Grid item xs={12} sm={6} md={2}>
@@ -704,7 +707,7 @@ const ExpenseTracking = () => {
           <DialogTitle>{editingId ? "Edit Expense" : "Add Expense"}</DialogTitle>
           <DialogContent>
             <Grid container spacing={2} sx={{ mt: 0.5 }}>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={6} sx={{ minWidth: 240 }}>
                 <TextField
                   fullWidth
                   label="Amount (USD)"
@@ -717,13 +720,14 @@ const ExpenseTracking = () => {
                   size="small"
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth size="small" error={!!formErrors.category}>
+              <Grid item xs={12} sm={6} sx={{ minWidth: 240 }}>
+                <FormControl fullWidth size="small" error={!!formErrors.category} sx={{ width: 1 }}>
                   <InputLabel>Category</InputLabel>
                   <Select
                     value={form.category}
                     label="Category"
                     onChange={(e) => handleFormChange("category", e.target.value)}
+                    sx={{ width: 1 }}
                   >
                     {categories.map((c) => (
                       <MenuItem key={c._id} value={c._id}>{c.name}</MenuItem>
@@ -731,21 +735,22 @@ const ExpenseTracking = () => {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={6} sx={{ minWidth: 240 }}>
                 <DatePicker
                   label="Expense Date"
                   value={form.expenseDate}
                   onChange={(d) => handleFormChange("expenseDate", d)}
-                  slotProps={{ textField: { fullWidth: true, size: "small" } }}
+                  slotProps={{ textField: { fullWidth: true, size: "small", sx: { width: 1 } } }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth size="small">
+              <Grid item xs={12} sm={6} sx={{ minWidth: 240 }}>
+                <FormControl fullWidth size="small" sx={{ width: 1 }}>
                   <InputLabel>Payment Method</InputLabel>
                   <Select
                     value={form.payment?.method}
                     label="Payment Method"
                     onChange={(e) => handlePaymentChange("method", e.target.value)}
+                    sx={{ width: 1 }}
                   >
                     {PAYMENT_METHODS.map((p) => (
                       <MenuItem key={p.value} value={p.value}>{p.label}</MenuItem>
@@ -754,7 +759,7 @@ const ExpenseTracking = () => {
                 </FormControl>
               </Grid>
               {form.payment?.method === "card" && (
-                <Grid item xs={12} sm={6}>
+                <Grid item xs={12} sm={6} sx={{ minWidth: 240 }}>
                   <TextField
                     fullWidth
                     label="Card last 4"
@@ -765,13 +770,14 @@ const ExpenseTracking = () => {
                   />
                 </Grid>
               )}
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth size="small">
+              <Grid item xs={12} sm={6} sx={{ minWidth: 240 }}>
+                <FormControl fullWidth size="small" sx={{ width: 1 }}>
                   <InputLabel>Truck</InputLabel>
                   <Select
                     value={form.truck}
                     label="Truck"
                     onChange={(e) => handleFormChange("truck", e.target.value)}
+                    sx={{ width: 1 }}
                   >
                     <MenuItem value="">—</MenuItem>
                     {trucks.map((t) => (
@@ -780,13 +786,14 @@ const ExpenseTracking = () => {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth size="small">
+              <Grid item xs={12} sm={6} sx={{ minWidth: 240 }}>
+                <FormControl fullWidth size="small" sx={{ width: 1 }}>
                   <InputLabel>Driver</InputLabel>
                   <Select
                     value={form.driver}
                     label="Driver"
                     onChange={(e) => handleFormChange("driver", e.target.value)}
+                    sx={{ width: 1 }}
                   >
                     <MenuItem value="">—</MenuItem>
                     {drivers.map((d) => (
@@ -795,13 +802,14 @@ const ExpenseTracking = () => {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth size="small">
+              <Grid item xs={12} sm={6} sx={{ minWidth: 240 }}>
+                <FormControl fullWidth size="small" sx={{ width: 1 }}>
                   <InputLabel>Trip</InputLabel>
                   <Select
                     value={form.trip}
                     label="Trip"
                     onChange={(e) => handleFormChange("trip", e.target.value)}
+                    sx={{ width: 1 }}
                   >
                     <MenuItem value="">—</MenuItem>
                     {trips.map((t) => (
@@ -810,13 +818,14 @@ const ExpenseTracking = () => {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth size="small">
+              <Grid item xs={12} sm={6} sx={{ minWidth: 240 }}>
+                <FormControl fullWidth size="small" sx={{ width: 1 }}>
                   <InputLabel>Vendor</InputLabel>
                   <Select
                     value={form.vendor}
                     label="Vendor"
                     onChange={(e) => handleFormChange("vendor", e.target.value)}
+                    sx={{ width: 1 }}
                   >
                     <MenuItem value="">—</MenuItem>
                     {vendors.map((v) => (
