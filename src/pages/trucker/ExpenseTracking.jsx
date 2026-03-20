@@ -1,19 +1,7 @@
 import { useEffect, useState } from "react";
 import {
-  Box,
-  Typography,
-  Paper,
-  Table,
-  TableHead,
-  TableRow,
-  TableCell,
-  TableBody,
-  TablePagination,
-  Button,
-  Stack,
   Chip,
   TextField,
-  IconButton,
   FormControl,
   InputLabel,
   Select,
@@ -22,11 +10,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Grid,
   CircularProgress,
-  InputAdornment,
-  Card,
-  CardContent,
 } from "@mui/material";
 import {
   Add,
@@ -94,6 +78,7 @@ const ExpenseTracking = () => {
     sortBy: "expenseDate",
     sortOrder: "desc",
   });
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Add/Edit form
   const [formOpen, setFormOpen] = useState(false);
@@ -497,459 +482,842 @@ const ExpenseTracking = () => {
     }
   };
 
+  const getStatusBadgeClasses = (status) => {
+    const normalized = String(status || "").toLowerCase();
+    if (normalized === "approved") return "bg-emerald-50 text-emerald-700 border-emerald-200";
+    if (normalized === "pending") return "bg-amber-50 text-amber-800 border-amber-200";
+    if (normalized === "rejected") return "bg-red-50 text-red-700 border-red-200";
+    if (normalized === "reimbursed") return "bg-blue-50 text-blue-700 border-blue-200";
+    return "bg-slate-100 text-slate-700 border-slate-300";
+  };
+
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+  const visibleExpenses = normalizedSearchQuery
+    ? expenses.filter((row) => {
+        const haystack = [
+          row.status,
+          row.category?.name,
+          row.truck?.truckNumber,
+          row.driver?.fullName,
+          row.vendor?.name,
+          row.vendorName,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+
+        return haystack.includes(normalizedSearchQuery);
+      })
+    : expenses;
+
+  const totalPages = Math.max(1, pagination.totalPages || 1);
+  const isSearchActive = normalizedSearchQuery.length > 0;
+  const clampedPage = Math.min(Math.max(pagination.page - 1, 0), Math.max(0, totalPages - 1));
+  const totalItems = isSearchActive ? visibleExpenses.length : pagination.total;
+  const pageStart = isSearchActive ? 0 : clampedPage * pagination.limit;
+  const pageEnd = isSearchActive ? visibleExpenses.length : Math.min(pageStart + pagination.limit, totalItems);
+
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisible = 5;
+    const start = Math.max(1, clampedPage + 1 - Math.floor(maxVisible / 2));
+    const end = Math.min(totalPages, start + maxVisible - 1);
+    if (start > 1) pages.push(1, "…");
+    for (let i = start; i <= end; i++) pages.push(i);
+    if (end < totalPages) pages.push("…", totalPages);
+    return pages;
+  };
+
+  const handlePrevPage = () => {
+    setPagination((prev) => ({ ...prev, page: Math.max(1, prev.page - 1) }));
+  };
+
+  const handleNextPage = () => {
+    setPagination((prev) => ({ ...prev, page: Math.min(Math.max(1, prev.totalPages || 1), prev.page + 1) }));
+  };
+
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
-      <Box sx={{ p: 3 }}>
-        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
-          <Typography variant="h5" fontWeight={600}>
-            Expense Tracking
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={openAddForm}
-            sx={{ bgcolor: brand, "&:hover": { bgcolor: brand, opacity: 0.9 } }}
-          >
-            Add Expense
-          </Button>
-        </Stack>
+      <div className="p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h1 className="text-xl font-semibold text-slate-900">Expense Tracking</h1>
+        </div>
 
-        {/* Summary cards */}
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent>
-                <Typography color="textSecondary" gutterBottom>Total Amount</Typography>
-                {summaryLoading ? (
-                  <CircularProgress size={24} />
-                ) : (
-                  <Typography variant="h6">${summary?.totalAmount?.toLocaleString() ?? "0"}</Typography>
-                )}
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent>
-                <Typography color="textSecondary" gutterBottom>Total Count</Typography>
-                {summaryLoading ? (
-                  <CircularProgress size={24} />
-                ) : (
-                  <Typography variant="h6">{summary?.totalCount ?? 0}</Typography>
-                )}
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent>
-                <Typography color="textSecondary" gutterBottom>IFTA Fuel</Typography>
-                {summaryLoading ? (
-                  <CircularProgress size={24} />
-                ) : (
-                  <Typography variant="h6">${summary?.iftaFuel?.totalFuelAmount?.toLocaleString() ?? "0"}</Typography>
-                )}
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
+        <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-5">
+              <div>
+                <div className="text-lg font-semibold text-gray-600">Total Amount</div>
+                <div className="mt-2 text-2xl font-bold text-gray-900">
+                  {summaryLoading ? <CircularProgress size={24} /> : `$${summary?.totalAmount?.toLocaleString() ?? "0"}`}
+                </div>
+              </div>
+              <div className="grid h-11 w-11 place-items-center rounded-full bg-blue-50 text-blue-600">
+                <AttachMoney fontSize="small" />
+              </div>
+            </div>
 
-        {/* Filters */}
-        <Paper sx={{ p: 2, mb: 2 }}>
-          <Typography variant="subtitle2" sx={{ mb: 1 }}>Filters</Typography>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} sm={6} md={2}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Status</InputLabel>
-                <Select
-                  value={filters.status}
-                  label="Status"
-                  onChange={(e) => handleFilterChange("status", e.target.value)}
-                >
-                  {STATUS_OPTIONS.map((o) => (
-                    <MenuItem key={o.value || "all"} value={o.value}>{o.label}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={6} md={2}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Category</InputLabel>
-                <Select
-                  value={filters.category}
-                  label="Category"
-                  onChange={(e) => handleFilterChange("category", e.target.value)}
-                >
-                  <MenuItem value="">All</MenuItem>
-                  {categories.map((c) => (
-                    <MenuItem key={c._id} value={c._id}>{c.name}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={6} md={2}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Truck</InputLabel>
-                <Select
-                  value={filters.truck}
-                  label="Truck"
-                  onChange={(e) => handleFilterChange("truck", e.target.value)}
-                >
-                  <MenuItem value="">All</MenuItem>
-                  {trucks.map((t) => (
-                    <MenuItem key={t._id} value={t._id}>{t.truckNumber}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={6} md={2}>
-              <DatePicker
-                label="Start Date"
-                value={filters.startDate}
-                onChange={(d) => handleFilterChange("startDate", d)}
-                slotProps={{ textField: { size: "small", fullWidth: true } }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6} md={2}>
-              <DatePicker
-                label="End Date"
-                value={filters.endDate}
-                onChange={(d) => handleFilterChange("endDate", d)}
-                slotProps={{ textField: { size: "small", fullWidth: true } }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6} md={2}>
-              <Button startIcon={<Clear />} onClick={handleClearFilters} size="small">
-                Clear
-              </Button>
-            </Grid>
-          </Grid>
-        </Paper>
+            <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-5">
+              <div>
+                <div className="text-lg font-semibold text-gray-600">Total Count</div>
+                <div className="mt-2 text-2xl font-bold text-gray-900">
+                  {summaryLoading ? <CircularProgress size={24} /> : (summary?.totalCount ?? 0)}
+                </div>
+              </div>
+              <div className="grid h-11 w-11 place-items-center rounded-full bg-green-50 text-green-600">
+                <ReceiptLong fontSize="small" />
+              </div>
+            </div>
 
-        {/* Table */}
-        <Paper>
-          {loading ? (
-            <Box sx={{ p: 4, textAlign: "center" }}>
-              <CircularProgress />
-            </Box>
-          ) : (
-            <>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Date</TableCell>
-                    <TableCell>Amount</TableCell>
-                    <TableCell>Category</TableCell>
-                    <TableCell>Truck</TableCell>
-                    <TableCell>Driver</TableCell>
-                    <TableCell>Vendor</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell align="right">Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {expenses.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
-                        No expenses found.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    expenses.map((row) => (
-                      <TableRow key={row._id}>
-                        <TableCell>{row.expenseDate ? format(new Date(row.expenseDate), "MMM dd, yyyy") : "—"}</TableCell>
-                        <TableCell>${Number(row.amount).toLocaleString()}</TableCell>
-                        <TableCell>{row.category?.name ?? "—"}</TableCell>
-                        <TableCell>{row.truck?.truckNumber ?? "—"}</TableCell>
-                        <TableCell>{row.driver?.fullName ?? "—"}</TableCell>
-                        <TableCell>{row.vendor?.name || row.vendorName || "—"}</TableCell>
-                        <TableCell>
-                          <Chip label={row.status} color={getStatusColor(row.status)} size="small" />
-                        </TableCell>
-                        <TableCell align="right">
-                          <IconButton size="small" onClick={() => openDetail(row)} title="View">
-                            <Visibility fontSize="small" />
-                          </IconButton>
-                          {row.status !== "reimbursed" && (
-                            <IconButton size="small" onClick={() => openEditForm(row)} title="Edit">
-                              <Edit fontSize="small" />
-                            </IconButton>
-                          )}
-                          <IconButton size="small" onClick={() => handleDelete(row._id)} title="Delete" color="error">
-                            <Delete fontSize="small" />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-              <TablePagination
-                component="div"
-                count={pagination.total}
-                page={pagination.page - 1}
-                onPageChange={(_, p) => setPagination((prev) => ({ ...prev, page: p + 1 }))}
-                rowsPerPage={pagination.limit}
-                onRowsPerPageChange={(e) =>
-                  setPagination((prev) => ({ ...prev, limit: parseInt(e.target.value, 10), page: 1 }))
+            <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-5">
+              <div>
+                <div className="text-lg font-semibold text-gray-600">IFTA Fuel</div>
+                <div className="mt-2 text-2xl font-bold text-gray-900">
+                  {summaryLoading
+                    ? <CircularProgress size={24} />
+                    : `$${summary?.iftaFuel?.totalFuelAmount?.toLocaleString() ?? "0"}`}
+                </div>
+              </div>
+              <div className="grid h-11 w-11 place-items-center rounded-full bg-amber-50 text-amber-600">
+                <Paid fontSize="small" />
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search category, truck, driver, vendor, status..."
+              className="h-12 w-full flex-1 rounded-xl border border-slate-200 bg-white px-4 text-base text-slate-900 outline-none placeholder:text-slate-400 focus:border-slate-300"
+            />
+            <button
+              type="button"
+              onClick={openAddForm}
+              className="inline-flex h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-slate-200 bg-blue-600 px-4 text-base font-medium text-white"
+            >
+              <Add fontSize="small" />
+              Add Expense
+            </button>
+          </div>
+        </div>
+
+        <div className="mb-4 rounded-lg border border-gray-200 bg-white p-4">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="min-w-[220px] flex-1">
+              <label className="mb-1 block text-sm font-medium text-gray-700">Status</label>
+              <select
+                value={filters.status}
+                onChange={(e) => handleFilterChange("status", e.target.value)}
+                className="h-11 w-full cursor-pointer rounded-md border border-gray-200 bg-white px-3 text-base text-gray-700 outline-none focus:ring-1 focus:ring-black-500"
+              >
+                {STATUS_OPTIONS.map((o) => (
+                  <option key={o.value || "all"} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="min-w-[220px] flex-1">
+              <label className="mb-1 block text-sm font-medium text-gray-700">Category</label>
+              <select
+                value={filters.category}
+                onChange={(e) => handleFilterChange("category", e.target.value)}
+                className="h-11 w-full cursor-pointer rounded-md border border-gray-200 bg-white px-3 text-base text-gray-700 outline-none focus:ring-1 focus:ring-black-500"
+              >
+                <option value="">All</option>
+                {categories.map((c) => (
+                  <option key={c._id} value={c._id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="min-w-[220px] flex-1">
+              <label className="mb-1 block text-sm font-medium text-gray-700">Truck</label>
+              <select
+                value={filters.truck}
+                onChange={(e) => handleFilterChange("truck", e.target.value)}
+                className="h-11 w-full cursor-pointer rounded-md border border-gray-200 bg-white px-3 text-base text-gray-700 outline-none focus:ring-1 focus:ring-black-500"
+              >
+                <option value="">All</option>
+                {trucks.map((t) => (
+                  <option key={t._id} value={t._id}>{t.truckNumber}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="min-w-[220px] flex-1">
+              <label className="mb-1 block text-sm font-medium text-gray-700">Start Date</label>
+              <input
+                type="date"
+                value={filters.startDate ? format(filters.startDate, "yyyy-MM-dd") : ""}
+                onChange={(e) =>
+                  handleFilterChange(
+                    "startDate",
+                    e.target.value ? new Date(`${e.target.value}T00:00:00`) : null
+                  )
                 }
-                rowsPerPageOptions={[10, 20, 50]}
+                className="h-11 w-full rounded-md border border-gray-200 bg-white px-3 text-base text-gray-700 outline-none focus:ring-1 focus:ring-black-500"
               />
-            </>
-          )}
-        </Paper>
+            </div>
+
+            <div className="min-w-[220px] flex-1">
+              <label className="mb-1 block text-sm font-medium text-gray-700">End Date</label>
+              <input
+                type="date"
+                value={filters.endDate ? format(filters.endDate, "yyyy-MM-dd") : ""}
+                onChange={(e) =>
+                  handleFilterChange(
+                    "endDate",
+                    e.target.value ? new Date(`${e.target.value}T00:00:00`) : null
+                  )
+                }
+                className="h-11 w-full rounded-md border border-gray-200 bg-white px-3 text-base text-gray-700 outline-none focus:ring-1 focus:ring-black-500"
+              />
+            </div>
+
+            <div className="flex w-full justify-end md:w-auto md:pl-2">
+              <button
+                type="button"
+                onClick={handleClearFilters}
+                className="h-11 cursor-pointer rounded-md border border-gray-200 bg-white px-4 text-base font-medium text-gray-700 hover:bg-slate-50"
+              >
+                <span className="flex items-center gap-2">
+                  <Clear fontSize="small" />
+                  Clear
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="rounded-lg border border-gray-200 bg-white">
+            <div className="flex justify-center py-10">
+              <CircularProgress />
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+              <div className="overflow-x-auto p-4">
+                <table className="min-w-full border-separate border-spacing-y-4">
+                  <thead>
+                    <tr className="text-left bg-slate-100">
+                      <th className="px-4 py-3 text-base font-semibold text-gray-500 rounded-l-xl border-t border-b border-l border-gray-200">
+                        Date
+                      </th>
+                      <th className="px-4 py-3 text-base font-semibold text-gray-500 border-t border-b border-gray-200">
+                        Amount
+                      </th>
+                      <th className="px-4 py-3 text-base font-semibold text-gray-500 border-t border-b border-gray-200">
+                        Category
+                      </th>
+                      <th className="px-4 py-3 text-base font-semibold text-gray-500 border-t border-b border-gray-200">
+                        Truck
+                      </th>
+                      <th className="px-4 py-3 text-base font-semibold text-gray-500 border-t border-b border-gray-200">
+                        Driver
+                      </th>
+                      <th className="px-4 py-3 text-base font-semibold text-gray-500 border-t border-b border-gray-200">
+                        Vendor
+                      </th>
+                      <th className="px-4 py-3 text-base font-semibold text-gray-500 border-t border-b border-gray-200">
+                        Status
+                      </th>
+                      <th className="px-4 py-3 text-base font-semibold text-gray-500 rounded-r-xl border-t border-b border-r border-gray-200">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {visibleExpenses.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="px-3 py-6 text-center text-sm text-slate-500">
+                          No expenses found.
+                        </td>
+                      </tr>
+                    ) : (
+                      visibleExpenses.map((row) => (
+                        <tr key={row._id} className="hover:bg-slate-50">
+                          <td className="px-4 py-4 font-medium text-gray-700 truncate rounded-l-xl border-t border-b border-l border-gray-200">
+                            {row.expenseDate ? format(new Date(row.expenseDate), "MMM dd, yyyy") : "—"}
+                          </td>
+                          <td className="px-4 py-4 font-medium text-gray-700 truncate border-t border-b border-gray-200">
+                            ${Number(row.amount).toLocaleString()}
+                          </td>
+                          <td className="px-4 py-4 font-medium text-gray-700 truncate border-t border-b border-gray-200">
+                            {row.category?.name ?? "—"}
+                          </td>
+                          <td className="px-4 py-4 font-medium text-gray-700 truncate border-t border-b border-gray-200">
+                            {row.truck?.truckNumber ?? "—"}
+                          </td>
+                          <td className="px-4 py-4 font-medium text-gray-700 truncate border-t border-b border-gray-200">
+                            {row.driver?.fullName ?? "—"}
+                          </td>
+                          <td className="px-4 py-4 font-medium text-gray-700 truncate border-t border-b border-gray-200">
+                            {row.vendor?.name || row.vendorName || "—"}
+                          </td>
+                          <td className="px-4 py-4 text-gray-700 border-t border-b border-gray-200">
+                            <span className={`inline-block rounded-full px-3 py-1 text-base font-medium border ${getStatusBadgeClasses(row.status)}`}>
+                              {row.status || "—"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-4 rounded-r-xl border-t border-b border-r border-gray-200">
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => openDetail(row)}
+                                className="h-8 px-3 rounded-md border border-blue-600 text-blue-600 text-base cursor-pointer font-medium hover:bg-blue-600 hover:text-white"
+                              >
+                                View
+                              </button>
+                              {row.status !== "reimbursed" && (
+                                <button
+                                  type="button"
+                                  onClick={() => openEditForm(row)}
+                                  className="h-8 px-3 rounded-md border border-cyan-600 text-cyan-600 text-base cursor-pointer font-medium hover:bg-cyan-600 hover:text-white"
+                                >
+                                  Edit
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(row._id)}
+                                className="h-8 px-3 rounded-md border border-red-600 text-red-600 text-base cursor-pointer font-medium hover:bg-red-600 hover:text-white"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="mt-2 border border-gray-200 rounded-lg bg-white px-4 py-3 flex items-center justify-between pr-40">
+              <div className="flex items-center gap-3 text-sm text-slate-600">
+                <span>{`Showing ${totalItems === 0 ? 0 : pageStart + 1} to ${totalItems === 0 ? 0 : pageEnd} of ${totalItems} expenses`}</span>
+              </div>
+              <div className="flex items-center gap-2 mr-8">
+                <label className="inline-flex items-center gap-2 font-medium text-gray-700">
+                  <span>Rows per page</span>
+                  <select
+                    value={pagination.limit}
+                    onChange={(e) =>
+                      setPagination((prev) => ({ ...prev, limit: parseInt(e.target.value, 10), page: 1 }))
+                    }
+                    className="h-8 rounded-md border border-slate-300 px-2 text-sm bg-white cursor-pointer"
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={15}>15</option>
+                    <option value={20}>20</option>
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  onClick={handlePrevPage}
+                  disabled={clampedPage === 0}
+                  className={`h-8 px-3 text-base ${
+                    clampedPage === 0
+                      ? "text-slate-400 rounded-full cursor-not-allowed"
+                      : "text-slate-900 font-semibold cursor-pointer rounded-md"
+                  }`}
+                >
+                  Previous
+                </button>
+                {getPageNumbers().map((num, idx) =>
+                  num === "…" ? (
+                    <span key={`e-${idx}`} className="px-1 text-gray-900">
+                      …
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      key={num}
+                      onClick={() => setPagination((prev) => ({ ...prev, page: Number(num) }))}
+                      className={`min-w-8 h-8 px-2 rounded-xl text-base cursor-pointer ${
+                        num === clampedPage + 1 ? "border border-gray-900" : "text-slate-700"
+                      }`}
+                    >
+                      {num}
+                    </button>
+                  )
+                )}
+                <button
+                  type="button"
+                  onClick={handleNextPage}
+                  disabled={clampedPage >= totalPages - 1}
+                  className={`h-8 px-3 text-base ${
+                    clampedPage >= totalPages - 1
+                      ? "text-slate-400 rounded-full cursor-not-allowed"
+                      : "text-slate-900 font-semibold cursor-pointer rounded-md"
+                  }`}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Add/Edit dialog */}
-        <Dialog open={formOpen} onClose={() => setFormOpen(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>{editingId ? "Edit Expense" : "Add Expense"}</DialogTitle>
-          <DialogContent>
-            <Grid container spacing={2} sx={{ mt: 0.5 }}>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Amount (USD)"
-                  type="number"
-                  inputProps={{ min: 0, step: 0.01 }}
-                  value={form.amount}
-                  onChange={(e) => handleFormChange("amount", e.target.value)}
-                  error={!!formErrors.amount}
-                  helperText={formErrors.amount}
-                  size="small"
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth size="small" error={!!formErrors.category}>
-                  <InputLabel>Category</InputLabel>
-                  <Select
-                    value={form.category}
-                    label="Category"
-                    onChange={(e) => handleFormChange("category", e.target.value)}
-                  >
-                    {categories.map((c) => (
-                      <MenuItem key={c._id} value={c._id}>{c.name}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <DatePicker
-                  label="Expense Date"
-                  value={form.expenseDate}
-                  onChange={(d) => handleFormChange("expenseDate", d)}
-                  slotProps={{ textField: { fullWidth: true, size: "small" } }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Payment Method</InputLabel>
-                  <Select
-                    value={form.payment?.method}
-                    label="Payment Method"
-                    onChange={(e) => handlePaymentChange("method", e.target.value)}
-                  >
-                    {PAYMENT_METHODS.map((p) => (
-                      <MenuItem key={p.value} value={p.value}>{p.label}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              {form.payment?.method === "card" && (
-                <Grid item xs={12} sm={6}>
+        <Dialog
+          open={formOpen}
+          onClose={() => setFormOpen(false)}
+          maxWidth="md"
+          fullWidth
+          PaperProps={{ className: "overflow-hidden rounded-2xl" }}
+        >
+          <DialogTitle disableTypography className="p-0">
+            <div className="flex items-center justify-between px-5 py-2 text-white">
+              <div className="flex items-center gap-3">
+                {/* <div className="grid h-10 w-10 place-items-center rounded-xl bg-white/20">
+                  <ReceiptLong fontSize="small" className="text-white" />
+                </div> */}
+                <div>
+                  <div className="text-lg font-semibold leading-tight">
+                    {editingId ? "Edit Expense" : "Add Expense"}
+                  </div>
+                  <div className="text-xs text-white/80">Enter expense details below</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFormOpen(false)}
+                className="grid h-9 w-9 cursor-pointer place-items-center rounded-xl bg-white/10 hover:bg-white/20"
+              >
+                <Clear fontSize="small" className="text-white" />
+              </button>
+            </div>
+          </DialogTitle>
+
+          <DialogContent className="bg-slate-50 p-5">
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-blue-100 bg-blue-50/40 p-4">
+                <div className="mb-3 text-sm font-semibold text-blue-700">Basic Information</div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                   <TextField
                     fullWidth
-                    label="Card last 4"
-                    value={form.payment?.cardLastFour ?? ""}
-                    onChange={(e) => handlePaymentChange("cardLastFour", e.target.value)}
+                    label="Amount (USD)"
+                    type="number"
+                    inputProps={{ min: 0, step: 0.01 }}
+                    value={form.amount}
+                    onChange={(e) => handleFormChange("amount", e.target.value)}
+                    error={!!formErrors.amount}
+                    helperText={formErrors.amount}
                     size="small"
-                    inputProps={{ maxLength: 4 }}
                   />
-                </Grid>
-              )}
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Truck</InputLabel>
-                  <Select
-                    value={form.truck}
-                    label="Truck"
-                    onChange={(e) => handleFormChange("truck", e.target.value)}
-                  >
-                    <MenuItem value="">—</MenuItem>
-                    {trucks.map((t) => (
-                      <MenuItem key={t._id} value={t._id}>{t.truckNumber}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Driver</InputLabel>
-                  <Select
-                    value={form.driver}
-                    label="Driver"
-                    onChange={(e) => handleFormChange("driver", e.target.value)}
-                  >
-                    <MenuItem value="">—</MenuItem>
-                    {drivers.map((d) => (
-                      <MenuItem key={d._id} value={d._id}>{d.fullName}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Trip</InputLabel>
-                  <Select
-                    value={form.trip}
-                    label="Trip"
-                    onChange={(e) => handleFormChange("trip", e.target.value)}
-                  >
-                    <MenuItem value="">—</MenuItem>
-                    {trips.map((t) => (
-                      <MenuItem key={t._id} value={t._id}>{t.tripId}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Vendor</InputLabel>
-                  <Select
-                    value={form.vendor}
-                    label="Vendor"
-                    onChange={(e) => handleFormChange("vendor", e.target.value)}
-                  >
-                    <MenuItem value="">—</MenuItem>
-                    {vendors.map((v) => (
-                      <MenuItem key={v._id} value={v._id}>{v.name}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Vendor name (if no vendor)"
-                  value={form.vendorName}
-                  onChange={(e) => handleFormChange("vendorName", e.target.value)}
-                  size="small"
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Notes"
-                  multiline
-                  rows={2}
-                  value={form.notes}
-                  onChange={(e) => handleFormChange("notes", e.target.value)}
-                  size="small"
-                />
-              </Grid>
+
+                  <FormControl fullWidth size="small" error={!!formErrors.category}>
+                    <InputLabel>Category</InputLabel>
+                    <Select
+                      value={form.category}
+                      label="Category"
+                      onChange={(e) => handleFormChange("category", e.target.value)}
+                    >
+                      {categories.map((c) => (
+                        <MenuItem key={c._id} value={c._id}>{c.name}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  <DatePicker
+                    label="Expense Date"
+                    value={form.expenseDate}
+                    onChange={(d) => handleFormChange("expenseDate", d)}
+                    slotProps={{ textField: { fullWidth: true, size: "small" } }}
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4">
+                <div className="mb-3 text-sm font-semibold text-emerald-700">Payment & Assignment</div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Payment Method</InputLabel>
+                    <Select
+                      value={form.payment?.method}
+                      label="Payment Method"
+                      onChange={(e) => handlePaymentChange("method", e.target.value)}
+                    >
+                      {PAYMENT_METHODS.map((p) => (
+                        <MenuItem key={p.value} value={p.value}>{p.label}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  {form.payment?.method === "card" ? (
+                    <TextField
+                      fullWidth
+                      label="Card last 4"
+                      value={form.payment?.cardLastFour ?? ""}
+                      onChange={(e) => handlePaymentChange("cardLastFour", e.target.value)}
+                      size="small"
+                      inputProps={{ maxLength: 4 }}
+                    />
+                  ) : (
+                    <div className="hidden md:block" />
+                  )}
+
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Truck</InputLabel>
+                    <Select
+                      value={form.truck}
+                      label="Truck"
+                      onChange={(e) => handleFormChange("truck", e.target.value)}
+                    >
+                      <MenuItem value="">—</MenuItem>
+                      {trucks.map((t) => (
+                        <MenuItem key={t._id} value={t._id}>{t.truckNumber}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Driver</InputLabel>
+                    <Select
+                      value={form.driver}
+                      label="Driver"
+                      onChange={(e) => handleFormChange("driver", e.target.value)}
+                    >
+                      <MenuItem value="">—</MenuItem>
+                      {drivers.map((d) => (
+                        <MenuItem key={d._id} value={d._id}>{d.fullName}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Trip</InputLabel>
+                    <Select
+                      value={form.trip}
+                      label="Trip"
+                      onChange={(e) => handleFormChange("trip", e.target.value)}
+                    >
+                      <MenuItem value="">—</MenuItem>
+                      {trips.map((t) => (
+                        <MenuItem key={t._id} value={t._id}>{t.tripId}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Vendor</InputLabel>
+                    <Select
+                      value={form.vendor}
+                      label="Vendor"
+                      onChange={(e) => handleFormChange("vendor", e.target.value)}
+                    >
+                      <MenuItem value="">—</MenuItem>
+                      {vendors.map((v) => (
+                        <MenuItem key={v._id} value={v._id}>{v.name}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-violet-100 bg-violet-50/40 p-4">
+                <div className="mb-3 text-sm font-semibold text-violet-700">Notes</div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <TextField
+                    fullWidth
+                    label="Vendor name (if no vendor)"
+                    value={form.vendorName}
+                    onChange={(e) => handleFormChange("vendorName", e.target.value)}
+                    size="small"
+                  />
+                  <TextField
+                    fullWidth
+                    label="Notes"
+                    multiline
+                    rows={2}
+                    value={form.notes}
+                    onChange={(e) => handleFormChange("notes", e.target.value)}
+                    size="small"
+                  />
+                </div>
+              </div>
+
               {formErrors.submit && (
-                <Grid item xs={12}>
-                  <Typography color="error">{formErrors.submit}</Typography>
-                </Grid>
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {formErrors.submit}
+                </div>
               )}
-            </Grid>
+            </div>
           </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setFormOpen(false)}>Cancel</Button>
-            <Button variant="contained" onClick={handleSubmitForm} disabled={formLoading} sx={{ bgcolor: brand }}>
-              {formLoading ? <CircularProgress size={24} /> : "Save"}
-            </Button>
+
+          <DialogActions className="border-t border-slate-200 bg-white px-5 py-4">
+            <button
+              type="button"
+              onClick={() => setFormOpen(false)}
+              className="inline-flex h-11 cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-medium text-slate-900 hover:bg-slate-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmitForm}
+              disabled={formLoading}
+              className="inline-flex h-11 cursor-pointer items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {formLoading ? <CircularProgress size={20} className="text-white" /> : "Save"}
+            </button>
           </DialogActions>
         </Dialog>
 
         {/* Detail dialog */}
-        <Dialog open={detailOpen} onClose={() => setDetailOpen(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>Expense Detail</DialogTitle>
-          <DialogContent>
+        <Dialog
+          open={detailOpen}
+          onClose={() => setDetailOpen(false)}
+          maxWidth="md"
+          fullWidth
+          PaperProps={{ className: "overflow-hidden rounded-2xl" }}
+        >
+          <DialogTitle disableTypography className="p-0">
+            <div className="flex items-center justify-between px-5 py-2 text-white">
+              <div className="flex items-center gap-3">
+                {/* <div className="grid h-10 w-10 place-items-center rounded-xl bg-white/20">
+                  <Visibility fontSize="small" className="text-white" />
+                </div> */}
+                <div>
+                  <div className="text-lg font-semibold leading-tight">Expense Detail</div>
+                  <div className="text-xs text-white/80">Review details below</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDetailOpen(false)}
+                className="grid h-9 w-9 cursor-pointer place-items-center rounded-xl bg-white/10 hover:bg-white/20"
+              >
+                <Clear fontSize="small" className="text-white" />
+              </button>
+            </div>
+          </DialogTitle>
+
+          <DialogContent className="bg-slate-50 p-5">
             {detailLoading ? (
-              <Box sx={{ py: 4, textAlign: "center" }}>
+              <div className="flex justify-center py-10">
                 <CircularProgress />
-              </Box>
+              </div>
             ) : selectedExpense ? (
-              <Stack spacing={2}>
-                <Typography><strong>Amount:</strong> ${Number(selectedExpense.amount).toLocaleString()}</Typography>
-                <Typography><strong>Category:</strong> {selectedExpense.category?.name ?? "—"}</Typography>
-                <Typography><strong>Date:</strong> {selectedExpense.expenseDate ? format(new Date(selectedExpense.expenseDate), "PPpp") : "—"}</Typography>
-                <Typography><strong>Payment:</strong> {selectedExpense.payment?.method ?? "—"}</Typography>
-                <Typography><strong>Truck:</strong> {selectedExpense.truck?.truckNumber ?? "—"}</Typography>
-                <Typography><strong>Driver:</strong> {selectedExpense.driver?.fullName ?? "—"}</Typography>
-                <Typography><strong>Trip:</strong> {selectedExpense.trip?.tripId ?? "—"}</Typography>
-                <Typography><strong>Vendor:</strong> {selectedExpense.vendor?.name || selectedExpense.vendorName || "—"}</Typography>
-                <Typography><strong>Status:</strong> <Chip label={selectedExpense.status} color={getStatusColor(selectedExpense.status)} size="small" /></Typography>
-                {selectedExpense.notes && <Typography><strong>Notes:</strong> {selectedExpense.notes}</Typography>}
-                {selectedExpense.receipts?.length > 0 && (
-                  <Box>
-                    <Typography fontWeight={600}>Receipts</Typography>
-                    {selectedExpense.receipts.map((r, i) => (
-                      <Typography key={i} component="a" href={r.url} target="_blank" rel="noopener noreferrer" sx={{ display: "block" }}>
-                        {r.fileName || "Receipt"}
-                      </Typography>
-                    ))}
-                  </Box>
-                )}
-                <Box>
-                  <Typography fontWeight={600} sx={{ mb: 1 }}>Upload receipts</Typography>
-                  <input
-                    type="file"
-                    accept=".jpg,.jpeg,.png,.pdf"
-                    multiple
-                    onChange={(e) => setReceiptFiles(Array.from(e.target.files || []))}
-                  />
-                  {receiptFiles.length > 0 && (
-                    <Button
-                      startIcon={uploadingReceipts ? <CircularProgress size={16} /> : <CloudUpload />}
-                      onClick={handleReceiptUpload}
-                      disabled={uploadingReceipts}
-                      size="small"
-                      sx={{ mt: 1 }}
-                    >
-                      Upload {receiptFiles.length} file(s)
-                    </Button>
-                  )}
-                </Box>
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-blue-100 bg-blue-50/40 p-4">
+                  <div className="mb-3 text-sm font-semibold text-blue-700">Basic Information</div>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                      <div className="text-xs font-semibold text-slate-500">Amount</div>
+                      <div className="mt-1 text-sm font-semibold text-slate-900">
+                        ${Number(selectedExpense.amount).toLocaleString()}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                      <div className="text-xs font-semibold text-slate-500">Category</div>
+                      <div className="mt-1 text-sm font-semibold text-slate-900">
+                        {selectedExpense.category?.name ?? "—"}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                      <div className="text-xs font-semibold text-slate-500">Expense Date</div>
+                      <div className="mt-1 text-sm font-semibold text-slate-900">
+                        {selectedExpense.expenseDate ? format(new Date(selectedExpense.expenseDate), "PPpp") : "—"}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                      <div className="text-xs font-semibold text-slate-500">Payment Method</div>
+                      <div className="mt-1 text-sm font-semibold text-slate-900">
+                        {selectedExpense.payment?.method ?? "—"}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                      <div className="text-xs font-semibold text-slate-500">Vendor</div>
+                      <div className="mt-1 text-sm font-semibold text-slate-900">
+                        {selectedExpense.vendor?.name || selectedExpense.vendorName || "—"}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                      <div className="text-xs font-semibold text-slate-500">Status</div>
+                      <div className="mt-2">
+                        <Chip label={selectedExpense.status} color={getStatusColor(selectedExpense.status)} size="small" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4">
+                  <div className="mb-3 text-sm font-semibold text-emerald-700">Assignment</div>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                      <div className="text-xs font-semibold text-slate-500">Truck</div>
+                      <div className="mt-1 text-sm font-semibold text-slate-900">
+                        {selectedExpense.truck?.truckNumber ?? "—"}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                      <div className="text-xs font-semibold text-slate-500">Driver</div>
+                      <div className="mt-1 text-sm font-semibold text-slate-900">
+                        {selectedExpense.driver?.fullName ?? "—"}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                      <div className="text-xs font-semibold text-slate-500">Trip</div>
+                      <div className="mt-1 text-sm font-semibold text-slate-900">
+                        {selectedExpense.trip?.tripId ?? "—"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-violet-100 bg-violet-50/40 p-4">
+                  <div className="mb-3 text-sm font-semibold text-violet-700">Notes & Receipts</div>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                      <div className="text-xs font-semibold text-slate-500">Notes</div>
+                      <div className="mt-1 text-sm text-slate-900">
+                        {selectedExpense.notes || "—"}
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                      <div className="text-xs font-semibold text-slate-500">Receipts</div>
+                      {selectedExpense.receipts?.length > 0 ? (
+                        <div className="mt-2 space-y-1">
+                          {selectedExpense.receipts.map((r, i) => (
+                            <a
+                              key={i}
+                              href={r.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="block text-sm font-medium text-blue-700 hover:underline"
+                            >
+                              {r.fileName || "Receipt"}
+                            </a>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="mt-1 text-sm text-slate-900">—</div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 rounded-xl border border-slate-200 bg-white px-4 py-3">
+                    <div className="text-xs font-semibold text-slate-500">Upload receipts</div>
+                    <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <input
+                        type="file"
+                        accept=".jpg,.jpeg,.png,.pdf"
+                        multiple
+                        onChange={(e) => setReceiptFiles(Array.from(e.target.files || []))}
+                        className="w-full text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-slate-900 hover:file:bg-slate-200"
+                      />
+                      {receiptFiles.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleReceiptUpload}
+                          disabled={uploadingReceipts}
+                          className="inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {uploadingReceipts ? <CircularProgress size={16} className="text-white" /> : <CloudUpload fontSize="small" />}
+                          Upload {receiptFiles.length} file(s)
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 {selectedExpense.status === "pending" && (
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <TextField
-                      size="small"
-                      label="Reject reason (optional)"
-                      value={rejectReason}
-                      onChange={(e) => setRejectReason(e.target.value)}
-                      sx={{ flex: 1 }}
-                    />
-                    <Button startIcon={<CheckCircle />} color="success" onClick={handleApprove} disabled={actionLoading}>
-                      Approve
-                    </Button>
-                    <Button startIcon={<Cancel />} color="error" onClick={handleReject} disabled={actionLoading}>
-                      Reject
-                    </Button>
-                  </Stack>
+                  <div className="rounded-2xl border border-amber-100 bg-amber-50/50 p-4">
+                    <div className="mb-3 text-sm font-semibold text-amber-700">Approval</div>
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center">
+                      <div className="flex-1">
+                        <TextField
+                          fullWidth
+                          size="small"
+                          label="Reject reason (optional)"
+                          value={rejectReason}
+                          onChange={(e) => setRejectReason(e.target.value)}
+                        />
+                      </div>
+                      <div className="flex flex-col gap-2 sm:flex-row">
+                        <button
+                          type="button"
+                          onClick={handleApprove}
+                          disabled={actionLoading}
+                          className="inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <CheckCircle fontSize="small" />
+                          Approve
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleReject}
+                          disabled={actionLoading}
+                          className="inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-red-600 px-4 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <Cancel fontSize="small" />
+                          Reject
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 )}
+
                 {selectedExpense.status === "approved" && (
-                  <Button startIcon={<Paid />} variant="contained" onClick={handleReimburse} disabled={actionLoading}>
-                    Mark as Reimbursed
-                  </Button>
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleReimburse}
+                      disabled={actionLoading}
+                      className="inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <Paid fontSize="small" />
+                      Mark as Reimbursed
+                    </button>
+                  </div>
                 )}
-              </Stack>
+              </div>
             ) : (
-              <Typography>Failed to load expense.</Typography>
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                Failed to load expense.
+              </div>
             )}
           </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setDetailOpen(false)}>Close</Button>
+
+          <DialogActions className="border-t border-slate-200 bg-white px-5 py-4">
+            <button
+              type="button"
+              onClick={() => setDetailOpen(false)}
+              className="inline-flex h-11 cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-medium text-slate-900 hover:bg-slate-50"
+            >
+              Close
+            </button>
+            {selectedExpense && selectedExpense.status !== "reimbursed" && (
+              <button
+                type="button"
+                onClick={() => { setDetailOpen(false); openEditForm(selectedExpense); }}
+                className="inline-flex h-11 cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-medium text-slate-900 hover:bg-slate-50"
+              >
+                Edit
+              </button>
+            )}
             {selectedExpense && (
-              <>
-                {selectedExpense.status !== "reimbursed" && (
-                  <Button onClick={() => { setDetailOpen(false); openEditForm(selectedExpense); }}>Edit</Button>
-                )}
-                <Button color="error" onClick={() => handleDelete(selectedExpense._id)}>Delete</Button>
-              </>
+              <button
+                type="button"
+                onClick={() => handleDelete(selectedExpense._id)}
+                className="inline-flex h-11 cursor-pointer items-center justify-center rounded-xl bg-red-600 px-5 text-sm font-semibold text-white hover:bg-red-700"
+              >
+                Delete
+              </button>
             )}
           </DialogActions>
         </Dialog>
-      </Box>
+      </div>
     </LocalizationProvider>
   );
 };
