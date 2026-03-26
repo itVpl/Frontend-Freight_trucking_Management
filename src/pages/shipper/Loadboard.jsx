@@ -353,6 +353,103 @@ const LoadBoard = () => {
 
   const [createLoadLoading, setCreateLoadLoading] = useState(false);
 
+  const zipAutofillTimersRef = useRef({});
+  const zipAutofillRequestIdRef = useRef({});
+
+  const normalizeZip = useCallback((value) => {
+    return String(value ?? '').replace(/\D/g, '').slice(0, 5);
+  }, []);
+
+  const extractZipLocation = useCallback((payload, zipFallback) => {
+    const raw =
+      payload?.data?.sampleAddresses ??
+      payload?.data?.samples ??
+      payload?.samples ??
+      payload?.data ??
+      payload;
+    const candidates = Array.isArray(raw) ? raw : (Array.isArray(raw?.samples) ? raw.samples : [raw].filter(Boolean));
+    const first = candidates[0] ?? null;
+    if (!first) return null;
+
+    const getCI = (obj, key) => {
+      if (!obj || typeof obj !== 'object') return undefined;
+      const direct = obj[key];
+      if (direct !== undefined && direct !== null) return direct;
+      const lowerKey = String(key).toLowerCase();
+      const foundKey = Object.keys(obj).find((k) => String(k).toLowerCase() === lowerKey);
+      if (!foundKey) return undefined;
+      const val = obj[foundKey];
+      return val !== undefined && val !== null ? val : undefined;
+    };
+
+    const pick = (obj, keys) => {
+      for (const key of keys) {
+        const v = getCI(obj, key);
+        if (v !== undefined && v !== null && String(v).trim() !== '') return v;
+      }
+      return undefined;
+    };
+
+    const base =
+      (first && typeof first === 'object' && (first.location || first.result || first.addressDetails || first.place)) ||
+      first;
+
+    const city = pick(base, ['city', 'town', 'locality', 'placeName', 'place', 'postalCity']) ?? '';
+    const state = pick(base, ['state', 'stateCode', 'region', 'province', 'state_name']) ?? '';
+    const apiZipFallback = pick(payload?.data, ['zipcode', 'zipCode', 'zip', 'postalCode']) ?? zipFallback ?? '';
+    const zip =
+      pick(base, ['zip', 'zipCode', 'zipcode', 'postalCode', 'postal_code']) ??
+      pick(first, ['zip', 'zipCode', 'zipcode', 'postalCode', 'postal_code']) ??
+      apiZipFallback ??
+      '';
+
+    const addressOnly =
+      pick(base, ['formattedAddress', 'formatted_address']) ??
+      pick(first, ['formattedAddress', 'formatted_address']) ??
+      pick(base, ['addressLine1', 'address1', 'street', 'streetAddress']) ??
+      pick(first, ['addressLine1', 'address1', 'street', 'streetAddress']) ??
+      pick(base, ['address', 'fullAddress', 'formattedAddress', 'label']) ??
+      pick(first, ['address', 'fullAddress', 'formattedAddress', 'label']) ??
+      '';
+
+    const fullAddressParts = [addressOnly, city, state, zip].filter((v) => String(v ?? '').trim() !== '');
+    const fullAddress = (addressOnly || city || state) ? fullAddressParts.join(', ') : '';
+    return {
+      address: String(fullAddress || addressOnly || ''),
+      city: String(city || ''),
+      state: String(state || ''),
+      zip: String(zip || ''),
+    };
+  }, []);
+
+  const fetchZipLocation = useCallback(async (zip) => {
+    try {
+      const res = await axios.get(`${BASE_API_URL}/api/v1/load/zipcode/${zip}/samples`);
+      return extractZipLocation(res?.data, zip);
+    } catch (err) {
+      return null;
+    }
+  }, [extractZipLocation]);
+
+  const scheduleZipAutofill = useCallback((key, rawZip, applyLocation) => {
+    const zip = normalizeZip(rawZip);
+    if (zip.length !== 5) return;
+
+    if (zipAutofillTimersRef.current[key]) {
+      clearTimeout(zipAutofillTimersRef.current[key]);
+    }
+
+    const nextReqId = (zipAutofillRequestIdRef.current[key] ?? 0) + 1;
+    zipAutofillRequestIdRef.current[key] = nextReqId;
+
+    zipAutofillTimersRef.current[key] = setTimeout(async () => {
+      const locationData = await fetchZipLocation(zip);
+      if (!locationData) return;
+      if (zipAutofillRequestIdRef.current[key] !== nextReqId) return;
+      applyLocation(locationData);
+    }, 300);
+  }, [fetchZipLocation, normalizeZip]);
+
   const [bidsModalOpen, setBidsModalOpen] = useState(false);
   const [bidsLoading, setBidsLoading] = useState(false);
   const [bids, setBids] = useState([]);
@@ -951,6 +1048,39 @@ const LoadBoard = () => {
     }
 
     setForm(newForm);
+
+    if (e.target.name === 'fromZip') {
+      scheduleZipAutofill('create_drayage_fromZip', e.target.value, (loc) => {
+        setForm((prev) => ({
+          ...prev,
+          fromAddress: loc.address ? loc.address : prev.fromAddress,
+          fromCity: loc.city ? loc.city : prev.fromCity,
+          fromState: loc.state ? loc.state : prev.fromState,
+        }));
+      });
+    }
+
+    if (e.target.name === 'toZip') {
+      scheduleZipAutofill('create_drayage_toZip', e.target.value, (loc) => {
+        setForm((prev) => ({
+          ...prev,
+          toAddress: loc.address ? loc.address : prev.toAddress,
+          toCity: loc.city ? loc.city : prev.toCity,
+          toState: loc.state ? loc.state : prev.toState,
+        }));
+      });
+    }
+
+    if (e.target.name === 'returnZip') {
+      scheduleZipAutofill('create_drayage_returnZip', e.target.value, (loc) => {
+        setForm((prev) => ({
+          ...prev,
+          returnAddress: loc.address ? loc.address : prev.returnAddress,
+          returnCity: loc.city ? loc.city : prev.returnCity,
+          returnState: loc.state ? loc.state : prev.returnState,
+        }));
+      });
+    }
 
     // Trigger rate suggestions when both pickup and delivery locations are filled
     if ((e.target.name === 'fromCity' || e.target.name === 'toCity') &&
@@ -3910,9 +4040,26 @@ const handleEditLoad = (load) => {
                                 value={field.value}
                                 placeholder={field.placeholder}
                                 onChange={(e) => {
+                                  const nextValue = e.target.value;
                                   const newOrigins = [...form.origins];
-                                  newOrigins[index][field.name] = e.target.value;
+                                  newOrigins[index][field.name] = nextValue;
                                   setForm({ ...form, origins: newOrigins });
+
+                                  if (field.name === 'zip') {
+                                    scheduleZipAutofill(`create_otr_originZip_${index}`, nextValue, (loc) => {
+                                      setForm((prev) => {
+                                        const origins = [...prev.origins];
+                                        if (!origins[index]) return prev;
+                                        origins[index] = {
+                                          ...origins[index],
+                                          addressLine1: loc.address ? loc.address : origins[index].addressLine1,
+                                          city: loc.city ? loc.city : origins[index].city,
+                                          state: loc.state ? loc.state : origins[index].state,
+                                        };
+                                        return { ...prev, origins };
+                                      });
+                                    });
+                                  }
                                 }}
                                 fullWidth
                                 error={!!errors[`origin_${index}_${field.name}`]}
@@ -4046,9 +4193,26 @@ const handleEditLoad = (load) => {
                                 value={field.value}
                                 placeholder={field.placeholder}
                                 onChange={(e) => {
+                                  const nextValue = e.target.value;
                                   const newDestinations = [...form.destinations];
-                                  newDestinations[index][field.name] = e.target.value;
+                                  newDestinations[index][field.name] = nextValue;
                                   setForm({ ...form, destinations: newDestinations });
+
+                                  if (field.name === 'zip') {
+                                    scheduleZipAutofill(`create_otr_destinationZip_${index}`, nextValue, (loc) => {
+                                      setForm((prev) => {
+                                        const destinations = [...prev.destinations];
+                                        if (!destinations[index]) return prev;
+                                        destinations[index] = {
+                                          ...destinations[index],
+                                          addressLine1: loc.address ? loc.address : destinations[index].addressLine1,
+                                          city: loc.city ? loc.city : destinations[index].city,
+                                          state: loc.state ? loc.state : destinations[index].state,
+                                        };
+                                        return { ...prev, destinations };
+                                      });
+                                    });
+                                  }
                                 }}
                                 fullWidth
                                 error={!!errors[`destination_${index}_${field.name}`]}
