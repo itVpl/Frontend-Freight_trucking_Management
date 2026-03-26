@@ -25,6 +25,7 @@ import {
   Button,
   Stack,
   Tooltip,
+  useMediaQuery,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -110,12 +111,17 @@ const Layout = () => {
   const isTruckerSubUser = userType === 'trucker' && isSubUser;
   const isShipperSubUser = userType === 'shipper' && isSubUser;
   const { themeConfig, updateTokens, updateSectionColors, resetSection, resetThemeAll, resetTokens } = useThemeConfig();
+  const isMobile = useMediaQuery('(max-width:600px)');
   const { notifications, unreadCount, markAsRead, addNotification } = useNegotiation();
   const [notificationAnchorEl, setNotificationAnchorEl] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useDispatch();
   const displayName = (user?.compName || user?.companyName || user?.company || user?.name || (userType === 'shipper' ? 'JBL Logistics' : 'HPL'));
+
+  useEffect(() => {
+    if (isMobile) setSidebarOpen(true);
+  }, [isMobile]);
 
   useEffect(() => {
     // Demo notification on first load
@@ -141,10 +147,14 @@ const Layout = () => {
   };
 
   const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen);
+    setMobileOpen((prev) => !prev);
   };
 
   const handleSidebarToggle = () => {
+    if (isMobile) {
+      setMobileOpen(false);
+      return;
+    }
     setSidebarOpen(!sidebarOpen);
   };
 
@@ -910,6 +920,7 @@ const Layout = () => {
           variant="temporary"
           open={mobileOpen}
           onClose={handleDrawerToggle}
+          transitionDuration={280}
           ModalProps={{
             keepMounted: true,
           }}
@@ -919,6 +930,7 @@ const Layout = () => {
               boxSizing: 'border-box',
               width: drawerWidth,
               backgroundColor: themeConfig.mainSidebar?.bg || themeConfig.sidebar?.bg || '#f8f9fa',
+              transition: 'transform 280ms ease',
             },
           }}
         >
