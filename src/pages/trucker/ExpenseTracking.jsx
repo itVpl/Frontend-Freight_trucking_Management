@@ -30,7 +30,15 @@ import {
 } from "@mui/icons-material";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { LocalizationProvider, DatePicker } from "@mui/x-date-pickers";
-import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
+import {
+  format,
+  startOfMonth,
+  endOfMonth,
+  subMonths,
+  startOfDay,
+  endOfDay,
+  subDays,
+} from "date-fns";
 import { useThemeConfig } from "../../context/ThemeContext";
 import { BASE_API_URL } from "../../apiConfig";
 
@@ -210,6 +218,10 @@ const ExpenseTracking = () => {
     sortOrder: "desc",
   });
   const [searchQuery, setSearchQuery] = useState("");
+  const [dateRangePreset, setDateRangePreset] = useState("all");
+  const [customRangeOpen, setCustomRangeOpen] = useState(false);
+  const [customRangeStart, setCustomRangeStart] = useState(null);
+  const [customRangeEnd, setCustomRangeEnd] = useState(null);
 
   // Add/Edit form
   const [formOpen, setFormOpen] = useState(false);
@@ -375,6 +387,51 @@ const ExpenseTracking = () => {
     setPagination((prev) => ({ ...prev, page: 1 }));
   };
 
+  const setDateRange = (start, end) => {
+    setFilters((prev) => ({ ...prev, startDate: start, endDate: end }));
+    setPagination((prev) => ({ ...prev, page: 1 }));
+  };
+
+  const applyDatePreset = (preset) => {
+    const today = new Date();
+
+    if (preset === "all") {
+      setDateRange(null, null);
+      return;
+    }
+
+    if (preset === "today") {
+      setDateRange(startOfDay(today), endOfDay(today));
+      return;
+    }
+
+    if (preset === "yesterday") {
+      const d = subDays(today, 1);
+      setDateRange(startOfDay(d), endOfDay(d));
+      return;
+    }
+
+    if (preset === "last7") {
+      setDateRange(startOfDay(subDays(today, 6)), endOfDay(today));
+      return;
+    }
+
+    if (preset === "last30") {
+      setDateRange(startOfDay(subDays(today, 29)), endOfDay(today));
+      return;
+    }
+
+    if (preset === "thisMonth") {
+      setDateRange(startOfDay(startOfMonth(today)), endOfDay(endOfMonth(today)));
+      return;
+    }
+
+    if (preset === "lastMonth") {
+      const d = subMonths(today, 1);
+      setDateRange(startOfDay(startOfMonth(d)), endOfDay(endOfMonth(d)));
+    }
+  };
+
   const handleClearFilters = () => {
     setFilters({
       status: "",
@@ -387,6 +444,10 @@ const ExpenseTracking = () => {
       sortBy: "expenseDate",
       sortOrder: "desc",
     });
+    setDateRangePreset("all");
+    setCustomRangeOpen(false);
+    setCustomRangeStart(null);
+    setCustomRangeEnd(null);
     setPagination((prev) => ({ ...prev, page: 1 }));
   };
 
@@ -904,49 +965,37 @@ const ExpenseTracking = () => {
               ]}
             />
 
-            <div className="min-w-[220px] flex-1">
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                Start Date
-              </label>
-              <input
-                type="date"
-                value={
-                  filters.startDate
-                    ? format(filters.startDate, "yyyy-MM-dd")
-                    : ""
+            <FilterDropdown
+              label="Date Range"
+              value={dateRangePreset}
+              onChange={(v) => {
+                if (v === "custom") {
+                  setDateRangePreset("custom");
+                  setCustomRangeStart(filters.startDate ?? startOfDay(new Date()));
+                  setCustomRangeEnd(filters.endDate ?? endOfDay(new Date()));
+                  setCustomRangeOpen(true);
+                  return;
                 }
-                onChange={(e) =>
-                  handleFilterChange(
-                    "startDate",
-                    e.target.value
-                      ? new Date(`${e.target.value}T00:00:00`)
-                      : null,
-                  )
-                }
-                className="cursor-pointer h-11 w-full rounded-md border border-gray-200 bg-white px-3 text-base text-gray-700 outline-none focus:ring-1 focus:ring-black-500"
-              />
-            </div>
-
-            <div className="min-w-[220px] flex-1">
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                End Date
-              </label>
-              <input
-                type="date"
-                value={
-                  filters.endDate ? format(filters.endDate, "yyyy-MM-dd") : ""
-                }
-                onChange={(e) =>
-                  handleFilterChange(
-                    "endDate",
-                    e.target.value
-                      ? new Date(`${e.target.value}T00:00:00`)
-                      : null,
-                  )
-                }
-                className="cursor-pointer h-11 w-full rounded-md border border-gray-200 bg-white px-3 text-base text-gray-700 outline-none focus:ring-1 focus:ring-black-500"
-              />
-            </div>
+                setDateRangePreset(v);
+                applyDatePreset(v);
+              }}
+              options={[
+                { value: "all", label: "All" },
+                { value: "today", label: "Today" },
+                { value: "yesterday", label: "Yesterday" },
+                { value: "last7", label: "Last 7 Days" },
+                { value: "last30", label: "Last 30 Days" },
+                { value: "thisMonth", label: "This Month" },
+                { value: "lastMonth", label: "Last Month" },
+                {
+                  value: "custom",
+                  label:
+                    dateRangePreset === "custom" && filters.startDate && filters.endDate
+                      ? `Custom (${format(filters.startDate, "MMM d, yyyy")} - ${format(filters.endDate, "MMM d, yyyy")})`
+                      : "Custom...",
+                },
+              ]}
+            />
 
             <div className="flex w-full justify-end md:w-auto md:pl-2">
               <button
@@ -956,12 +1005,67 @@ const ExpenseTracking = () => {
               >
                 <span className="flex items-center gap-2">
                   <Clear fontSize="small" />
-                  Clear
+                  Clear Filters
                 </span>
               </button>
             </div>
           </div>
         </div>
+
+        <Dialog
+          open={customRangeOpen}
+          onClose={() => setCustomRangeOpen(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle sx={{ backgroundColor: brand, color: "#fff" }}>
+            Select Date Range
+          </DialogTitle>
+          <DialogContent>
+            <div className="mt-2 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <div className="mb-1 text-sm font-medium text-gray-700">Start</div>
+                <DatePicker
+                  value={customRangeStart}
+                  onChange={(v) => setCustomRangeStart(v)}
+                  slotProps={{ textField: { fullWidth: true, inputProps: { readOnly: true } } }}
+                />
+              </div>
+              <div>
+                <div className="mb-1 text-sm font-medium text-gray-700">End</div>
+                <DatePicker
+                  value={customRangeEnd}
+                  onChange={(v) => setCustomRangeEnd(v)}
+                  slotProps={{ textField: { fullWidth: true, inputProps: { readOnly: true } } }}
+                />
+              </div>
+            </div>
+          </DialogContent>
+          <DialogActions>
+            <Button
+              variant="outlined"
+              onClick={() => {
+                setCustomRangeOpen(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              onClick={() => {
+                if (!customRangeStart || !customRangeEnd) return;
+                const start = startOfDay(customRangeStart);
+                const end = endOfDay(customRangeEnd);
+                setDateRangePreset("custom");
+                setDateRange(start, end);
+                setCustomRangeOpen(false);
+              }}
+              sx={{ backgroundColor: brand, color:"#fff" }}
+            >
+              Apply
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         {loading ? (
           <div className="rounded-lg border border-gray-200 bg-white">
