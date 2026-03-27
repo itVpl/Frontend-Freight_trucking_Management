@@ -1074,9 +1074,9 @@ const Reports = () => {
                         <Chip
                           label={row.status}
                           color={getChipColor(row.status)}
-                          sx={{
-                            "& .MuiChip-label": { color: "white !important" },
-                          }}
+                          // sx={{
+                          //   "& .MuiChip-label": { color: "white !important" },
+                          // }}
                         />
                       </TableCell>
                       <TableCell

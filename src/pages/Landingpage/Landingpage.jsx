@@ -3,7 +3,7 @@ import React from 'react'
 import Hero from "../../components/landingpageComponents/Hero"
 // import AnimationHero from "../Components/AnimationHero"
 import OurServices from "../../components/landingpageComponents/OurServices"
-import MeetsOurTeam from "../../components/landingpageComponents/MeetsOurTeam"
+// import MeetsOurTeam from "../../components/landingpageComponents/MeetsOurTeam"
 import ClientTestimonials from "../../components/landingpageComponents/ClientTestimonials"
 import FreightServices from "../../components/landingpageComponents/FreightServices"
 // import Footer from "../../components/landingpageComponents/Footer"
@@ -27,7 +27,7 @@ const Landingpage = () => {
       <FeaturesSection />
        <Features />
       <LoadPost />
-      <MeetsOurTeam />
+      {/* <MeetsOurTeam /> */}
        <TrackShipment />
       <ClientTestimonials />
       <FreightServices />
