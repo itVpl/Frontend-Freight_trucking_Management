@@ -254,6 +254,8 @@ const MaintenanceManagement = () => {
     severity: "",
     pendingAttachments: [],
   });
+  const [pendingAttachmentPreviews, setPendingAttachmentPreviews] = useState([]);
+  const [formExistingAttachments, setFormExistingAttachments] = useState([]);
 
   const [viewOpen, setViewOpen] = useState(false);
   const [viewLoading, setViewLoading] = useState(false);
@@ -267,6 +269,36 @@ const MaintenanceManagement = () => {
     window.clearTimeout(showToast._t);
     showToast._t = window.setTimeout(() => setToast((p) => ({ ...p, open: false })), 3500);
   }, []);
+
+  useEffect(() => {
+    const files = form.pendingAttachments || [];
+    if (!files.length) {
+      setPendingAttachmentPreviews([]);
+      return;
+    }
+
+    const urls = [];
+    const next = files.map((file) => {
+      const url = URL.createObjectURL(file);
+      urls.push(url);
+      const name = file?.name || "Attachment";
+      const type = String(file?.type || "").toLowerCase();
+      const isImage = type.startsWith("image/");
+      const isPdf = type === "application/pdf" || String(name).toLowerCase().endsWith(".pdf");
+      return {
+        key: `${name}-${file?.size || 0}-${file?.lastModified || 0}`,
+        url,
+        name,
+        isImage,
+        isPdf,
+      };
+    });
+
+    setPendingAttachmentPreviews(next);
+    return () => {
+      urls.forEach((u) => URL.revokeObjectURL(u));
+    };
+  }, [form.pendingAttachments]);
 
   const request = useCallback(async (path, optionsArg = {}) => {
     const token = localStorage.getItem("token");
@@ -415,6 +447,7 @@ const MaintenanceManagement = () => {
       severity: "",
       pendingAttachments: [],
     });
+    setFormExistingAttachments([]);
   }, []);
 
   const openCreate = useCallback(() => {
@@ -434,6 +467,7 @@ const MaintenanceManagement = () => {
         const res = await request(`/${id}`, { method: "GET" });
         const record = res?.data?.record || null;
         if (!record) throw new Error("Record not found");
+        setFormExistingAttachments(Array.isArray(record.attachments) ? record.attachments : []);
         setForm((prev) => ({
           ...prev,
           truck: record?.truck?._id || record?.truck || "",
@@ -458,6 +492,7 @@ const MaintenanceManagement = () => {
           checklist: Array.isArray(record?.checklist) ? record.checklist.join(", ") : "",
           breakdownType: record?.breakdownType || "",
           severity: record?.severity || "",
+          pendingAttachments: [],
         }));
       } catch (e) {
         showToast(e.message || "Failed to load record", "error");
@@ -492,7 +527,7 @@ const MaintenanceManagement = () => {
 
   const uploadAttachments = useCallback(
     async (id, fileList, showToastMessage = true) => {
-      if (!id || !fileList?.length) return;
+      if (!id || !fileList?.length) return false;
       const fd = new FormData();
       Array.from(fileList).forEach((f) => fd.append("attachments", f));
       try {
@@ -502,8 +537,10 @@ const MaintenanceManagement = () => {
           const res = await request(`/${id}`, { method: "GET" });
           setViewRecord(res?.data?.record || null);
         }
+        return true;
       } catch (e) {
         showToast(e.message || "Failed to upload attachments", "error");
+        return false;
       } finally {
         await Promise.all([loadRecords(), loadSummary()]);
       }
@@ -578,23 +615,28 @@ const MaintenanceManagement = () => {
           
           const newRecordId = res?.data?.record?._id || res?.data?._id;
           
+          let uploaded = false;
           if (newRecordId && form.pendingAttachments && form.pendingAttachments.length > 0) {
-            // Wait for attachments to upload before closing and refreshing
-            await uploadAttachments(newRecordId, form.pendingAttachments, false);
+            uploaded = await uploadAttachments(newRecordId, form.pendingAttachments, false);
           }
           
-          showToast("Record created");
+          showToast(uploaded ? "Record created and attachments uploaded" : "Record created");
         } else {
         await request(`/${activeId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-        showToast("Record updated");
+        let uploaded = false;
+        if (activeId && form.pendingAttachments && form.pendingAttachments.length > 0) {
+          uploaded = await uploadAttachments(activeId, form.pendingAttachments, false);
+        }
+        showToast(uploaded ? "Record updated and attachments uploaded" : "Record updated");
       }
 
       setFormOpen(false);
       setActiveId(null);
+      setForm((prev) => ({ ...prev, pendingAttachments: [] }));
       await Promise.all([loadRecords(), loadSummary()]);
     } catch (e) {
       showToast(e.message || "Failed to save record", "error");
@@ -1286,32 +1328,89 @@ onClose={() => {
 
             {/* Attachments for both create and edit mode */}
             <div className="md:col-span-12">
-              <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <div>
-                  <div className="text-sm font-semibold text-slate-900">Attachments</div>
-                  <div className="text-xs text-slate-500">Upload invoices, photos, and reports (multiple files allowed)</div>
-                </div>
-                <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-                  <Upload size={16} />
-                  Upload Files
+              <div className="mt-4 rounded-xl border border-slate-200 bg-white px-4 py-3">
+                <div className="text-sm font-semibold text-slate-500">Attachments</div>
+                {form.pendingAttachments.length > 0 ? (
+                  <div className="mt-2">
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                      {pendingAttachmentPreviews.map((p) => (
+                        <a
+                          key={p.key}
+                          href={p.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="group overflow-hidden rounded-lg border border-slate-200 bg-slate-50"
+                        >
+                          {p.isPdf ? (
+                            <div className="grid h-24 place-items-center text-xs font-semibold text-slate-700">PDF</div>
+                          ) : (
+                            <img
+                              src={p.url}
+                              alt={p.name}
+                              className="h-24 w-full object-cover transition group-hover:scale-[1.02]"
+                            />
+                          )}
+                          <div className="truncate border-t border-slate-200 bg-white px-2 py-1 text-xs text-slate-700">
+                            {p.name}
+                          </div>
+                        </a>
+                      ))}
+                    </div>
+                    <div className="mt-2 text-xs text-slate-600">These attachments will upload when you click Save.</div>
+                  </div>
+                ) : Array.isArray(formExistingAttachments) && formExistingAttachments.length > 0 ? (
+                  <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {formExistingAttachments.map((a, i) => {
+                      const url = a?.url || "";
+                      const fileName = a?.fileName || "Attachment";
+                      const isPdf =
+                        String(url).toLowerCase().endsWith(".pdf") || String(fileName).toLowerCase().endsWith(".pdf");
+                      return (
+                        <a
+                          key={`${url}-${i}`}
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="group overflow-hidden rounded-lg border border-slate-200 bg-slate-50"
+                        >
+                          {isPdf ? (
+                            <div className="grid h-24 place-items-center text-xs font-semibold text-slate-700">PDF</div>
+                          ) : (
+                            <img
+                              src={url}
+                              alt={fileName}
+                              className="h-24 w-full object-cover transition group-hover:scale-[1.02]"
+                            />
+                          )}
+                          <div className="truncate border-t border-slate-200 bg-white px-2 py-1 text-xs text-slate-700">
+                            {fileName}
+                          </div>
+                        </a>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="mt-1 text-sm text-slate-600">No attachments added yet</div>
+                )}
+
+                <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <input
                     type="file"
-                    hidden
+                    accept=".jpg,.jpeg,.png,.pdf"
                     multiple
                     onChange={(e) => {
-                      const files = e.target.files;
-                      if (!files.length) return;
+                      const files = Array.from(e.target.files || []);
+                      setForm((prev) => ({ ...prev, pendingAttachments: files }));
                       e.target.value = "";
-                      if (formMode === "edit" && activeId) {
-                        uploadAttachments(activeId, files);
-                      } else {
-                        // Store files locally to be uploaded after saving the record
-                        setForm((prev) => ({ ...prev, pendingAttachments: Array.from(files) }));
-                        showToast(`${files.length} file(s) selected. They will be uploaded when you save the record.`, "success");
-                      }
                     }}
+                    className="w-full cursor-pointer text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-slate-900 hover:file:bg-slate-200"
                   />
-                </label>
+                </div>
+                {form.pendingAttachments.length > 0 ? (
+                  <div className="mt-2 text-sm font-medium text-slate-700">
+                    {form.pendingAttachments.length} file(s) selected
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
@@ -1383,51 +1482,42 @@ onClose={() => setViewOpen(false)}
               </div>
             ) : null}
 
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <div className="text-sm font-semibold text-slate-900">Attachments</div>
-                  <div className="text-xs text-slate-500">Upload files (multiple allowed)</div>
+            <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+              <div className="text-sm font-semibold text-slate-500">Attachments</div>
+              {Array.isArray(viewRecord.attachments) && viewRecord.attachments.length ? (
+                <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {viewRecord.attachments.map((a, i) => {
+                    const url = a?.url || "";
+                    const fileName = a?.fileName || "Attachment";
+                    const isPdf =
+                      String(url).toLowerCase().endsWith(".pdf") || String(fileName).toLowerCase().endsWith(".pdf");
+                    return (
+                      <a
+                        key={`${url}-${i}`}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group overflow-hidden rounded-lg border border-slate-200 bg-slate-50"
+                      >
+                        {isPdf ? (
+                          <div className="grid h-24 place-items-center text-xs font-semibold text-slate-700">PDF</div>
+                        ) : (
+                          <img
+                            src={url}
+                            alt={fileName}
+                            className="h-24 w-full object-cover transition group-hover:scale-[1.02]"
+                          />
+                        )}
+                        <div className="truncate border-t border-slate-200 bg-white px-2 py-1 text-xs text-slate-700">
+                          {fileName}
+                        </div>
+                      </a>
+                    );
+                  })}
                 </div>
-                <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-                  <Upload size={16} />
-                  Upload Files
-                  <input
-                    type="file"
-                    hidden
-                    multiple
-                    onChange={(e) => {
-                      const files = e.target.files;
-                      e.target.value = "";
-                      uploadAttachments(viewRecord._id, files);
-                    }}
-                  />
-                </label>
-              </div>
-              <div className="mt-3 space-y-2">
-                {Array.isArray(viewRecord.attachments) && viewRecord.attachments.length ? (
-                  viewRecord.attachments.map((a) => (
-                    <div key={`${a.url}-${a.fileName}`} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-semibold text-slate-900">{a.fileName || "Attachment"}</div>
-                        <div className="truncate text-xs text-slate-500">{a.url || ""}</div>
-                      </div>
-                      {a.url ? (
-                        <button
-                          type="button"
-                          onClick={() => window.open(a.url, "_blank")}
-                          className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                        >
-                          <Eye size={16} />
-                          Open
-                        </button>
-                      ) : null}
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-sm text-slate-500">No attachments</div>
-                )}
-              </div>
+              ) : (
+                <div className="mt-1 text-sm text-slate-600">No attachments</div>
+              )}
             </div>
           </div>
         )}
