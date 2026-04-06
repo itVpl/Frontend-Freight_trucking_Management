@@ -63,13 +63,42 @@ const getAuthHeaders = () => ({
   "Content-Type": "application/json",
 });
 
-const FilterDropdown = ({ label, value, onChange, options }) => {
+const FilterDropdown = ({
+  label,
+  value,
+  onChange,
+  options,
+  hideLabel = false,
+  containerClassName = "",
+  buttonClassName = "",
+  placeholder = "Select",
+  searchable = false,
+  searchPlaceholder = "Search...",
+}) => {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const buttonRef = useRef(null);
   const panelRef = useRef(null);
 
-  const selected = options.find((o) => o.value === value) ?? options[0];
+  const selected = options.find((o) => o.value === value) ?? null;
   const listboxId = `${label.replace(/\s+/g, "-").toLowerCase()}-listbox`;
+  const isEmptyValue = value === "" || value === null || value === undefined;
+  const selectedLabel = String(selected?.label ?? "").trim();
+  const selectedLooksLikePlaceholder =
+    selectedLabel.length === 0 ||
+    selectedLabel === "—" ||
+    selectedLabel === "--" ||
+    selectedLabel.toLowerCase().startsWith("select");
+  const showPlaceholder = !selected || (isEmptyValue && selectedLooksLikePlaceholder);
+  const normalizedQuery = query.trim().toLowerCase();
+  const visibleOptions =
+    searchable && normalizedQuery.length > 0
+      ? options.filter((o) =>
+          String(o.label ?? "")
+            .toLowerCase()
+            .includes(normalizedQuery),
+        )
+      : options;
 
   useEffect(() => {
     if (!open) return;
@@ -81,7 +110,10 @@ const FilterDropdown = ({ label, value, onChange, options }) => {
     };
 
     const onKeyDown = (e) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") {
+        setOpen(false);
+        setQuery("");
+      }
     };
 
     document.addEventListener("mousedown", onMouseDown);
@@ -92,11 +124,17 @@ const FilterDropdown = ({ label, value, onChange, options }) => {
     };
   }, [open]);
 
+  useEffect(() => {
+    if (!open) setQuery("");
+  }, [open]);
+
   return (
-    <div className="min-w-[220px] flex-1">
-      <label className="mb-1 block text-sm font-medium text-gray-700">
-        {label}
-      </label>
+    <div className={containerClassName || "min-w-[220px] flex-1"}>
+      {hideLabel ? null : (
+        <label className="mb-1 block text-sm font-medium text-gray-700">
+          {label}
+        </label>
+      )}
       <div className="relative">
         <button
           ref={buttonRef}
@@ -105,9 +143,11 @@ const FilterDropdown = ({ label, value, onChange, options }) => {
           aria-expanded={open}
           aria-controls={listboxId}
           onClick={() => setOpen((v) => !v)}
-          className="cursor-pointer flex h-12 w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 text-left text-base text-slate-900 outline-none transition hover:border-slate-300 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15"
+          className={`cursor-pointer flex h-12 w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 text-left text-base text-slate-900 outline-none transition hover:border-slate-300 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15 ${buttonClassName}`}
         >
-          <span className="truncate">{selected?.label ?? "Select"}</span>
+          <span className={`truncate ${showPlaceholder ? "text-slate-400" : ""}`}>
+            {showPlaceholder ? placeholder : selectedLabel}
+          </span>
           <svg
             width="18"
             height="18"
@@ -129,53 +169,71 @@ const FilterDropdown = ({ label, value, onChange, options }) => {
             ref={panelRef}
             className="absolute z-20 mt-2 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
           >
-            <ul
-              id={listboxId}
-              role="listbox"
-              aria-label={label}
-              className="max-h-64 overflow-auto py-1"
-            >
-              {options.map((o) => {
-                const active = o.value === value;
-                return (
-                  <li
-                    key={`${label}-${String(o.value)}`}
-                    role="option"
-                    aria-selected={active}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onChange(o.value);
-                        setOpen(false);
-                      }}
-                      className={`flex w-full items-center justify-between gap-3 px-4 py-2 text-left text-base cursor-pointer transition ${
-                        active
-                          ? "bg-blue-50 text-blue-700"
-                          : "text-slate-700 hover:bg-slate-50"
-                      }`}
-                    >
-                      <span className="truncate">{o.label}</span>
-                      {active && (
-                        <svg
-                          width="18"
-                          height="18"
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                          aria-hidden="true"
+            <div className="flex max-h-72 flex-col">
+              {searchable ? (
+                <div className="border-b border-slate-200 bg-white p-2">
+                  <input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder={searchPlaceholder}
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15"
+                  />
+                </div>
+              ) : null}
+
+              <ul
+                id={listboxId}
+                role="listbox"
+                aria-label={label}
+                className="flex-1 overflow-auto py-1"
+              >
+                {visibleOptions.length > 0 ? (
+                  visibleOptions.map((o) => {
+                    const active = o.value === value;
+                    return (
+                      <li
+                        key={`${label}-${String(o.value)}`}
+                        role="option"
+                        aria-selected={active}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onChange(o.value);
+                            setOpen(false);
+                            setQuery("");
+                          }}
+                          className={`flex w-full items-center justify-between gap-3 px-4 py-2 text-left text-sm cursor-pointer transition ${
+                            active
+                              ? "bg-blue-50 text-blue-700"
+                              : "text-slate-700 hover:bg-slate-50"
+                          }`}
                         >
-                          <path
-                            fillRule="evenodd"
-                            d="M16.704 5.29a1 1 0 0 1 0 1.42l-7.5 7.5a1 1 0 0 1-1.415 0l-3.5-3.5a1 1 0 1 1 1.415-1.415l2.792 2.793 6.792-6.793a1 1 0 0 1 1.416-.001Z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      )}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+                          <span className="truncate">{o.label}</span>
+                          {active && (
+                            <svg
+                              width="18"
+                              height="18"
+                              viewBox="0 0 20 20"
+                              fill="currentColor"
+                              aria-hidden="true"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M16.704 5.29a1 1 0 0 1 0 1.42l-7.5 7.5a1 1 0 0 1-1.415 0l-3.5-3.5a1 1 0 1 1 1.415-1.415l2.792 2.793 6.792-6.793a1 1 0 0 1 1.416-.001Z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                          )}
+                        </button>
+                      </li>
+                    );
+                  })
+                ) : (
+                  <li className="px-4 py-2 text-sm text-slate-500">No results</li>
+                )}
+              </ul>
+            </div>
           </div>
         )}
       </div>
@@ -241,6 +299,9 @@ const ExpenseTracking = () => {
     remarks: "",
   });
   const [formErrors, setFormErrors] = useState({});
+  const [formReceiptFiles, setFormReceiptFiles] = useState([]);
+  const [formExistingReceipts, setFormExistingReceipts] = useState([]);
+  const [formReceiptPreviews, setFormReceiptPreviews] = useState([]);
 
   // Detail view
   const [detailOpen, setDetailOpen] = useState(false);
@@ -248,11 +309,37 @@ const ExpenseTracking = () => {
   const [detailLoading, setDetailLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
-  const [receiptFiles, setReceiptFiles] = useState([]);
-  const [uploadingReceipts, setUploadingReceipts] = useState(false);
 
   const { themeConfig } = useThemeConfig();
   const brand = themeConfig?.tokens?.primary || "#1976d2";
+
+  useEffect(() => {
+    if (!formReceiptFiles || formReceiptFiles.length === 0) {
+      setFormReceiptPreviews([]);
+      return;
+    }
+
+    const urls = [];
+    const next = formReceiptFiles.map((file) => {
+      const url = URL.createObjectURL(file);
+      urls.push(url);
+      const name = file?.name || "Receipt";
+      const isPdf =
+        String(file?.type || "").toLowerCase() === "application/pdf" ||
+        String(name).toLowerCase().endsWith(".pdf");
+      return {
+        key: `${name}-${file?.size || 0}-${file?.lastModified || 0}`,
+        url,
+        name,
+        isPdf,
+      };
+    });
+
+    setFormReceiptPreviews(next);
+    return () => {
+      urls.forEach((u) => URL.revokeObjectURL(u));
+    };
+  }, [formReceiptFiles]);
 
   // Fetch reference data
   const fetchReferenceData = async () => {
@@ -467,6 +554,8 @@ const ExpenseTracking = () => {
       remarks: "",
     });
     setFormErrors({});
+    setFormReceiptFiles([]);
+    setFormExistingReceipts([]);
     setFormOpen(true);
   };
 
@@ -492,7 +581,15 @@ const ExpenseTracking = () => {
       remarks: expense.remarks ?? "",
     });
     setFormErrors({});
+    setFormReceiptFiles([]);
+    setFormExistingReceipts(expense.receipts || []);
     setFormOpen(true);
+  };
+
+  const closeForm = () => {
+    setFormOpen(false);
+    setFormReceiptFiles([]);
+    setFormErrors({});
   };
 
   const handleFormChange = (field, value) => {
@@ -516,6 +613,23 @@ const ExpenseTracking = () => {
     if (!form.payment?.method) err.payment = "Payment method is required";
     setFormErrors(err);
     return Object.keys(err).length === 0;
+  };
+
+  const uploadReceipts = async (expenseId, files) => {
+    if (!expenseId || !files?.length) return null;
+    const formData = new FormData();
+    Array.from(files).forEach((f) => formData.append("receipts", f));
+    const res = await fetch(
+      `${BASE_API_URL}/api/v1/trucking-expenses/${expenseId}/receipts`,
+      {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        body: formData,
+      },
+    );
+    const data = await res.json();
+    if (!data.success) throw new Error(data.message || "Receipt upload failed");
+    return data.data?.expense || null;
   };
 
   const handleSubmitForm = async () => {
@@ -550,6 +664,14 @@ const ExpenseTracking = () => {
       });
       const data = await res.json();
       if (data.success) {
+        let savedExpense = data.data?.expense || null;
+        const savedId = savedExpense?._id || savedExpense?.id || (editingId ? editingId : null);
+        if (savedId && formReceiptFiles.length > 0) {
+          const updated = await uploadReceipts(savedId, formReceiptFiles);
+          if (updated) savedExpense = updated;
+        }
+        setFormReceiptFiles([]);
+        setFormExistingReceipts(savedExpense?.receipts || []);
         setFormOpen(false);
         fetchExpenses();
         fetchSummary();
@@ -592,7 +714,7 @@ const ExpenseTracking = () => {
       }
       alert(data.message || "Delete failed");
       return false;
-    } catch (e) {
+    } catch {
       alert("Delete failed");
       return false;
     }
@@ -614,7 +736,6 @@ const ExpenseTracking = () => {
     setDetailOpen(true);
     setDetailLoading(true);
     setRejectReason("");
-    setReceiptFiles([]);
     try {
       const res = await fetch(
         `${BASE_API_URL}/api/v1/trucking-expenses/${expense._id}`,
@@ -647,7 +768,7 @@ const ExpenseTracking = () => {
         fetchExpenses();
         fetchSummary();
       } else alert(data.message || "Approve failed");
-    } catch (e) {
+    } catch {
       alert("Approve failed");
     } finally {
       setActionLoading(false);
@@ -674,7 +795,7 @@ const ExpenseTracking = () => {
         fetchExpenses();
         fetchSummary();
       } else alert(data.message || "Reject failed");
-    } catch (e) {
+    } catch {
       alert("Reject failed");
     } finally {
       setActionLoading(false);
@@ -697,36 +818,10 @@ const ExpenseTracking = () => {
         fetchExpenses();
         fetchSummary();
       } else alert(data.message || "Reimburse failed");
-    } catch (e) {
+    } catch {
       alert("Reimburse failed");
     } finally {
       setActionLoading(false);
-    }
-  };
-
-  const handleReceiptUpload = async () => {
-    if (!selectedExpense || !receiptFiles.length) return;
-    setUploadingReceipts(true);
-    try {
-      const formData = new FormData();
-      receiptFiles.forEach((f) => formData.append("receipts", f));
-      const res = await fetch(
-        `${BASE_API_URL}/api/v1/trucking-expenses/${selectedExpense._id}/receipts`,
-        {
-          method: "PATCH",
-          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-          body: formData,
-        },
-      );
-      const data = await res.json();
-      if (data.success && data.data?.expense) {
-        setSelectedExpense(data.data.expense);
-        setReceiptFiles([]);
-      } else alert(data.message || "Upload failed");
-    } catch (e) {
-      alert("Upload failed");
-    } finally {
-      setUploadingReceipts(false);
     }
   };
 
@@ -855,7 +950,7 @@ const ExpenseTracking = () => {
     <LocalizationProvider dateAdapter={AdapterDateFns}>
       <div className="p-6">
         <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-slate-900">
+          <h1 className="text-2xl font-semibold text-gray-700">
             Expense Tracking
           </h1>
         </div>
@@ -1255,7 +1350,7 @@ const ExpenseTracking = () => {
         {/* Add/Edit dialog */}
         <Dialog
           open={formOpen}
-          onClose={() => setFormOpen(false)}
+          onClose={closeForm}
           maxWidth="md"
           fullWidth
           PaperProps={{ className: "overflow-hidden rounded-2xl" }}
@@ -1288,186 +1383,299 @@ const ExpenseTracking = () => {
           <DialogContent className="bg-slate-50 p-5">
             <div className="space-y-4">
               <div className="rounded-2xl border border-blue-100 bg-blue-50/40 p-4 mt-6">
-                <div className="mb-3 text-sm font-semibold text-blue-700">
-                  Basic Information
-                </div>
+                <div className="mb-3 text-base font-semibold text-blue-700">Basic Information</div>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                  <TextField
-                    fullWidth
-                    label="Amount (USD)"
-                    type="number"
-                    inputProps={{ min: 0, step: 0.01 }}
-                    value={form.amount}
-                    onChange={(e) => handleFormChange("amount", e.target.value)}
-                    error={!!formErrors.amount}
-                    helperText={formErrors.amount}
-                    size="small"
-                  />
+                  <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                    <div className="text-sm font-semibold text-slate-500">Amount (USD)</div>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={form.amount}
+                      onChange={(e) => handleFormChange("amount", e.target.value)}
+                      className="mt-2 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15"
+                    />
+                    {formErrors.amount ? (
+                      <div className="mt-1 text-xs font-medium text-red-600">{formErrors.amount}</div>
+                    ) : null}
+                  </div>
 
-                  <FormControl
-                    fullWidth
-                    size="small"
-                    error={!!formErrors.category}
-                  >
-                    <InputLabel>Category</InputLabel>
-                    <Select
-                      value={form.category}
-                      label="Category"
-                      onChange={(e) =>
-                        handleFormChange("category", e.target.value)
+                  <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                    <div className="text-sm font-semibold text-slate-500">Category</div>
+                    <div className="mt-2">
+                      <FilterDropdown
+                        label="Category"
+                        value={form.category}
+                        onChange={(v) => handleFormChange("category", v)}
+                        options={[
+                          { value: "", label: "Select category" },
+                          ...categories.map((c) => ({ value: c._id, label: c.name })),
+                        ]}
+                        hideLabel
+                        containerClassName="w-full"
+                        buttonClassName="h-10 rounded-lg px-3 text-sm"
+                        placeholder="Select category"
+                        searchable
+                        searchPlaceholder="Search category..."
+                      />
+                    </div>
+                    {formErrors.category ? (
+                      <div className="mt-1 text-xs font-medium text-red-600">{formErrors.category}</div>
+                    ) : null}
+                  </div>
+
+                  <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                    <div className="text-sm font-semibold text-slate-500">Expense Date</div>
+                    <input
+                      type="date"
+                      value={
+                        form.expenseDate
+                          ? format(
+                              form.expenseDate instanceof Date ? form.expenseDate : new Date(form.expenseDate),
+                              "yyyy-MM-dd",
+                            )
+                          : ""
                       }
-                    >
-                      {categories.map((c) => (
-                        <MenuItem key={c._id} value={c._id}>
-                          {c.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-
-                  <DatePicker
-                    label="Expense Date"
-                    value={form.expenseDate}
-                    onChange={(d) => handleFormChange("expenseDate", d)}
-                    slotProps={{
-                      textField: { fullWidth: true, size: "small" },
-                    }}
-                  />
+                      onChange={(e) =>
+                        handleFormChange("expenseDate", e.target.value ? new Date(e.target.value) : null)
+                      }
+                      className="mt-2 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15"
+                    />
+                    {formErrors.expenseDate ? (
+                      <div className="mt-1 text-xs font-medium text-red-600">{formErrors.expenseDate}</div>
+                    ) : null}
+                  </div>
                 </div>
               </div>
 
               <div className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4">
-                <div className="mb-3 text-sm font-semibold text-emerald-700">
-                  Payment & Assignment
-                </div>
+                <div className="mb-3 text-base font-semibold text-emerald-700">Payment & Assignment</div>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Payment Method</InputLabel>
-                    <Select
-                      value={form.payment?.method}
-                      label="Payment Method"
-                      onChange={(e) =>
-                        handlePaymentChange("method", e.target.value)
-                      }
-                    >
-                      {PAYMENT_METHODS.map((p) => (
-                        <MenuItem key={p.value} value={p.value}>
-                          {p.label}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                    <div className="text-sm font-semibold text-slate-500">Payment Method</div>
+                    <div className="mt-2">
+                      <FilterDropdown
+                        label="Payment Method"
+                        value={form.payment?.method}
+                        onChange={(v) => handlePaymentChange("method", v)}
+                        options={PAYMENT_METHODS.map((p) => ({ value: p.value, label: p.label }))}
+                        hideLabel
+                        containerClassName="w-full"
+                        buttonClassName="h-10 rounded-lg px-3 text-sm"
+                        placeholder="Select payment method"
+                        searchable
+                        searchPlaceholder="Search payment method..."
+                      />
+                    </div>
+                    {formErrors.payment ? (
+                      <div className="mt-1 text-xs font-medium text-red-600">{formErrors.payment}</div>
+                    ) : null}
+                  </div>
 
                   {form.payment?.method === "card" ? (
-                    <TextField
-                      fullWidth
-                      label="Card last 4"
-                      value={form.payment?.cardLastFour ?? ""}
-                      onChange={(e) =>
-                        handlePaymentChange("cardLastFour", e.target.value)
-                      }
-                      size="small"
-                      inputProps={{ maxLength: 4 }}
-                    />
+                    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                      <div className="text-sm font-semibold text-slate-500">Card last 4</div>
+                      <input
+                        value={form.payment?.cardLastFour ?? ""}
+                        onChange={(e) => handlePaymentChange("cardLastFour", e.target.value)}
+                        maxLength={4}
+                        className="mt-2 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15"
+                      />
+                    </div>
                   ) : (
                     <div className="hidden md:block" />
                   )}
 
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Truck</InputLabel>
-                    <Select
-                      value={form.truck}
-                      label="Truck"
-                      onChange={(e) =>
-                        handleFormChange("truck", e.target.value)
-                      }
-                    >
-                      <MenuItem value="">—</MenuItem>
-                      {trucks.map((t) => (
-                        <MenuItem key={t._id} value={t._id}>
-                          {t.truckNumber}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                    <div className="text-sm font-semibold text-slate-500">Truck</div>
+                    <div className="mt-2">
+                      <FilterDropdown
+                        label="Truck"
+                        value={form.truck}
+                        onChange={(v) => handleFormChange("truck", v)}
+                        options={[
+                          { value: "", label: "Select truck" },
+                          ...trucks.map((t) => ({ value: t._id, label: t.truckNumber })),
+                        ]}
+                        hideLabel
+                        containerClassName="w-full"
+                        buttonClassName="h-10 rounded-lg px-3 text-sm"
+                        placeholder="Select truck"
+                        searchable
+                        searchPlaceholder="Search truck..."
+                      />
+                    </div>
+                  </div>
 
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Driver</InputLabel>
-                    <Select
-                      value={form.driver}
-                      label="Driver"
-                      onChange={(e) =>
-                        handleFormChange("driver", e.target.value)
-                      }
-                    >
-                      <MenuItem value="">—</MenuItem>
-                      {drivers.map((d) => (
-                        <MenuItem key={d._id} value={d._id}>
-                          {d.fullName}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                    <div className="text-sm font-semibold text-slate-500">Driver</div>
+                    <div className="mt-2">
+                      <FilterDropdown
+                        label="Driver"
+                        value={form.driver}
+                        onChange={(v) => handleFormChange("driver", v)}
+                        options={[
+                          { value: "", label: "Select driver" },
+                          ...drivers.map((d) => ({ value: d._id, label: d.fullName })),
+                        ]}
+                        hideLabel
+                        containerClassName="w-full"
+                        buttonClassName="h-10 rounded-lg px-3 text-sm"
+                        placeholder="Select driver"
+                        searchable
+                        searchPlaceholder="Search driver..."
+                      />
+                    </div>
+                  </div>
 
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Trip</InputLabel>
-                    <Select
-                      value={form.trip}
-                      label="Trip"
-                      onChange={(e) => handleFormChange("trip", e.target.value)}
-                    >
-                      <MenuItem value="">—</MenuItem>
-                      {trips.map((t) => (
-                        <MenuItem key={t._id} value={t._id}>
-                          {t.tripId}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                    <div className="text-sm font-semibold text-slate-500">Trip</div>
+                    <div className="mt-2">
+                      <FilterDropdown
+                        label="Trip"
+                        value={form.trip}
+                        onChange={(v) => handleFormChange("trip", v)}
+                        options={[
+                          { value: "", label: "Select trip" },
+                          ...trips.map((t) => ({ value: t._id, label: t.tripId })),
+                        ]}
+                        hideLabel
+                        containerClassName="w-full"
+                        buttonClassName="h-10 rounded-lg px-3 text-sm"
+                        placeholder="Select trip"
+                        searchable
+                        searchPlaceholder="Search trip..."
+                      />
+                    </div>
+                  </div>
 
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Vendor</InputLabel>
-                    <Select
-                      value={form.vendor}
-                      label="Vendor"
-                      onChange={(e) =>
-                        handleFormChange("vendor", e.target.value)
-                      }
-                    >
-                      <MenuItem value="">—</MenuItem>
-                      {vendors.map((v) => (
-                        <MenuItem key={v._id} value={v._id}>
-                          {v.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                    <div className="text-sm font-semibold text-slate-500">Vendor</div>
+                    <div className="mt-2">
+                      <FilterDropdown
+                        label="Vendor"
+                        value={form.vendor}
+                        onChange={(v) => handleFormChange("vendor", v)}
+                        options={[
+                          { value: "", label: "Select vendor" },
+                          ...vendors.map((v) => ({ value: v._id, label: v.name })),
+                        ]}
+                        hideLabel
+                        containerClassName="w-full"
+                        buttonClassName="h-10 rounded-lg px-3 text-sm"
+                        placeholder="Select vendor"
+                        searchable
+                        searchPlaceholder="Search vendor..."
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
               <div className="rounded-2xl border border-violet-100 bg-violet-50/40 p-4">
-                <div className="mb-3 text-sm font-semibold text-violet-700">
-                  Notes
-                </div>
+                <div className="mb-3 text-base font-semibold text-violet-700">Notes & Receipts</div>
                 <div className="grid grid-cols-1 gap-4">
-                  <TextField
-                    fullWidth
-                    label="Vendor name (if no vendor)"
-                    value={form.vendorName}
-                    onChange={(e) =>
-                      handleFormChange("vendorName", e.target.value)
-                    }
-                    size="small"
-                  />
-                  <TextField
-                    fullWidth
-                    label="Notes"
-                    multiline
-                    rows={3}
-                    value={form.notes}
-                    onChange={(e) => handleFormChange("notes", e.target.value)}
-                    size="small"
-                  />
+                  <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                    <div className="text-sm font-semibold text-slate-500">Vendor name (if no vendor)</div>
+                    <input
+                      value={form.vendorName}
+                      onChange={(e) => handleFormChange("vendorName", e.target.value)}
+                      className="mt-2 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15"
+                    />
+                  </div>
+
+                  <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                    <div className="text-sm font-semibold text-slate-500">Notes</div>
+                    <textarea
+                      rows={3}
+                      value={form.notes}
+                      onChange={(e) => handleFormChange("notes", e.target.value)}
+                      className="mt-2 w-full rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-4 rounded-xl border border-slate-200 bg-white px-4 py-3">
+                  <div className="text-sm font-semibold text-slate-500">Receipts</div>
+                  {formReceiptFiles.length > 0 ? (
+                    <div className="mt-2">
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                        {formReceiptPreviews.map((p) => (
+                          <a
+                            key={p.key}
+                            href={p.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="group overflow-hidden rounded-lg border border-slate-200 bg-slate-50"
+                          >
+                            {p.isPdf ? (
+                              <div className="grid h-24 place-items-center text-xs font-semibold text-slate-700">PDF</div>
+                            ) : (
+                              <img
+                                src={p.url}
+                                alt={p.name}
+                                className="h-24 w-full object-cover transition group-hover:scale-[1.02]"
+                              />
+                            )}
+                            <div className="truncate border-t border-slate-200 bg-white px-2 py-1 text-xs text-slate-700">
+                              {p.name}
+                            </div>
+                          </a>
+                        ))}
+                      </div>
+                      <div className="mt-2 text-xs text-slate-600">These receipts will upload when you click Save.</div>
+                    </div>
+                  ) : Array.isArray(formExistingReceipts) && formExistingReceipts.length > 0 ? (
+                    <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                      {formExistingReceipts.map((r, i) => {
+                        const url = r?.url || "";
+                        const fileName = r?.fileName || "Receipt";
+                        const isPdf =
+                          String(url).toLowerCase().endsWith(".pdf") || String(fileName).toLowerCase().endsWith(".pdf");
+                        return (
+                          <a
+                            key={`${url}-${i}`}
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="group overflow-hidden rounded-lg border border-slate-200 bg-slate-50"
+                          >
+                            {isPdf ? (
+                              <div className="grid h-24 place-items-center text-xs font-semibold text-slate-700">PDF</div>
+                            ) : (
+                              <img
+                                src={url}
+                                alt={fileName}
+                                className="h-24 w-full object-cover transition group-hover:scale-[1.02]"
+                              />
+                            )}
+                            <div className="truncate border-t border-slate-200 bg-white px-2 py-1 text-xs text-slate-700">
+                              {fileName}
+                            </div>
+                          </a>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="mt-1 text-sm text-slate-600">No receipts added yet</div>
+                  )}
+
+                  <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <input
+                      type="file"
+                      accept=".jpg,.jpeg,.png,.pdf"
+                      multiple
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files || []);
+                        setFormReceiptFiles(files);
+                        e.target.value = "";
+                      }}
+                      className="cursor-pointer w-full text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-slate-900 hover:file:bg-slate-200"
+                    />
+                  </div>
+                  {formReceiptFiles.length > 0 ? (
+                    <div className="mt-2 text-sm font-medium text-slate-700">{formReceiptFiles.length} file(s) selected</div>
+                  ) : null}
                 </div>
               </div>
 
@@ -1482,7 +1690,7 @@ const ExpenseTracking = () => {
           <DialogActions className="border-t border-slate-200 bg-white px-5 py-4">
             <button
               type="button"
-              onClick={() => setFormOpen(false)}
+              onClick={closeForm}
               className="inline-flex h-10 cursor-pointer items-center justify-center rounded-xl border border-red-600 bg-white px-5 text-sm font-medium text-red-600 hover:bg-red-500 hover:text-white"
             >
               Cancel
@@ -1645,7 +1853,7 @@ const ExpenseTracking = () => {
                   <div className="mb-3 text-base font-semibold text-violet-700">
                     Notes & Receipts
                   </div>
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-4">
                     <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
                       <div className="text-sm font-semibold text-slate-500">
                         Notes
@@ -1660,56 +1868,38 @@ const ExpenseTracking = () => {
                         Receipts
                       </div>
                       {selectedExpense.receipts?.length > 0 ? (
-                        <div className="mt-2 space-y-1">
-                          {selectedExpense.receipts.map((r, i) => (
-                            <a
-                              key={i}
-                              href={r.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="block text-sm font-medium text-blue-700 hover:underline"
-                            >
-                              {r.fileName || "Receipt"}
-                            </a>
-                          ))}
+                        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                          {selectedExpense.receipts.map((r, i) => {
+                            const url = r?.url || "";
+                            const fileName = r?.fileName || "Receipt";
+                            const isPdf =
+                              String(url).toLowerCase().endsWith(".pdf") || String(fileName).toLowerCase().endsWith(".pdf");
+                            return (
+                              <a
+                                key={`${url}-${i}`}
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="group overflow-hidden rounded-lg border border-slate-200 bg-slate-50"
+                              >
+                                {isPdf ? (
+                                  <div className="grid h-24 place-items-center text-xs font-semibold text-slate-700">PDF</div>
+                                ) : (
+                                  <img
+                                    src={url}
+                                    alt={fileName}
+                                    className="h-24 w-full object-cover transition group-hover:scale-[1.02]"
+                                  />
+                                )}
+                                <div className="truncate border-t border-slate-200 bg-white px-2 py-1 text-xs text-slate-700">
+                                  {fileName}
+                                </div>
+                              </a>
+                            );
+                          })}
                         </div>
                       ) : (
                         <div className="mt-1 text-sm text-slate-900">—</div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="mt-4 rounded-xl border border-slate-200 bg-white px-4 py-3">
-                    <div className="text-sm font-semibold text-slate-500">
-                      Upload receipts
-                    </div>
-                    <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <input
-                        type="file"
-                        accept=".jpg,.jpeg,.png,.pdf"
-                        multiple
-                        onChange={(e) =>
-                          setReceiptFiles(Array.from(e.target.files || []))
-                        }
-                        className="cursor-pointer w-full text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-slate-900 hover:file:bg-slate-200"
-                      />
-                      {receiptFiles.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={handleReceiptUpload}
-                          disabled={uploadingReceipts}
-                          className="inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {uploadingReceipts ? (
-                            <CircularProgress
-                              size={16}
-                              className="text-white"
-                            />
-                          ) : (
-                            <CloudUpload fontSize="small" />
-                          )}
-                          Upload {receiptFiles.length} file(s)
-                        </button>
                       )}
                     </div>
                   </div>
