@@ -55,6 +55,7 @@ import {
   Home,
   KeyboardArrowDown,
   ReceiptLong,
+  Build,
 } from '@mui/icons-material';
 import ContainerIcon from '../icons/ContainerIcon';
 import { useAuth } from '../../context/AuthContext';
@@ -384,6 +385,7 @@ const Layout = () => {
       { text: 'Fleet', icon: <LocalShipping />, path: '/fleet', permissionKey: 'fleet' },
       { text: 'Billing', icon: <Receipt />, path: '/billing', permissionKey: 'billing' },
       { text: 'Expense Tracking', icon: <ReceiptLong />, path: '/expense-tracking', permissionKey: 'expenseTracking' },
+      { text: 'Maintenance', icon: <Build />, path: '/maintenance-management', permissionKey: 'maintenanceManagement' },
       { text: 'Consignment', icon: <Assignment />, path: '/consignment', permissionKey: 'consignment' },
       { text: 'Bid Management', icon: <ListAlt />, path: '/bid-management', permissionKey: 'bidManagement' },
       { text: 'Payments', icon: <Payment />, path: '/payments', permissionKey: 'payments' },

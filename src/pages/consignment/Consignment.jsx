@@ -518,6 +518,9 @@ const Consignment = () => {
 
   return (
     <Box sx={{ p: 3 }}>
+      <div className="text-2xl font-semibold text-gray-700">
+            Consignment
+          </div>
       <SearchNavigationFeedback 
         searchResult={location.state?.selectedShipment} 
         searchQuery={location.state?.searchQuery} 
