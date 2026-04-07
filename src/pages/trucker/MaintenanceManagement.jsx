@@ -105,6 +105,155 @@ const FilterSelect = ({ label, value, options, onChange, disabled }) => {
   );
 };
 
+const FilterDropdown = ({
+  label,
+  value,
+  onChange,
+  options,
+  hideLabel = false,
+  containerClassName = "",
+  buttonClassName = "",
+  placeholder = "Select",
+  searchable = false,
+  searchPlaceholder = "Search...",
+}) => {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const buttonRef = useRef(null);
+  const panelRef = useRef(null);
+
+  const selected = options.find((o) => o.value === value) ?? null;
+  const listboxId = `${label.replace(/\s+/g, "-").toLowerCase()}-listbox`;
+  const isEmptyValue = value === "" || value === null || value === undefined;
+  const selectedLabel = String(selected?.label ?? "").trim();
+  const selectedLooksLikePlaceholder =
+    selectedLabel.length === 0 ||
+    selectedLabel === "—" ||
+    selectedLabel === "--" ||
+    selectedLabel.toLowerCase().startsWith("select");
+  const showPlaceholder = !selected || (isEmptyValue && selectedLooksLikePlaceholder);
+  const normalizedQuery = query.trim().toLowerCase();
+  const visibleOptions =
+    searchable && normalizedQuery.length > 0
+      ? options.filter((o) =>
+          String(o.label ?? "")
+            .toLowerCase()
+            .includes(normalizedQuery),
+        )
+      : options;
+
+  useEffect(() => {
+    if (!open) return;
+
+    const onMouseDown = (e) => {
+      if (buttonRef.current && buttonRef.current.contains(e.target)) return;
+      if (panelRef.current && panelRef.current.contains(e.target)) return;
+      setOpen(false);
+    };
+
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") {
+        setOpen(false);
+        setQuery("");
+      }
+    };
+
+    document.addEventListener("mousedown", onMouseDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onMouseDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) setQuery("");
+  }, [open]);
+
+  return (
+    <div className={containerClassName || "min-w-[220px] flex-1"}>
+      {hideLabel ? null : <label className="mb-1 block text-sm font-medium text-gray-700">{label}</label>}
+      <div className="relative">
+        <button
+          ref={buttonRef}
+          type="button"
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-controls={listboxId}
+          onClick={() => setOpen((v) => !v)}
+          className={`cursor-pointer flex h-12 w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 text-left text-base text-slate-900 outline-none transition hover:border-slate-300 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15 ${buttonClassName}`}
+        >
+          <span className={`truncate ${showPlaceholder ? "text-slate-400" : ""}`}>
+            {showPlaceholder ? placeholder : selectedLabel}
+          </span>
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            aria-hidden="true"
+            className={`shrink-0 text-slate-400 transition ${open ? "rotate-180" : ""}`}
+          >
+            <path
+              fillRule="evenodd"
+              d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z"
+              clipRule="evenodd"
+            />
+          </svg>
+        </button>
+
+        {open && (
+          <div
+            ref={panelRef}
+            className="absolute z-20 mt-2 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
+          >
+            <div className="flex max-h-72 flex-col">
+              {searchable ? (
+                <div className="border-b border-slate-200 bg-white p-2">
+                  <input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder={searchPlaceholder}
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15"
+                  />
+                </div>
+              ) : null}
+              <div id={listboxId} role="listbox" className="max-h-72 overflow-auto py-1">
+                {visibleOptions.length === 0 ? (
+                  <div className="px-4 py-3 text-sm text-slate-500">No results</div>
+                ) : (
+                  visibleOptions.map((o) => {
+                    const active = o.value === value;
+                    return (
+                      <button
+                        key={`${label}-${String(o.value)}`}
+                        type="button"
+                        role="option"
+                        aria-selected={active}
+                        onClick={() => {
+                          onChange(o.value);
+                          setOpen(false);
+                          setQuery("");
+                        }}
+                        className={`flex w-full items-center justify-between gap-3 px-4 py-2 text-left text-sm ${
+                          active ? "bg-blue-50 text-blue-700" : "text-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        <span className="truncate">{o.label}</span>
+                        {active ? <Check size={16} className="shrink-0 text-blue-600" /> : null}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const endOfWeek = (date) => {
   const s = startOfWeek(date);
   const e = new Date(s);
@@ -164,13 +313,13 @@ const badgeClassForPriority = (priority) => {
   return "bg-slate-100 text-slate-600 border-slate-200";
 };
 
-const ModalShell = ({ open, title, onClose, children, footer, header }) => {
+const ModalShell = ({ open, title, onClose, children, footer, header, bodyClassName = "", panelClassName = "" }) => {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className="relative flex min-h-screen items-center justify-center p-4 sm:p-6">
-        <div className="relative my-8 w-full max-w-2xl overflow-hidden rounded-xl bg-white">
+        <div className={`relative my-8 w-full max-w-2xl overflow-hidden rounded-xl bg-white ${panelClassName}`}>
           {header ? (
             header
           ) : (
@@ -185,7 +334,7 @@ const ModalShell = ({ open, title, onClose, children, footer, header }) => {
               </button>
             </div>
           )}
-          <div className="max-h-[60vh] overflow-y-auto px-6 pb-6 pt-7">{children}</div>
+          <div className={bodyClassName || "max-h-[60vh] overflow-y-auto px-6 pb-6 pt-7"}>{children}</div>
           {footer ? <div className="border-t border-slate-200 bg-white px-6 py-4">{footer}</div> : null}
         </div>
       </div>
@@ -1039,14 +1188,31 @@ const MaintenanceManagement = () => {
        open={formOpen}
 title={
   <span style={{ fontSize: "22px", fontWeight: "600" }}>
-    {formMode === "create"
-      ? "Create Maintenance Record"
-      : "Edit Maintenance Record"}
+    {formMode === "create" ? "Create Maintenance Record" : "Edit Maintenance Record"}
   </span>
 }
 onClose={() => {
   if (!formLoading) setFormOpen(false);
 }}
+        panelClassName="max-w-4xl"
+        bodyClassName="max-h-[60vh] overflow-y-auto bg-slate-50 p-5"
+        header={
+          <div className="flex items-center justify-between bg-blue-600 px-5 py-4 text-white">
+            <div>
+              <div className="text-lg font-semibold leading-tight">
+                {formMode === "create" ? "Create Maintenance Record" : "Edit Maintenance Record"}
+              </div>
+              <div className="text-base text-white/80">Enter maintenance details below</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setFormOpen(false)}
+              className="grid h-9 w-9 cursor-pointer place-items-center rounded-xl bg-white/10 hover:bg-white/20"
+            >
+              <X size={18} className="text-white" />
+            </button>
+          </div>
+        }
         footer={
           <div className="flex items-center justify-end gap-2">
             <button
@@ -1071,422 +1237,353 @@ onClose={() => {
         {formLoading ? (
           <div className="py-10 text-center text-sm text-slate-500">Loading…</div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
-            <div className="md:col-span-6">
-              <label className="mb-1 block text-sm font-semibold text-slate-700">Truck *</label>
-              <select
-                value={form.truck}
-                onChange={(e) => setForm((p) => ({ ...p, truck: e.target.value }))}
-                className="h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Select Truck</option>
-                {trucks.map((t) => (
-                  <option key={t._id} value={t._id}>
-                    {t.truckNumber || t._id}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="md:col-span-6">
-              <label className="mb-1 block text-sm font-semibold text-slate-700">Driver</label>
-              <select
-                value={form.driver}
-                onChange={(e) => setForm((p) => ({ ...p, driver: e.target.value }))}
-                className="h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">None</option>
-                {drivers.map((d) => (
-                  <option key={d._id} value={d._id}>
-                    {d.fullName || d._id}
-                  </option>
-                ))}
-              </select>
+          <div className="space-y-4">
+            <div className="mt-1 rounded-2xl border border-blue-100 bg-blue-50/40 p-4">
+              <div className="mb-3 text-base font-semibold text-blue-700">Basic Information</div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                  <div className="text-sm font-semibold text-slate-500">Truck *</div>
+                  <div className="mt-2">
+                    <FilterDropdown
+                      label="Truck *"
+                      value={form.truck}
+                      onChange={(v) => setForm((p) => ({ ...p, truck: v }))}
+                      options={[
+                        { value: "", label: "Select truck" },
+                        ...trucks.map((t) => ({ value: t._id, label: t.truckNumber || t._id })),
+                      ]}
+                      hideLabel
+                      containerClassName="w-full"
+                      buttonClassName="h-10 rounded-lg px-3 text-sm"
+                      placeholder="Select truck"
+                      searchable
+                      searchPlaceholder="Search truck..."
+                    />
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                  <div className="text-sm font-semibold text-slate-500">Driver</div>
+                  <div className="mt-2">
+                    <FilterDropdown
+                      label="Driver"
+                      value={form.driver}
+                      onChange={(v) => setForm((p) => ({ ...p, driver: v }))}
+                      options={[
+                        { value: "", label: "Select driver" },
+                        ...drivers.map((d) => ({ value: d._id, label: d.fullName || d._id })),
+                      ]}
+                      hideLabel
+                      containerClassName="w-full"
+                      buttonClassName="h-10 rounded-lg px-3 text-sm"
+                      placeholder="Select driver"
+                      searchable
+                      searchPlaceholder="Search driver..."
+                    />
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                  <div className="text-sm font-semibold text-slate-500">Type *</div>
+                  <div className="mt-2">
+                    <FilterDropdown
+                      label="Type *"
+                      value={form.type}
+                      onChange={(v) => setForm((p) => ({ ...p, type: v }))}
+                      options={options.types.map((t) => ({ value: t, label: t }))}
+                      hideLabel
+                      containerClassName="w-full"
+                      buttonClassName="h-10 rounded-lg px-3 text-sm"
+                      placeholder="Select type"
+                      searchable
+                      searchPlaceholder="Search type..."
+                    />
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                  <div className="text-sm font-semibold text-slate-500">Status</div>
+                  <div className="mt-2">
+                    <FilterDropdown
+                      label="Status"
+                      value={form.status}
+                      onChange={(v) => setForm((p) => ({ ...p, status: v }))}
+                      options={options.statuses.map((s) => ({ value: s, label: s }))}
+                      hideLabel
+                      containerClassName="w-full"
+                      buttonClassName="h-10 rounded-lg px-3 text-sm"
+                      placeholder="Select status"
+                      searchable
+                      searchPlaceholder="Search status..."
+                    />
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                  <div className="text-sm font-semibold text-slate-500">Priority</div>
+                  <div className="mt-2">
+                    <FilterDropdown
+                      label="Priority"
+                      value={form.priority}
+                      onChange={(v) => setForm((p) => ({ ...p, priority: v }))}
+                      options={options.priorities.map((p0) => ({ value: p0, label: p0 }))}
+                      hideLabel
+                      containerClassName="w-full"
+                      buttonClassName="h-10 rounded-lg px-3 text-sm"
+                      placeholder="Select priority"
+                      searchable
+                      searchPlaceholder="Search priority..."
+                    />
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 md:col-span-2">
+                  <div className="text-sm font-semibold text-slate-500">Title *</div>
+                  <input
+                    value={form.title}
+                    onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
+                    className="mt-2 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15"
+                    placeholder="Oil Change"
+                  />
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                  <div className="text-sm font-semibold text-slate-500">Service Date *</div>
+                  <input
+                    type="date"
+                    value={form.serviceDate}
+                    onChange={(e) => setForm((p) => ({ ...p, serviceDate: e.target.value }))}
+                    className="mt-2 cursor-pointer h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15"
+                  />
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 md:col-span-3">
+                  <div className="text-sm font-semibold text-slate-500">Description</div>
+                  <textarea
+                    value={form.description}
+                    onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+                    rows={3}
+                    className="mt-2 w-full rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15"
+                  />
+                </div>
+              </div>
             </div>
 
-            <div className="md:col-span-4">
-              <label className="mb-1 block text-sm font-semibold text-slate-700">Type *</label>
-              <select
-                value={form.type}
-                onChange={(e) => setForm((p) => ({ ...p, type: e.target.value }))}
-                className="h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {options.types.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="md:col-span-4">
-              <label className="mb-1 block text-sm font-semibold text-slate-700">Status</label>
-              <select
-                value={form.status}
-                onChange={(e) => setForm((p) => ({ ...p, status: e.target.value }))}
-                className="h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {options.statuses.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="md:col-span-4">
-              <label className="mb-1 block text-sm font-semibold text-slate-700">Priority</label>
-              <select
-                value={form.priority}
-                onChange={(e) => setForm((p) => ({ ...p, priority: e.target.value }))}
-                className="h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {options.priorities.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
-              </select>
+            <div className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4">
+              <div className="mb-3 text-base font-semibold text-emerald-700">Cost & Vendor</div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                  <div className="text-sm font-semibold text-slate-500">Cost Amount</div>
+                  <input
+                    value={form.costAmount}
+                    onChange={(e) => setForm((p) => ({ ...p, costAmount: e.target.value }))}
+                    className="mt-2 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15"
+                  />
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                  <div className="text-sm font-semibold text-slate-500">Currency</div>
+                  <input
+                    value={form.costCurrency}
+                    onChange={(e) => setForm((p) => ({ ...p, costCurrency: e.target.value }))}
+                    className="mt-2 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15"
+                  />
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                  <div className="text-sm font-semibold text-slate-500">Odometer</div>
+                  <input
+                    value={form.odometer}
+                    onChange={(e) => setForm((p) => ({ ...p, odometer: e.target.value }))}
+                    className="mt-2 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15"
+                  />
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                  <div className="text-sm font-semibold text-slate-500">Vendor</div>
+                  <div className="mt-2">
+                    <FilterDropdown
+                      label="Vendor"
+                      value={form.vendor}
+                      onChange={(v) => setForm((p) => ({ ...p, vendor: v }))}
+                      options={[
+                        { value: "", label: "Select vendor" },
+                        ...vendors.map((v) => ({ value: v._id, label: v.name || v._id })),
+                      ]}
+                      hideLabel
+                      containerClassName="w-full"
+                      buttonClassName="h-10 rounded-lg px-3 text-sm"
+                      placeholder="Select vendor"
+                      searchable
+                      searchPlaceholder="Search vendor..."
+                    />
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 md:col-span-2">
+                  <div className="text-sm font-semibold text-slate-500">Vendor Name (if not in list)</div>
+                  <input
+                    value={form.vendorName}
+                    onChange={(e) => setForm((p) => ({ ...p, vendorName: e.target.value }))}
+                    disabled={Boolean(form.vendor)}
+                    className="mt-2 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15 disabled:bg-slate-100 disabled:text-slate-500 disabled:hover:border-slate-200"
+                  />
+                </div>
+              </div>
             </div>
 
-            <div className="md:col-span-8">
-              <label className="mb-1 block text-sm font-semibold text-slate-700">Title *</label>
-              <input
-                value={form.title}
-                onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
-                className="h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Oil Change"
-              />
-            </div>
-            <div className="md:col-span-4">
-              <label className="mb-1 block text-sm font-semibold text-slate-700">Service Date *</label>
-              <input
-                type="date"
-                value={form.serviceDate}
-                onChange={(e) => setForm((p) => ({ ...p, serviceDate: e.target.value }))}
-                className="h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div className="md:col-span-12">
-              <label className="mb-1 block text-sm font-semibold text-slate-700">Description</label>
-              <textarea
-                value={form.description}
-                onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
-                className="min-h-24 w-full rounded-md border border-slate-200 p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div className="md:col-span-4">
-              <label className="mb-1 block text-sm font-semibold text-slate-700">Cost Amount</label>
-              <input
-                value={form.costAmount}
-                onChange={(e) => setForm((p) => ({ ...p, costAmount: e.target.value }))}
-                className="h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div className="md:col-span-4">
-              <label className="mb-1 block text-sm font-semibold text-slate-700">Currency</label>
-              <input
-                value={form.costCurrency}
-                onChange={(e) => setForm((p) => ({ ...p, costCurrency: e.target.value }))}
-                className="h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div className="md:col-span-4">
-              <label className="mb-1 block text-sm font-semibold text-slate-700">Odometer</label>
-              <input
-                value={form.odometer}
-                onChange={(e) => setForm((p) => ({ ...p, odometer: e.target.value }))}
-                className="h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div className="md:col-span-6">
-              <label className="mb-1 block text-sm font-semibold text-slate-700">Vendor</label>
-              <select
-                value={form.vendor}
-                onChange={(e) => setForm((p) => ({ ...p, vendor: e.target.value }))}
-                className="h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">None</option>
-                {vendors.map((v) => (
-                  <option key={v._id} value={v._id}>
-                    {v.name || v._id}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="md:col-span-6">
-              <label className="mb-1 block text-sm font-semibold text-slate-700">Vendor Name (if not in list)</label>
-              <input
-                value={form.vendorName}
-                onChange={(e) => setForm((p) => ({ ...p, vendorName: e.target.value }))}
-                disabled={Boolean(form.vendor)}
-                className="h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50 disabled:text-slate-500"
-              />
-            </div>
-
-            <div className="md:col-span-6">
-              <label className="mb-1 block text-sm font-semibold text-slate-700">Next Due Date</label>
-              <input
-                type="date"
-                value={form.nextDueDate}
-                onChange={(e) => setForm((p) => ({ ...p, nextDueDate: e.target.value }))}
-                className="h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div className="md:col-span-6">
-              <label className="mb-1 block text-sm font-semibold text-slate-700">Next Due Odometer</label>
-              <input
-                value={form.nextDueOdometer}
-                onChange={(e) => setForm((p) => ({ ...p, nextDueOdometer: e.target.value }))}
-                className="h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-              />
+            <div className="rounded-2xl border border-amber-100 bg-amber-50/40 p-4">
+              <div className="mb-3 text-base font-semibold text-amber-700">Next Due</div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                  <div className="text-sm font-semibold text-slate-500">Next Due Date</div>
+                  <input
+                    type="date"
+                    value={form.nextDueDate}
+                    onChange={(e) => setForm((p) => ({ ...p, nextDueDate: e.target.value }))}
+                    className="mt-2 cursor-pointer h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15"
+                  />
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                  <div className="text-sm font-semibold text-slate-500">Next Due Odometer</div>
+                  <input
+                    value={form.nextDueOdometer}
+                    onChange={(e) => setForm((p) => ({ ...p, nextDueOdometer: e.target.value }))}
+                    className="mt-2 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15"
+                  />
+                </div>
+              </div>
             </div>
 
             {form.type === "tyre" ? (
-              <>
-                <div className="md:col-span-6">
-                  <label className="mb-1 block text-sm font-semibold text-slate-700">Position</label>
-                  <input
-                    value={form.position}
-                    onChange={(e) => setForm((p) => ({ ...p, position: e.target.value }))}
-                    className="h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+              <div className="rounded-2xl border border-fuchsia-100 bg-fuchsia-50/40 p-4">
+                <div className="mb-3 text-base font-semibold text-fuchsia-700">Tyre Details</div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                    <div className="text-sm font-semibold text-slate-500">Position</div>
+                    <input
+                      value={form.position}
+                      onChange={(e) => setForm((p) => ({ ...p, position: e.target.value }))}
+                      className="mt-2 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15"
+                    />
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                    <div className="text-sm font-semibold text-slate-500">Action</div>
+                    <input
+                      value={form.action}
+                      onChange={(e) => setForm((p) => ({ ...p, action: e.target.value }))}
+                      className="mt-2 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15"
+                    />
+                  </div>
                 </div>
-                <div className="md:col-span-6">
-                  <label className="mb-1 block text-sm font-semibold text-slate-700">Action</label>
-                  <input
-                    value={form.action}
-                    onChange={(e) => setForm((p) => ({ ...p, action: e.target.value }))}
-                    className="h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </>
+              </div>
             ) : null}
 
             {form.type === "engine" ? (
-              <>
-                <div className="md:col-span-6">
-                  <label className="mb-1 block text-sm font-semibold text-slate-700">Action</label>
-                  <input
-                    value={form.action}
-                    onChange={(e) => setForm((p) => ({ ...p, action: e.target.value }))}
-                    className="h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+              <div className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4">
+                <div className="mb-3 text-base font-semibold text-indigo-700">Engine Details</div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                    <div className="text-sm font-semibold text-slate-500">Action</div>
+                    <input
+                      value={form.action}
+                      onChange={(e) => setForm((p) => ({ ...p, action: e.target.value }))}
+                      className="mt-2 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15"
+                    />
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 md:col-span-2">
+                    <div className="text-sm font-semibold text-slate-500">Work Done</div>
+                    <input
+                      value={form.workDone}
+                      onChange={(e) => setForm((p) => ({ ...p, workDone: e.target.value }))}
+                      className="mt-2 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15"
+                    />
+                  </div>
                 </div>
-                <div className="md:col-span-6">
-                  <label className="mb-1 block text-sm font-semibold text-slate-700">Work Done</label>
-                  <input
-                    value={form.workDone}
-                    onChange={(e) => setForm((p) => ({ ...p, workDone: e.target.value }))}
-                    className="h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </>
+              </div>
             ) : null}
 
             {form.type === "service" ? (
-              <>
-                <div className="md:col-span-6">
-                  <label className="mb-1 block text-sm font-semibold text-slate-700">Service Type</label>
-                  <input
-                    value={form.serviceType}
-                    onChange={(e) => setForm((p) => ({ ...p, serviceType: e.target.value }))}
-                    className="h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+              <div className="rounded-2xl border border-sky-100 bg-sky-50/40 p-4">
+                <div className="mb-3 text-base font-semibold text-sky-700">Service Details</div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                    <div className="text-sm font-semibold text-slate-500">Service Type</div>
+                    <input
+                      value={form.serviceType}
+                      onChange={(e) => setForm((p) => ({ ...p, serviceType: e.target.value }))}
+                      className="mt-2 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15"
+                    />
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 md:col-span-2">
+                    <div className="text-sm font-semibold text-slate-500">Checklist (comma separated)</div>
+                    <input
+                      value={form.checklist}
+                      onChange={(e) => setForm((p) => ({ ...p, checklist: e.target.value }))}
+                      className="mt-2 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15"
+                    />
+                  </div>
                 </div>
-                <div className="md:col-span-6">
-                  <label className="mb-1 block text-sm font-semibold text-slate-700">Checklist (comma separated)</label>
-                  <input
-                    value={form.checklist}
-                    onChange={(e) => setForm((p) => ({ ...p, checklist: e.target.value }))}
-                    className="h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </>
+              </div>
             ) : null}
 
             {form.type === "breakdown" ? (
-              <>
-                <div className="md:col-span-6">
-                  <label className="mb-1 block text-sm font-semibold text-slate-700">Breakdown Type</label>
-                  <input
-                    value={form.breakdownType}
-                    onChange={(e) => setForm((p) => ({ ...p, breakdownType: e.target.value }))}
-                    className="h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+              <div className="rounded-2xl border border-rose-100 bg-rose-50/40 p-4">
+                <div className="mb-3 text-base font-semibold text-rose-700">Breakdown Details</div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 md:col-span-2">
+                    <div className="text-sm font-semibold text-slate-500">Breakdown Type</div>
+                    <input
+                      value={form.breakdownType}
+                      onChange={(e) => setForm((p) => ({ ...p, breakdownType: e.target.value }))}
+                      className="mt-2 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15"
+                    />
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                    <div className="text-sm font-semibold text-slate-500">Severity</div>
+                    <input
+                      value={form.severity}
+                      onChange={(e) => setForm((p) => ({ ...p, severity: e.target.value }))}
+                      className="mt-2 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15"
+                    />
+                  </div>
                 </div>
-                <div className="md:col-span-6">
-                  <label className="mb-1 block text-sm font-semibold text-slate-700">Severity</label>
-                  <input
-                    value={form.severity}
-                    onChange={(e) => setForm((p) => ({ ...p, severity: e.target.value }))}
-                    className="h-11 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </>
+              </div>
             ) : null}
 
-            {/* Attachments for both create and edit mode */}
-            <div className="md:col-span-12">
+            <div className="rounded-2xl border border-violet-100 bg-violet-50/40 p-4">
+              <div className="mb-3 text-base font-semibold text-violet-700">Notes & Attachments</div>
               <div className="mt-4 rounded-xl border border-slate-200 bg-white px-4 py-3">
                 <div className="text-sm font-semibold text-slate-500">Attachments</div>
-                {form.pendingAttachments.length > 0 ? (
-                  <div className="mt-2">
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                      {pendingAttachmentPreviews.map((p) => (
-                        <a
-                          key={p.key}
-                          href={p.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="group overflow-hidden rounded-lg border border-slate-200 bg-slate-50"
-                        >
-                          {p.isPdf ? (
-                            <div className="grid h-24 place-items-center text-xs font-semibold text-slate-700">PDF</div>
-                          ) : (
-                            <img
-                              src={p.url}
-                              alt={p.name}
-                              className="h-24 w-full object-cover transition group-hover:scale-[1.02]"
-                            />
-                          )}
-                          <div className="truncate border-t border-slate-200 bg-white px-2 py-1 text-xs text-slate-700">
-                            {p.name}
-                          </div>
-                        </a>
-                      ))}
-                    </div>
-                    <div className="mt-2 text-xs text-slate-600">These attachments will upload when you click Save.</div>
-                  </div>
-                ) : Array.isArray(formExistingAttachments) && formExistingAttachments.length > 0 ? (
+              {form.pendingAttachments.length > 0 ? (
+                <div>
                   <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                    {formExistingAttachments.map((a, i) => {
-                      const url = a?.url || "";
-                      const fileName = a?.fileName || "Attachment";
-                      const isPdf =
-                        String(url).toLowerCase().endsWith(".pdf") || String(fileName).toLowerCase().endsWith(".pdf");
-                      return (
-                        <a
-                          key={`${url}-${i}`}
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="group overflow-hidden rounded-lg border border-slate-200 bg-slate-50"
-                        >
-                          {isPdf ? (
-                            <div className="grid h-24 place-items-center text-xs font-semibold text-slate-700">PDF</div>
-                          ) : (
-                            <img
-                              src={url}
-                              alt={fileName}
-                              className="h-24 w-full object-cover transition group-hover:scale-[1.02]"
-                            />
-                          )}
-                          <div className="truncate border-t border-slate-200 bg-white px-2 py-1 text-xs text-slate-700">
-                            {fileName}
-                          </div>
-                        </a>
-                      );
-                    })}
+                    {pendingAttachmentPreviews.map((p) => (
+                      <a
+                        key={p.key}
+                        href={p.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group overflow-hidden rounded-lg border border-slate-200 bg-slate-50"
+                      >
+                        {p.isPdf ? (
+                          <div className="grid h-24 place-items-center text-xs font-semibold text-slate-700">PDF</div>
+                        ) : (
+                          <img
+                            src={p.url}
+                            alt={p.name}
+                            className="h-24 w-full object-cover transition group-hover:scale-[1.02]"
+                          />
+                        )}
+                        <div className="truncate border-t border-slate-200 bg-white px-2 py-1 text-xs text-slate-700">
+                          {p.name}
+                        </div>
+                      </a>
+                    ))}
                   </div>
-                ) : (
-                  <div className="mt-1 text-sm text-slate-600">No attachments added yet</div>
-                )}
-
-                <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <input
-                    type="file"
-                    accept=".jpg,.jpeg,.png,.pdf"
-                    multiple
-                    onChange={(e) => {
-                      const files = Array.from(e.target.files || []);
-                      setForm((prev) => ({ ...prev, pendingAttachments: files }));
-                      e.target.value = "";
-                    }}
-                    className="w-full cursor-pointer text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-slate-900 hover:file:bg-slate-200"
-                  />
+                  <div className="mt-2 text-xs text-slate-600">These attachments will upload when you click Save.</div>
                 </div>
-                {form.pendingAttachments.length > 0 ? (
-                  <div className="mt-2 text-sm font-medium text-slate-700">
-                    {form.pendingAttachments.length} file(s) selected
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        )}
-      </ModalShell>
-
-      <ModalShell
-       open={viewOpen}
-title={
-  <span style={{ fontSize: "22px", fontWeight: "600" }}>
-    Maintenance Record
-  </span>
-}
-onClose={() => setViewOpen(false)}
-        footer={
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setViewOpen(false)}
-              className="cursor-pointer h-10 rounded-md bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700"
-            >
-              Close
-            </button>
-          </div>
-        }
-      >
-        {viewLoading ? (
-          <div className="py-10 text-center text-sm text-slate-500">Loading…</div>
-        ) : !viewRecord ? (
-          <div className="py-6 text-sm text-slate-500">No data</div>
-        ) : (
-          <div className="space-y-3">
-            <div className="text-lg font-extrabold text-slate-900">{viewRecord.title}</div>
-            <div className="flex flex-wrap gap-2">
-              <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700">
-                {viewRecord.type}
-              </span>
-              <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${badgeClassForStatus(viewRecord.status)}`}>
-                {viewRecord.status}
-              </span>
-              <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${badgeClassForPriority(viewRecord.priority)}`}>
-                {viewRecord.priority}
-              </span>
-            </div>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <div className="rounded-lg border border-slate-200 bg-white p-3">
-                <div className="text-xs font-semibold text-slate-500">Truck</div>
-                <div className="text-sm font-semibold text-slate-900">{viewRecord.truck?.truckNumber || viewRecord.truck?._id || "—"}</div>
-              </div>
-              <div className="rounded-lg border border-slate-200 bg-white p-3">
-                <div className="text-xs font-semibold text-slate-500">Service Date</div>
-                <div className="text-sm font-semibold text-slate-900">{viewRecord.serviceDate ? String(viewRecord.serviceDate).slice(0, 10) : "—"}</div>
-              </div>
-              <div className="rounded-lg border border-slate-200 bg-white p-3">
-                <div className="text-xs font-semibold text-slate-500">Cost</div>
-                <div className="text-sm font-semibold text-slate-900">
-                  {viewRecord.cost?.amount != null ? `${viewRecord.cost.currency || ""} ${viewRecord.cost.amount}` : "—"}
-                </div>
-              </div>
-              <div className="rounded-lg border border-slate-200 bg-white p-3">
-                <div className="text-xs font-semibold text-slate-500">Odometer</div>
-                <div className="text-sm font-semibold text-slate-900">{viewRecord.odometer != null ? viewRecord.odometer : "—"}</div>
-              </div>
-            </div>
-            {viewRecord.description ? (
-              <div className="rounded-lg border border-slate-200 bg-white p-3">
-                <div className="text-xs font-semibold text-slate-500">Description</div>
-                <div className="mt-1 text-sm text-slate-800">{viewRecord.description}</div>
-              </div>
-            ) : null}
-
-            <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-              <div className="text-sm font-semibold text-slate-500">Attachments</div>
-              {Array.isArray(viewRecord.attachments) && viewRecord.attachments.length ? (
+              ) : Array.isArray(formExistingAttachments) && formExistingAttachments.length > 0 ? (
                 <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {viewRecord.attachments.map((a, i) => {
+                  {formExistingAttachments.map((a, i) => {
                     const url = a?.url || "";
                     const fileName = a?.fileName || "Attachment";
                     const isPdf =
@@ -1516,8 +1613,166 @@ onClose={() => setViewOpen(false)}
                   })}
                 </div>
               ) : (
-                <div className="mt-1 text-sm text-slate-600">No attachments</div>
+                <div className="text-sm text-slate-600">No attachments added yet</div>
               )}
+
+              <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <input
+                  type="file"
+                  accept=".jpg,.jpeg,.png,.pdf"
+                  multiple
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files || []);
+                    setForm((prev) => ({ ...prev, pendingAttachments: files }));
+                    e.target.value = "";
+                  }}
+                  className="cursor-pointer w-full text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-slate-900 hover:file:bg-slate-200"
+                />
+              </div>
+              {form.pendingAttachments.length > 0 ? (
+                <div className="mt-2 text-sm font-medium text-slate-700">{form.pendingAttachments.length} file(s) selected</div>
+              ) : null}
+              </div>
+            </div>
+          </div>
+        )}
+      </ModalShell>
+
+      <ModalShell
+       open={viewOpen}
+title={
+  <span style={{ fontSize: "22px", fontWeight: "600" }}>
+    Maintenance Record
+  </span>
+}
+onClose={() => setViewOpen(false)}
+        panelClassName="max-w-4xl"
+        bodyClassName="max-h-[60vh] overflow-y-auto bg-slate-50 p-5"
+        header={
+          <div className="flex items-center justify-between bg-blue-600 px-5 py-4 text-white">
+            <div>
+              <div className="text-lg font-semibold leading-tight">Maintenance Record</div>
+              <div className="text-base text-white/80">Review details below</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setViewOpen(false)}
+              className="grid h-9 w-9 cursor-pointer place-items-center rounded-xl bg-white/10 hover:bg-white/20"
+            >
+              <X size={18} className="text-white" />
+            </button>
+          </div>
+        }
+        footer={
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setViewOpen(false)}
+              className="cursor-pointer h-10 rounded-md bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700"
+            >
+              Close
+            </button>
+          </div>
+        }
+      >
+        {viewLoading ? (
+          <div className="py-10 text-center text-sm text-slate-500">Loading…</div>
+        ) : !viewRecord ? (
+          <div className="py-6 text-sm text-slate-500">No data</div>
+        ) : (
+          <div className="space-y-4">
+            <div className="mt-6 rounded-2xl border border-blue-100 bg-blue-50/40 p-4">
+              <div className="mb-3 text-base font-semibold text-blue-700">Basic Information</div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 md:col-span-3">
+                  <div className="text-sm font-semibold text-slate-500">Title</div>
+                  <div className="mt-1 text-sm font-semibold text-slate-900">{viewRecord.title || "—"}</div>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                  <div className="text-sm font-semibold text-slate-500">Type</div>
+                  <div className="mt-1 text-sm font-semibold text-slate-900">{viewRecord.type || "—"}</div>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                  <div className="text-sm font-semibold text-slate-500">Status</div>
+                  <div className="mt-1 text-sm font-semibold text-slate-900">{viewRecord.status || "—"}</div>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                  <div className="text-sm font-semibold text-slate-500">Priority</div>
+                  <div className="mt-1 text-sm font-semibold text-slate-900">{viewRecord.priority || "—"}</div>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                  <div className="text-sm font-semibold text-slate-500">Truck</div>
+                  <div className="mt-1 text-sm font-semibold text-slate-900">
+                    {viewRecord.truck?.truckNumber || viewRecord.truck?._id || "—"}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                  <div className="text-sm font-semibold text-slate-500">Service Date</div>
+                  <div className="mt-1 text-sm font-semibold text-slate-900">
+                    {viewRecord.serviceDate ? String(viewRecord.serviceDate).slice(0, 10) : "—"}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                  <div className="text-sm font-semibold text-slate-500">Cost</div>
+                  <div className="mt-1 text-sm font-semibold text-slate-900">
+                    {viewRecord.cost?.amount != null ? `${viewRecord.cost.currency || ""} ${viewRecord.cost.amount}` : "—"}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                  <div className="text-sm font-semibold text-slate-500">Odometer</div>
+                  <div className="mt-1 text-sm font-semibold text-slate-900">
+                    {viewRecord.odometer != null ? viewRecord.odometer : "—"}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-violet-100 bg-violet-50/40 p-4">
+              <div className="mb-3 text-base font-semibold text-violet-700">Notes & Attachments</div>
+              <div className="grid grid-cols-1 gap-4">
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                  <div className="text-sm font-semibold text-slate-500">Description</div>
+                  <div className="mt-1 text-sm text-slate-900">{viewRecord.description || "—"}</div>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                  <div className="text-sm font-semibold text-slate-500">Attachments</div>
+                  {Array.isArray(viewRecord.attachments) && viewRecord.attachments.length ? (
+                    <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                      {viewRecord.attachments.map((a, i) => {
+                        const url = a?.url || "";
+                        const fileName = a?.fileName || "Attachment";
+                        const isPdf =
+                          String(url).toLowerCase().endsWith(".pdf") || String(fileName).toLowerCase().endsWith(".pdf");
+                        return (
+                          <a
+                            key={`${url}-${i}`}
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="group overflow-hidden rounded-lg border border-slate-200 bg-slate-50"
+                          >
+                            {isPdf ? (
+                              <div className="grid h-24 place-items-center text-xs font-semibold text-slate-700">PDF</div>
+                            ) : (
+                              <img
+                                src={url}
+                                alt={fileName}
+                                className="h-24 w-full object-cover transition group-hover:scale-[1.02]"
+                              />
+                            )}
+                            <div className="truncate border-t border-slate-200 bg-white px-2 py-1 text-xs text-slate-700">
+                              {fileName}
+                            </div>
+                          </a>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="mt-1 text-sm text-slate-900">—</div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         )}
