@@ -408,6 +408,7 @@ const Layout = () => {
       { text: 'Load Board', icon: <ListAlt />, path: '/loadboard', permissionKey: 'loadBoard' },
       { text: 'Add User', icon: <PersonAdd />, path: '/add-user-shipper', permissionKey: 'addUser' },
       { text: 'Billing', icon: <Receipt />, path: '/bills', permissionKey: 'billing' },
+      { text: 'Expense Tracking', icon: <ReceiptLong />, path: '/expense-tracking', permissionKey: 'expenseTracking' },
       { text: 'Consignment', icon: <Assignment />, path: '/consignment', permissionKey: 'consignment' },
       { text: 'Email', icon: <EmailIcon />, path: '/email', permissionKey: 'email' },
       { text: 'Report', icon: <Assessment />, path: '/reports', permissionKey: 'report' },

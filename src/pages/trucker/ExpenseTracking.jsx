@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
   Button,
@@ -40,9 +40,10 @@ import {
   subDays,
 } from "date-fns";
 import { useThemeConfig } from "../../context/ThemeContext";
+import { useAuth } from "../../context/AuthContext";
 import { BASE_API_URL } from "../../apiConfig";
 
-const PAYMENT_METHODS = [
+const TRUCKER_PAYMENT_METHODS = [
   { value: "card", label: "Card" },
   { value: "cash", label: "Cash" },
   { value: "company_account", label: "Company Account" },
@@ -50,7 +51,17 @@ const PAYMENT_METHODS = [
   { value: "other", label: "Other" },
 ];
 
-const STATUS_OPTIONS = [
+const SHIPPER_PAYMENT_METHODS = [
+  { value: "card", label: "Card" },
+  { value: "cash", label: "Cash" },
+  { value: "bank_transfer", label: "Bank Transfer" },
+  { value: "check", label: "Check" },
+  { value: "online", label: "Online" },
+  { value: "company_account", label: "Company Account" },
+  { value: "other", label: "Other" },
+];
+
+const TRUCKER_STATUS_OPTIONS = [
   { value: "", label: "All" },
   { value: "pending", label: "Pending" },
   { value: "approved", label: "Approved" },
@@ -58,10 +69,26 @@ const STATUS_OPTIONS = [
   { value: "reimbursed", label: "Reimbursed" },
 ];
 
-const getAuthHeaders = () => ({
-  Authorization: `Bearer ${localStorage.getItem("token")}`,
-  "Content-Type": "application/json",
-});
+const SHIPPER_STATUS_OPTIONS = [
+  { value: "", label: "All" },
+  { value: "pending", label: "Pending" },
+  { value: "approved", label: "Approved" },
+  { value: "rejected", label: "Rejected" },
+  { value: "paid", label: "Paid" },
+];
+
+const getAuthHeaders = () => {
+  const token = localStorage.getItem("token");
+  const headers = { "Content-Type": "application/json" };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return headers;
+};
+
+const getAuthHeadersNoContentType = () => {
+  const token = localStorage.getItem("token");
+  if (!token) return {};
+  return { Authorization: `Bearer ${token}` };
+};
 
 const FilterDropdown = ({
   label,
@@ -242,6 +269,20 @@ const FilterDropdown = ({
 };
 
 const ExpenseTracking = () => {
+  const { userType } = useAuth();
+  const isShipper = userType === "shipper" || userType === "shipper_driver";
+  const apiBasePath = isShipper ? "/api/v1/shipper-expenses" : "/api/v1/trucking-expenses";
+  const apiBaseUrl = `${BASE_API_URL}${apiBasePath}`;
+
+  const statusOptions = useMemo(
+    () => (isShipper ? SHIPPER_STATUS_OPTIONS : TRUCKER_STATUS_OPTIONS),
+    [isShipper],
+  );
+  const paymentMethods = useMemo(
+    () => (isShipper ? SHIPPER_PAYMENT_METHODS : TRUCKER_PAYMENT_METHODS),
+    [isShipper],
+  );
+
   const [expenses, setExpenses] = useState([]);
   const [pagination, setPagination] = useState({
     page: 1,
@@ -262,14 +303,17 @@ const ExpenseTracking = () => {
   const [trucks, setTrucks] = useState([]);
   const [trips, setTrips] = useState([]);
   const [drivers, setDrivers] = useState([]);
+  const [loads, setLoads] = useState([]);
 
   // Filters
   const [filters, setFilters] = useState({
     status: "",
     category: "",
+    vendor: "",
     truck: "",
     driver: "",
     trip: "",
+    load: "",
     startDate: null,
     endDate: null,
     sortBy: "expenseDate",
@@ -287,12 +331,14 @@ const ExpenseTracking = () => {
   const [formLoading, setFormLoading] = useState(false);
   const [form, setForm] = useState({
     amount: "",
+    currency: "USD",
     category: "",
     expenseDate: new Date(),
     payment: { method: "card", cardLastFour: "", companyAccountRef: "" },
     truck: "",
     driver: "",
     trip: "",
+    load: "",
     vendor: "",
     vendorName: "",
     notes: "",
@@ -302,6 +348,21 @@ const ExpenseTracking = () => {
   const [formReceiptFiles, setFormReceiptFiles] = useState([]);
   const [formExistingReceipts, setFormExistingReceipts] = useState([]);
   const [formReceiptPreviews, setFormReceiptPreviews] = useState([]);
+  const [categoryCreateOpen, setCategoryCreateOpen] = useState(false);
+  const [vendorCreateOpen, setVendorCreateOpen] = useState(false);
+  const [categoryCreateLoading, setCategoryCreateLoading] = useState(false);
+  const [vendorCreateLoading, setVendorCreateLoading] = useState(false);
+  const [categoryCreateError, setCategoryCreateError] = useState("");
+  const [vendorCreateError, setVendorCreateError] = useState("");
+  const [categoryDraft, setCategoryDraft] = useState({ name: "", code: "" });
+  const [vendorDraft, setVendorDraft] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    contactPerson: "",
+    address: "",
+    notes: "",
+  });
 
   // Detail view
   const [detailOpen, setDetailOpen] = useState(false);
@@ -342,61 +403,172 @@ const ExpenseTracking = () => {
   }, [formReceiptFiles]);
 
   // Fetch reference data
-  const fetchReferenceData = async () => {
-    const token = localStorage.getItem("token");
-    const headers = { Authorization: `Bearer ${token}` };
-
+  const fetchReferenceData = useCallback(async () => {
     try {
-      const [catRes, venRes, truckRes, tripRes, driverRes] = await Promise.all([
-        fetch(`${BASE_API_URL}/api/v1/trucking-expenses/categories`, {
-          headers,
-        }),
-        fetch(`${BASE_API_URL}/api/v1/trucking-expenses/vendors`, { headers }),
-        fetch(`${BASE_API_URL}/api/v1/trucking-expenses/trucks`, { headers }),
-        fetch(`${BASE_API_URL}/api/v1/trucking-expenses/trips`, { headers }),
-        fetch(`${BASE_API_URL}/api/v1/driver/my-drivers`, { headers }),
-      ]);
+      if (isShipper) {
+        const [catRes, venRes, loadRes] = await Promise.all([
+          fetch(`${apiBaseUrl}/categories`, { headers: getAuthHeaders(), credentials: "include" }),
+          fetch(`${apiBaseUrl}/vendors`, { headers: getAuthHeaders(), credentials: "include" }),
+          fetch(`${BASE_API_URL}/api/v1/load/shipper/my-loads-detailed`, {
+            headers: getAuthHeaders(),
+            credentials: "include",
+          }),
+        ]);
 
-      const catData = catRes.ok ? await catRes.json() : {};
-      const venData = venRes.ok ? await venRes.json() : {};
-      const truckData = truckRes.ok ? await truckRes.json() : {};
-      const tripData = tripRes.ok ? await tripRes.json() : {};
-      const driverData = driverRes.ok ? await driverRes.json() : {};
+        const catData = catRes.ok ? await catRes.json() : {};
+        const venData = venRes.ok ? await venRes.json() : {};
+        const loadData = loadRes.ok ? await loadRes.json() : {};
 
-      setCategories(catData?.data?.categories || []);
-      setVendors(venData?.data?.vendors || []);
-      setTrucks(truckData?.data?.trucks || []);
-      setTrips(tripData?.data?.trips || []);
-      setDrivers(
-        Array.isArray(driverData) ? driverData : driverData?.drivers || [],
-      );
+        const incomingCategories =
+          catData?.data?.categories ?? catData?.data?.data?.categories ?? catData?.categories ?? [];
+        const incomingVendors =
+          venData?.data?.vendors ?? venData?.data?.data?.vendors ?? venData?.vendors ?? [];
+        setCategories(Array.isArray(incomingCategories) ? incomingCategories : []);
+        setVendors(Array.isArray(incomingVendors) ? incomingVendors : []);
+        const incomingLoads =
+          loadData?.data?.loads || loadData?.data?.data?.loads || loadData?.data || loadData?.loads || [];
+        setLoads(Array.isArray(incomingLoads) ? incomingLoads : []);
+        setTrucks([]);
+        setTrips([]);
+        setDrivers([]);
+      } else {
+        const [catRes, venRes, truckRes, tripRes, driverRes] = await Promise.all([
+          fetch(`${apiBaseUrl}/categories`, {
+            headers: getAuthHeaders(),
+            credentials: "include",
+          }),
+          fetch(`${apiBaseUrl}/vendors`, { headers: getAuthHeaders(), credentials: "include" }),
+          fetch(`${apiBaseUrl}/trucks`, { headers: getAuthHeaders(), credentials: "include" }),
+          fetch(`${apiBaseUrl}/trips`, { headers: getAuthHeaders(), credentials: "include" }),
+          fetch(`${BASE_API_URL}/api/v1/driver/my-drivers`, { headers: getAuthHeaders(), credentials: "include" }),
+        ]);
+
+        const catData = catRes.ok ? await catRes.json() : {};
+        const venData = venRes.ok ? await venRes.json() : {};
+        const truckData = truckRes.ok ? await truckRes.json() : {};
+        const tripData = tripRes.ok ? await tripRes.json() : {};
+        const driverData = driverRes.ok ? await driverRes.json() : {};
+
+        const incomingCategories =
+          catData?.data?.categories ?? catData?.data?.data?.categories ?? catData?.categories ?? [];
+        const incomingVendors =
+          venData?.data?.vendors ?? venData?.data?.data?.vendors ?? venData?.vendors ?? [];
+        setCategories(Array.isArray(incomingCategories) ? incomingCategories : []);
+        setVendors(Array.isArray(incomingVendors) ? incomingVendors : []);
+        setTrucks(truckData?.data?.trucks || []);
+        setTrips(tripData?.data?.trips || []);
+        setDrivers(Array.isArray(driverData) ? driverData : driverData?.drivers || []);
+        setLoads([]);
+      }
     } catch (e) {
       console.error("Error fetching reference data:", e);
+    }
+  }, [apiBaseUrl, isShipper]);
+
+  const createCategory = async () => {
+    setCategoryCreateError("");
+    if (!categoryDraft.name.trim() || !categoryDraft.code.trim()) {
+      setCategoryCreateError("Name and code are required.");
+      return;
+    }
+    setCategoryCreateLoading(true);
+    try {
+      const res = await fetch(`${apiBaseUrl}/categories`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        credentials: "include",
+        body: JSON.stringify({
+          name: categoryDraft.name.trim(),
+          code: categoryDraft.code.trim(),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.success) {
+        setCategoryCreateError(data?.message || "Failed to create category");
+        return;
+      }
+      setCategoryCreateOpen(false);
+      setCategoryDraft({ name: "", code: "" });
+      await fetchReferenceData();
+    } catch (e) {
+      setCategoryCreateError(e?.message || "Failed to create category");
+    } finally {
+      setCategoryCreateLoading(false);
+    }
+  };
+
+  const createVendor = async () => {
+    setVendorCreateError("");
+    if (!vendorDraft.name.trim()) {
+      setVendorCreateError("Vendor name is required.");
+      return;
+    }
+    setVendorCreateLoading(true);
+    try {
+      const res = await fetch(`${apiBaseUrl}/vendors`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        credentials: "include",
+        body: JSON.stringify({
+          name: vendorDraft.name.trim(),
+          phone: vendorDraft.phone.trim() || undefined,
+          email: vendorDraft.email.trim() || undefined,
+          contactPerson: vendorDraft.contactPerson.trim() || undefined,
+          address: vendorDraft.address.trim() || undefined,
+          notes: vendorDraft.notes.trim() || undefined,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.success) {
+        setVendorCreateError(data?.message || "Failed to create vendor");
+        return;
+      }
+      setVendorCreateOpen(false);
+      setVendorDraft({
+        name: "",
+        phone: "",
+        email: "",
+        contactPerson: "",
+        address: "",
+        notes: "",
+      });
+      await fetchReferenceData();
+    } catch (e) {
+      setVendorCreateError(e?.message || "Failed to create vendor");
+    } finally {
+      setVendorCreateLoading(false);
     }
   };
 
   // Fetch expenses list
-  const fetchExpenses = async () => {
+  const fetchExpenses = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
       params.set("page", String(pagination.page));
       params.set("limit", String(pagination.limit));
-      params.set("sortBy", filters.sortBy);
-      params.set("sortOrder", filters.sortOrder);
+      if (!isShipper) {
+        params.set("sortBy", filters.sortBy);
+        params.set("sortOrder", filters.sortOrder);
+      }
       if (filters.status) params.set("status", filters.status);
       if (filters.category) params.set("category", filters.category);
-      if (filters.truck) params.set("truck", filters.truck);
-      if (filters.driver) params.set("driver", filters.driver);
-      if (filters.trip) params.set("trip", filters.trip);
-      if (filters.startDate)
-        params.set("startDate", format(filters.startDate, "yyyy-MM-dd"));
-      if (filters.endDate)
-        params.set("endDate", format(filters.endDate, "yyyy-MM-dd"));
+      if (isShipper) {
+        if (filters.vendor) params.set("vendor", filters.vendor);
+        if (filters.load) params.set("load", filters.load);
+        if (filters.startDate) params.set("from", format(filters.startDate, "yyyy-MM-dd"));
+        if (filters.endDate) params.set("to", format(filters.endDate, "yyyy-MM-dd"));
+      } else {
+        if (filters.truck) params.set("truck", filters.truck);
+        if (filters.driver) params.set("driver", filters.driver);
+        if (filters.trip) params.set("trip", filters.trip);
+        if (filters.startDate) params.set("startDate", format(filters.startDate, "yyyy-MM-dd"));
+        if (filters.endDate) params.set("endDate", format(filters.endDate, "yyyy-MM-dd"));
+      }
 
       const res = await fetch(
-        `${BASE_API_URL}/api/v1/trucking-expenses?${params.toString()}`,
-        { headers: getAuthHeaders() },
+        `${apiBaseUrl}?${params.toString()}`,
+        { headers: getAuthHeaders(), credentials: "include" },
       );
       const data = await res.json();
       if (data.success && data.data) {
@@ -404,7 +576,7 @@ const ExpenseTracking = () => {
         setPagination((prev) => ({
           ...prev,
           total: data.data.pagination?.total ?? 0,
-          totalPages: data.data.pagination?.totalPages ?? 1,
+          totalPages: data.data.pagination?.totalPages ?? data.data.pagination?.pages ?? 1,
         }));
       }
     } catch (e) {
@@ -413,26 +585,29 @@ const ExpenseTracking = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [apiBaseUrl, filters, isShipper, pagination.limit, pagination.page]);
 
   // Fetch summary
-  const fetchSummary = async () => {
+  const fetchSummary = useCallback(async () => {
     setSummaryLoading(true);
     try {
       const params = new URLSearchParams();
-      if (filters.startDate)
-        params.set("startDate", format(filters.startDate, "yyyy-MM-dd"));
-      if (filters.endDate)
-        params.set("endDate", format(filters.endDate, "yyyy-MM-dd"));
+      if (filters.startDate) params.set(isShipper ? "from" : "startDate", format(filters.startDate, "yyyy-MM-dd"));
+      if (filters.endDate) params.set(isShipper ? "to" : "endDate", format(filters.endDate, "yyyy-MM-dd"));
       if (filters.status) params.set("status", filters.status);
-      if (filters.truck) params.set("truck", filters.truck);
-      if (filters.driver) params.set("driver", filters.driver);
-      if (filters.trip) params.set("trip", filters.trip);
+      if (isShipper) {
+        if (filters.vendor) params.set("vendor", filters.vendor);
+        if (filters.load) params.set("load", filters.load);
+      } else {
+        if (filters.truck) params.set("truck", filters.truck);
+        if (filters.driver) params.set("driver", filters.driver);
+        if (filters.trip) params.set("trip", filters.trip);
+      }
       if (filters.category) params.set("category", filters.category);
 
       const res = await fetch(
-        `${BASE_API_URL}/api/v1/trucking-expenses/summary?${params.toString()}`,
-        { headers: getAuthHeaders() },
+        `${apiBaseUrl}/summary?${params.toString()}`,
+        { headers: getAuthHeaders(), credentials: "include" },
       );
       const data = await res.json();
       if (data.success) {
@@ -447,27 +622,19 @@ const ExpenseTracking = () => {
     } finally {
       setSummaryLoading(false);
     }
-  };
+  }, [apiBaseUrl, filters, isShipper]);
 
   useEffect(() => {
     fetchReferenceData();
-  }, []);
+  }, [fetchReferenceData]);
 
   useEffect(() => {
     fetchExpenses();
-  }, [pagination.page, pagination.limit, filters]);
+  }, [fetchExpenses]);
 
   useEffect(() => {
     fetchSummary();
-  }, [
-    filters.startDate,
-    filters.endDate,
-    filters.status,
-    filters.truck,
-    filters.driver,
-    filters.trip,
-    filters.category,
-  ]);
+  }, [fetchSummary]);
 
   const handleFilterChange = (field, value) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
@@ -523,9 +690,11 @@ const ExpenseTracking = () => {
     setFilters({
       status: "",
       category: "",
+      vendor: "",
       truck: "",
       driver: "",
       trip: "",
+      load: "",
       startDate: null,
       endDate: null,
       sortBy: "expenseDate",
@@ -542,12 +711,14 @@ const ExpenseTracking = () => {
     setEditingId(null);
     setForm({
       amount: "",
+      currency: "USD",
       category: "",
       expenseDate: new Date(),
       payment: { method: "card", cardLastFour: "", companyAccountRef: "" },
       truck: "",
       driver: "",
       trip: "",
+      load: "",
       vendor: "",
       vendorName: "",
       notes: "",
@@ -563,6 +734,7 @@ const ExpenseTracking = () => {
     setEditingId(expense._id);
     setForm({
       amount: expense.amount ?? "",
+      currency: expense.currency ?? "USD",
       category: expense.category?._id ?? "",
       expenseDate: expense.expenseDate
         ? new Date(expense.expenseDate)
@@ -575,6 +747,7 @@ const ExpenseTracking = () => {
       truck: expense.truck?._id ?? "",
       driver: expense.driver?._id ?? "",
       trip: expense.trip?._id ?? "",
+      load: expense.load?._id ?? expense.load ?? "",
       vendor: expense.vendor?._id ?? "",
       vendorName: expense.vendorName ?? "",
       notes: expense.notes ?? "",
@@ -620,10 +793,11 @@ const ExpenseTracking = () => {
     const formData = new FormData();
     Array.from(files).forEach((f) => formData.append("receipts", f));
     const res = await fetch(
-      `${BASE_API_URL}/api/v1/trucking-expenses/${expenseId}/receipts`,
+      `${apiBaseUrl}/${expenseId}/receipts`,
       {
         method: "PATCH",
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        headers: getAuthHeadersNoContentType(),
+        credentials: "include",
         body: formData,
       },
     );
@@ -638,15 +812,20 @@ const ExpenseTracking = () => {
     try {
       const payload = {
         amount: Number(form.amount),
+        ...(isShipper ? { currency: form.currency || "USD" } : {}),
         category: form.category,
         expenseDate:
           form.expenseDate instanceof Date
             ? form.expenseDate.toISOString()
             : form.expenseDate,
         payment: form.payment,
-        truck: form.truck || undefined,
-        driver: form.driver || undefined,
-        trip: form.trip || undefined,
+        ...(isShipper
+          ? { load: form.load || undefined }
+          : {
+              truck: form.truck || undefined,
+              driver: form.driver || undefined,
+              trip: form.trip || undefined,
+            }),
         vendor: form.vendor || undefined,
         vendorName: form.vendorName || undefined,
         notes: form.notes || undefined,
@@ -654,12 +833,13 @@ const ExpenseTracking = () => {
       };
 
       const url = editingId
-        ? `${BASE_API_URL}/api/v1/trucking-expenses/${editingId}`
-        : `${BASE_API_URL}/api/v1/trucking-expenses`;
+        ? `${apiBaseUrl}/${editingId}`
+        : `${apiBaseUrl}`;
       const method = editingId ? "PUT" : "POST";
       const res = await fetch(url, {
         method,
         headers: getAuthHeaders(),
+        credentials: "include",
         body: JSON.stringify(payload),
       });
       const data = await res.json();
@@ -699,10 +879,11 @@ const ExpenseTracking = () => {
   const handleDelete = async (id) => {
     try {
       const res = await fetch(
-        `${BASE_API_URL}/api/v1/trucking-expenses/${id}`,
+        `${apiBaseUrl}/${id}`,
         {
           method: "DELETE",
           headers: getAuthHeaders(),
+          credentials: "include",
         },
       );
       const data = await res.json();
@@ -738,9 +919,10 @@ const ExpenseTracking = () => {
     setRejectReason("");
     try {
       const res = await fetch(
-        `${BASE_API_URL}/api/v1/trucking-expenses/${expense._id}`,
+        `${apiBaseUrl}/${expense._id}`,
         {
           headers: getAuthHeaders(),
+          credentials: "include",
         },
       );
       const data = await res.json();
@@ -753,12 +935,13 @@ const ExpenseTracking = () => {
   };
 
   const handleApprove = async () => {
+    if (isShipper) return;
     if (!selectedExpense) return;
     setActionLoading(true);
     try {
       const res = await fetch(
-        `${BASE_API_URL}/api/v1/trucking-expenses/${selectedExpense._id}/approve`,
-        { method: "PATCH", headers: getAuthHeaders() },
+        `${apiBaseUrl}/${selectedExpense._id}/approve`,
+        { method: "PATCH", headers: getAuthHeaders(), credentials: "include" },
       );
       const data = await res.json();
       if (data.success) {
@@ -776,14 +959,16 @@ const ExpenseTracking = () => {
   };
 
   const handleReject = async () => {
+    if (isShipper) return;
     if (!selectedExpense) return;
     setActionLoading(true);
     try {
       const res = await fetch(
-        `${BASE_API_URL}/api/v1/trucking-expenses/${selectedExpense._id}/reject`,
+        `${apiBaseUrl}/${selectedExpense._id}/reject`,
         {
           method: "PATCH",
           headers: getAuthHeaders(),
+          credentials: "include",
           body: JSON.stringify({ reason: rejectReason }),
         },
       );
@@ -803,12 +988,13 @@ const ExpenseTracking = () => {
   };
 
   const handleReimburse = async () => {
+    if (isShipper) return;
     if (!selectedExpense) return;
     setActionLoading(true);
     try {
       const res = await fetch(
-        `${BASE_API_URL}/api/v1/trucking-expenses/${selectedExpense._id}/reimburse`,
-        { method: "PATCH", headers: getAuthHeaders() },
+        `${apiBaseUrl}/${selectedExpense._id}/reimburse`,
+        { method: "PATCH", headers: getAuthHeaders(), credentials: "include" },
       );
       const data = await res.json();
       if (data.success) {
@@ -835,6 +1021,8 @@ const ExpenseTracking = () => {
         return "error";
       case "reimbursed":
         return "info";
+      case "paid":
+        return "info";
       default:
         return "default";
     }
@@ -850,6 +1038,8 @@ const ExpenseTracking = () => {
       return "bg-red-50 text-red-700 border-red-200";
     if (normalized === "reimbursed")
       return "bg-blue-50 text-blue-700 border-blue-200";
+    if (normalized === "paid")
+      return "bg-blue-50 text-blue-700 border-blue-200";
     return "bg-slate-100 text-slate-700 border-slate-300";
   };
 
@@ -859,10 +1049,17 @@ const ExpenseTracking = () => {
         const haystack = [
           row.status,
           row.category?.name,
-          row.truck?.truckNumber,
-          row.driver?.fullName,
           row.vendor?.name,
           row.vendorName,
+          ...(isShipper
+            ? [
+                row.load?.shipmentNumber,
+                row.load?.loadNumber,
+                row.load?.referenceNumber,
+                row.load?.tripId,
+                row.load?._id,
+              ]
+            : [row.truck?.truckNumber, row.driver?.fullName, row.trip?.tripId]),
         ]
           .filter(Boolean)
           .join(" ")
@@ -906,8 +1103,9 @@ const ExpenseTracking = () => {
   })();
 
   const apiSummary = (() => {
-    const totalCount = Number(summary?.totalCount ?? summary?.count ?? 0);
-    const totalAmount = Number(summary?.totalAmount ?? summary?.amount ?? 0);
+    const totals = summary?.totals || summary || {};
+    const totalCount = Number(totals?.count ?? totals?.totalCount ?? totals?.total ?? summary?.count ?? summary?.totalCount ?? 0);
+    const totalAmount = Number(totals?.totalAmount ?? totals?.amount ?? summary?.totalAmount ?? summary?.amount ?? 0);
     const iftaFuelAmount = Number(
       summary?.iftaFuel?.totalFuelAmount ??
         summary?.iftaFuelTotal ??
@@ -918,6 +1116,7 @@ const ExpenseTracking = () => {
       totalCount: Number.isFinite(totalCount) ? totalCount : 0,
       totalAmount: Number.isFinite(totalAmount) ? totalAmount : 0,
       iftaFuel: { totalFuelAmount: Number.isFinite(iftaFuelAmount) ? iftaFuelAmount : 0 },
+      byStatus: summary?.byStatus || {},
     };
   })();
 
@@ -996,13 +1195,15 @@ const ExpenseTracking = () => {
             <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-5">
               <div>
                 <div className="text-lg font-semibold text-gray-600">
-                  IFTA Fuel
+                  {isShipper ? "Paid" : "IFTA Fuel"}
                 </div>
                 <div className="mt-2 text-2xl font-bold text-gray-900">
                   {summaryLoading ? (
                     <CircularProgress size={24} />
                   ) : (
-                    `$${Number(effectiveSummary.iftaFuel?.totalFuelAmount ?? 0).toLocaleString()}`
+                    isShipper
+                      ? Number(effectiveSummary.byStatus?.paid ?? 0).toLocaleString()
+                      : `$${Number(effectiveSummary.iftaFuel?.totalFuelAmount ?? 0).toLocaleString()}`
                   )}
                 </div>
               </div>
@@ -1017,7 +1218,7 @@ const ExpenseTracking = () => {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search category, truck, driver, vendor, status..."
+              placeholder={isShipper ? "Search category, load, vendor, status..." : "Search category, truck, driver, vendor, status..."}
               className="h-12 w-full flex-1 rounded-xl border border-slate-200 bg-white px-4 text-base text-slate-900 outline-none placeholder:text-slate-400 focus:border-slate-300"
             />
            <button
@@ -1047,7 +1248,7 @@ const ExpenseTracking = () => {
               label="Status"
               value={filters.status}
               onChange={(v) => handleFilterChange("status", v)}
-              options={STATUS_OPTIONS}
+              options={statusOptions}
             />
 
             <FilterDropdown
@@ -1060,15 +1261,41 @@ const ExpenseTracking = () => {
               ]}
             />
 
-            <FilterDropdown
-              label="Truck"
-              value={filters.truck}
-              onChange={(v) => handleFilterChange("truck", v)}
-              options={[
-                { value: "", label: "All" },
-                ...trucks.map((t) => ({ value: t._id, label: t.truckNumber })),
-              ]}
-            />
+            {isShipper ? (
+              <>
+                <FilterDropdown
+                  label="Vendor"
+                  value={filters.vendor}
+                  onChange={(v) => handleFilterChange("vendor", v)}
+                  options={[
+                    { value: "", label: "All" },
+                    ...vendors.map((v) => ({ value: v._id, label: v.name })),
+                  ]}
+                />
+                <FilterDropdown
+                  label="Load"
+                  value={filters.load}
+                  onChange={(v) => handleFilterChange("load", v)}
+                  options={[
+                    { value: "", label: "All" },
+                    ...loads.map((l) => ({
+                      value: l._id,
+                      label: l.shipmentNumber || l.loadNumber || l.referenceNumber || l._id,
+                    })),
+                  ]}
+                />
+              </>
+            ) : (
+              <FilterDropdown
+                label="Truck"
+                value={filters.truck}
+                onChange={(v) => handleFilterChange("truck", v)}
+                options={[
+                  { value: "", label: "All" },
+                  ...trucks.map((t) => ({ value: t._id, label: t.truckNumber })),
+                ]}
+              />
+            )}
 
             <FilterDropdown
               label="Date Range"
@@ -1194,12 +1421,20 @@ const ExpenseTracking = () => {
                       <th className="px-4 py-3 text-base font-semibold text-gray-500 border-t border-b border-gray-200">
                         Category
                       </th>
-                      <th className="px-4 py-3 text-base font-semibold text-gray-500 border-t border-b border-gray-200">
-                        Truck
-                      </th>
-                      <th className="px-4 py-3 text-base font-semibold text-gray-500 border-t border-b border-gray-200">
-                        Driver
-                      </th>
+                      {isShipper ? (
+                        <th className="px-4 py-3 text-base font-semibold text-gray-500 border-t border-b border-gray-200">
+                          Load
+                        </th>
+                      ) : (
+                        <>
+                          <th className="px-4 py-3 text-base font-semibold text-gray-500 border-t border-b border-gray-200">
+                            Truck
+                          </th>
+                          <th className="px-4 py-3 text-base font-semibold text-gray-500 border-t border-b border-gray-200">
+                            Driver
+                          </th>
+                        </>
+                      )}
                       <th className="px-4 py-3 text-base font-semibold text-gray-500 border-t border-b border-gray-200">
                         Vendor
                       </th>
@@ -1216,7 +1451,7 @@ const ExpenseTracking = () => {
                     {visibleExpenses.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={8}
+                          colSpan={isShipper ? 7 : 8}
                           className="px-3 py-6 text-center text-sm text-slate-500"
                         >
                           No expenses found.
@@ -1239,12 +1474,20 @@ const ExpenseTracking = () => {
                           <td className="px-4 py-4 font-medium text-gray-700 truncate border-t border-b border-gray-200">
                             {row.category?.name ?? "—"}
                           </td>
-                          <td className="px-4 py-4 font-medium text-gray-700 truncate border-t border-b border-gray-200">
-                            {row.truck?.truckNumber ?? "—"}
-                          </td>
-                          <td className="px-4 py-4 font-medium text-gray-700 truncate border-t border-b border-gray-200">
-                            {row.driver?.fullName ?? "—"}
-                          </td>
+                          {isShipper ? (
+                            <td className="px-4 py-4 font-medium text-gray-700 truncate border-t border-b border-gray-200">
+                              {row.load?.shipmentNumber || row.load?.loadNumber || row.load?.referenceNumber || "—"}
+                            </td>
+                          ) : (
+                            <>
+                              <td className="px-4 py-4 font-medium text-gray-700 truncate border-t border-b border-gray-200">
+                                {row.truck?.truckNumber ?? "—"}
+                              </td>
+                              <td className="px-4 py-4 font-medium text-gray-700 truncate border-t border-b border-gray-200">
+                                {row.driver?.fullName ?? "—"}
+                              </td>
+                            </>
+                          )}
                           <td className="px-4 py-4 font-medium text-gray-700 truncate border-t border-b border-gray-200">
                             {row.vendor?.name || row.vendorName || "—"}
                           </td>
@@ -1264,7 +1507,7 @@ const ExpenseTracking = () => {
                               >
                                 View
                               </button>
-                              {row.status !== "reimbursed" && (
+                              {((isShipper && row.status !== "paid") || (!isShipper && row.status !== "reimbursed")) && (
                                 <button
                                   type="button"
                                   onClick={() => openEditForm(row)}
@@ -1429,6 +1672,22 @@ const ExpenseTracking = () => {
                         searchPlaceholder="Search category..."
                       />
                     </div>
+                    <div className="mt-2 flex items-center justify-between gap-3">
+                      <div className="text-xs text-slate-600">
+                        {categories.length === 0 ? "No categories yet." : `${categories.length} category(ies) available.`}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCategoryCreateError("");
+                          setCategoryCreateOpen(true);
+                        }}
+                        className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-lg border border-blue-600 bg-white px-3 text-xs font-semibold text-blue-600 hover:bg-blue-50"
+                      >
+                        <Add fontSize="small" />
+                        Add Category
+                      </button>
+                    </div>
                     {formErrors.category ? (
                       <div className="mt-1 text-xs font-medium text-red-600">{formErrors.category}</div>
                     ) : null}
@@ -1468,7 +1727,7 @@ const ExpenseTracking = () => {
                         label="Payment Method"
                         value={form.payment?.method}
                         onChange={(v) => handlePaymentChange("method", v)}
-                        options={PAYMENT_METHODS.map((p) => ({ value: p.value, label: p.label }))}
+                        options={paymentMethods.map((p) => ({ value: p.value, label: p.label }))}
                         hideLabel
                         containerClassName="w-full"
                         buttonClassName="h-10 rounded-lg px-3 text-sm"
@@ -1496,68 +1755,98 @@ const ExpenseTracking = () => {
                     <div className="hidden md:block" />
                   )}
 
-                  <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-                    <div className="text-sm font-semibold text-slate-500">Truck</div>
-                    <div className="mt-2">
-                      <FilterDropdown
-                        label="Truck"
-                        value={form.truck}
-                        onChange={(v) => handleFormChange("truck", v)}
-                        options={[
-                          { value: "", label: "Select truck" },
-                          ...trucks.map((t) => ({ value: t._id, label: t.truckNumber })),
-                        ]}
-                        hideLabel
-                        containerClassName="w-full"
-                        buttonClassName="h-10 rounded-lg px-3 text-sm"
-                        placeholder="Select truck"
-                        searchable
-                        searchPlaceholder="Search truck..."
-                      />
+                  {isShipper ? (
+                    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                      <div className="text-sm font-semibold text-slate-500">Load</div>
+                      <div className="mt-2">
+                        <FilterDropdown
+                          label="Load"
+                          value={form.load}
+                          onChange={(v) => handleFormChange("load", v)}
+                          options={[
+                            { value: "", label: "Select load" },
+                            ...loads.map((l) => ({
+                              value: l._id,
+                              label: l.shipmentNumber || l.loadNumber || l.referenceNumber || l._id,
+                            })),
+                          ]}
+                          hideLabel
+                          containerClassName="w-full"
+                          buttonClassName="h-10 rounded-lg px-3 text-sm"
+                          placeholder="Select load"
+                          searchable
+                          searchPlaceholder="Search load..."
+                        />
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                      <div className="text-sm font-semibold text-slate-500">Truck</div>
+                      <div className="mt-2">
+                        <FilterDropdown
+                          label="Truck"
+                          value={form.truck}
+                          onChange={(v) => handleFormChange("truck", v)}
+                          options={[
+                            { value: "", label: "Select truck" },
+                            ...trucks.map((t) => ({ value: t._id, label: t.truckNumber })),
+                          ]}
+                          hideLabel
+                          containerClassName="w-full"
+                          buttonClassName="h-10 rounded-lg px-3 text-sm"
+                          placeholder="Select truck"
+                          searchable
+                          searchPlaceholder="Search truck..."
+                        />
+                      </div>
+                    </div>
+                  )}
 
-                  <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-                    <div className="text-sm font-semibold text-slate-500">Driver</div>
-                    <div className="mt-2">
-                      <FilterDropdown
-                        label="Driver"
-                        value={form.driver}
-                        onChange={(v) => handleFormChange("driver", v)}
-                        options={[
-                          { value: "", label: "Select driver" },
-                          ...drivers.map((d) => ({ value: d._id, label: d.fullName })),
-                        ]}
-                        hideLabel
-                        containerClassName="w-full"
-                        buttonClassName="h-10 rounded-lg px-3 text-sm"
-                        placeholder="Select driver"
-                        searchable
-                        searchPlaceholder="Search driver..."
-                      />
+                  {!isShipper ? (
+                    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                      <div className="text-sm font-semibold text-slate-500">Driver</div>
+                      <div className="mt-2">
+                        <FilterDropdown
+                          label="Driver"
+                          value={form.driver}
+                          onChange={(v) => handleFormChange("driver", v)}
+                          options={[
+                            { value: "", label: "Select driver" },
+                            ...drivers.map((d) => ({ value: d._id, label: d.fullName })),
+                          ]}
+                          hideLabel
+                          containerClassName="w-full"
+                          buttonClassName="h-10 rounded-lg px-3 text-sm"
+                          placeholder="Select driver"
+                          searchable
+                          searchPlaceholder="Search driver..."
+                        />
+                      </div>
                     </div>
-                  </div>
+                  ) : null}
 
-                  <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-                    <div className="text-sm font-semibold text-slate-500">Trip</div>
-                    <div className="mt-2">
-                      <FilterDropdown
-                        label="Trip"
-                        value={form.trip}
-                        onChange={(v) => handleFormChange("trip", v)}
-                        options={[
-                          { value: "", label: "Select trip" },
-                          ...trips.map((t) => ({ value: t._id, label: t.tripId })),
-                        ]}
-                        hideLabel
-                        containerClassName="w-full"
-                        buttonClassName="h-10 rounded-lg px-3 text-sm"
-                        placeholder="Select trip"
-                        searchable
-                        searchPlaceholder="Search trip..."
-                      />
+                  {!isShipper ? (
+                    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                      <div className="text-sm font-semibold text-slate-500">Trip</div>
+                      <div className="mt-2">
+                        <FilterDropdown
+                          label="Trip"
+                          value={form.trip}
+                          onChange={(v) => handleFormChange("trip", v)}
+                          options={[
+                            { value: "", label: "Select trip" },
+                            ...trips.map((t) => ({ value: t._id, label: t.tripId })),
+                          ]}
+                          hideLabel
+                          containerClassName="w-full"
+                          buttonClassName="h-10 rounded-lg px-3 text-sm"
+                          placeholder="Select trip"
+                          searchable
+                          searchPlaceholder="Search trip..."
+                        />
+                      </div>
                     </div>
-                  </div>
+                  ) : null}
 
                   <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
                     <div className="text-sm font-semibold text-slate-500">Vendor</div>
@@ -1577,6 +1866,22 @@ const ExpenseTracking = () => {
                         searchable
                         searchPlaceholder="Search vendor..."
                       />
+                    </div>
+                    <div className="mt-2 flex items-center justify-between gap-3">
+                      <div className="text-xs text-slate-600">
+                        {vendors.length === 0 ? "No vendors yet." : `${vendors.length} vendor(s) available.`}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setVendorCreateError("");
+                          setVendorCreateOpen(true);
+                        }}
+                        className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-lg border border-blue-600 bg-white px-3 text-xs font-semibold text-blue-600 hover:bg-blue-50"
+                      >
+                        <Add fontSize="small" />
+                        Add Vendor
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -1831,32 +2136,48 @@ const ExpenseTracking = () => {
                   <div className="mb-3 text-base font-semibold text-emerald-700">
                     Assignment
                   </div>
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-                      <div className="text-sm font-semibold text-slate-500">
-                        Truck
-                      </div>
-                      <div className="mt-1 text-sm font-semibold text-slate-900">
-                        {selectedExpense.truck?.truckNumber ?? "—"}
-                      </div>
-                    </div>
-                    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-                      <div className="text-sm font-semibold text-slate-500">
-                        Driver
-                      </div>
-                      <div className="mt-1 text-sm font-semibold text-slate-900">
-                        {selectedExpense.driver?.fullName ?? "—"}
+                  {isShipper ? (
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                      <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                        <div className="text-sm font-semibold text-slate-500">
+                          Load
+                        </div>
+                        <div className="mt-1 text-sm font-semibold text-slate-900">
+                          {selectedExpense.load?.shipmentNumber ||
+                            selectedExpense.load?.loadNumber ||
+                            selectedExpense.load?.referenceNumber ||
+                            "—"}
+                        </div>
                       </div>
                     </div>
-                    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-                      <div className="text-sm font-semibold text-slate-500">
-                        Trip
+                  ) : (
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                      <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                        <div className="text-sm font-semibold text-slate-500">
+                          Truck
+                        </div>
+                        <div className="mt-1 text-sm font-semibold text-slate-900">
+                          {selectedExpense.truck?.truckNumber ?? "—"}
+                        </div>
                       </div>
-                      <div className="mt-1 text-sm font-semibold text-slate-900">
-                        {selectedExpense.trip?.tripId ?? "—"}
+                      <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                        <div className="text-sm font-semibold text-slate-500">
+                          Driver
+                        </div>
+                        <div className="mt-1 text-sm font-semibold text-slate-900">
+                          {selectedExpense.driver?.fullName ?? "—"}
+                        </div>
+                      </div>
+                      <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                        <div className="text-sm font-semibold text-slate-500">
+                          Trip
+                        </div>
+                        <div className="mt-1 text-sm font-semibold text-slate-900">
+                          {selectedExpense.trip?.tripId ?? "—"}
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
                 </div>
 
                 <div className="rounded-2xl border border-violet-100 bg-violet-50/40 p-4">
@@ -1915,7 +2236,7 @@ const ExpenseTracking = () => {
                   </div>
                 </div>
 
-                {selectedExpense.status === "pending" && (
+                {!isShipper && selectedExpense.status === "pending" && (
                   <div className="rounded-2xl border border-amber-100 bg-amber-50/50 p-4">
                     <div className="mb-3 text-base font-semibold text-amber-700">
                       Approval
@@ -1954,7 +2275,7 @@ const ExpenseTracking = () => {
                   </div>
                 )}
 
-                {selectedExpense.status === "approved" && (
+                {!isShipper && selectedExpense.status === "approved" && (
                   <div className="flex justify-end">
                     <button
                       type="button"
@@ -2079,6 +2400,146 @@ const ExpenseTracking = () => {
                 "Delete"
               )}
             </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog
+          open={categoryCreateOpen}
+          onClose={() => {
+            if (!categoryCreateLoading) setCategoryCreateOpen(false);
+          }}
+          maxWidth="xs"
+          fullWidth
+          PaperProps={{ className: "overflow-hidden rounded-2xl" }}
+        >
+          <DialogTitle sx={{ backgroundColor: brand, color: "#fff" }}>
+            Add Category
+          </DialogTitle>
+          <DialogContent className="bg-white p-5">
+            <div className="grid grid-cols-1 gap-4">
+              <TextField
+                fullWidth
+                size="small"
+                label="Name"
+                value={categoryDraft.name}
+                onChange={(e) => setCategoryDraft((p) => ({ ...p, name: e.target.value }))}
+              />
+              <TextField
+                fullWidth
+                size="small"
+                label="Code"
+                value={categoryDraft.code}
+                onChange={(e) => setCategoryDraft((p) => ({ ...p, code: e.target.value }))}
+              />
+              {categoryCreateError ? (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {categoryCreateError}
+                </div>
+              ) : null}
+            </div>
+          </DialogContent>
+          <DialogActions className="border-t border-slate-200 bg-white px-5 py-4">
+            <button
+              type="button"
+              onClick={() => setCategoryCreateOpen(false)}
+              disabled={categoryCreateLoading}
+              className="inline-flex h-10 cursor-pointer items-center justify-center rounded-xl border border-slate-300 bg-white px-5 text-sm font-semibold text-slate-900 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={createCategory}
+              disabled={categoryCreateLoading}
+              className="inline-flex h-10 cursor-pointer items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {categoryCreateLoading ? <CircularProgress size={18} className="text-white" /> : "Save"}
+            </button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog
+          open={vendorCreateOpen}
+          onClose={() => {
+            if (!vendorCreateLoading) setVendorCreateOpen(false);
+          }}
+          maxWidth="sm"
+          fullWidth
+          PaperProps={{ className: "overflow-hidden rounded-2xl" }}
+        >
+          <DialogTitle sx={{ backgroundColor: brand, color: "#fff" }}>
+            Add Vendor
+          </DialogTitle>
+          <DialogContent className="bg-white p-5">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <TextField
+                fullWidth
+                size="small"
+                label="Name"
+                value={vendorDraft.name}
+                onChange={(e) => setVendorDraft((p) => ({ ...p, name: e.target.value }))}
+              />
+              <TextField
+                fullWidth
+                size="small"
+                label="Phone"
+                value={vendorDraft.phone}
+                onChange={(e) => setVendorDraft((p) => ({ ...p, phone: e.target.value }))}
+              />
+              <TextField
+                fullWidth
+                size="small"
+                label="Email"
+                value={vendorDraft.email}
+                onChange={(e) => setVendorDraft((p) => ({ ...p, email: e.target.value }))}
+              />
+              <TextField
+                fullWidth
+                size="small"
+                label="Contact Person"
+                value={vendorDraft.contactPerson}
+                onChange={(e) => setVendorDraft((p) => ({ ...p, contactPerson: e.target.value }))}
+              />
+              <TextField
+                fullWidth
+                size="small"
+                label="Address"
+                value={vendorDraft.address}
+                onChange={(e) => setVendorDraft((p) => ({ ...p, address: e.target.value }))}
+                className="md:col-span-2"
+              />
+              <TextField
+                fullWidth
+                size="small"
+                label="Notes"
+                value={vendorDraft.notes}
+                onChange={(e) => setVendorDraft((p) => ({ ...p, notes: e.target.value }))}
+                className="md:col-span-2"
+              />
+              {vendorCreateError ? (
+                <div className="md:col-span-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {vendorCreateError}
+                </div>
+              ) : null}
+            </div>
+          </DialogContent>
+          <DialogActions className="border-t border-slate-200 bg-white px-5 py-4">
+            <button
+              type="button"
+              onClick={() => setVendorCreateOpen(false)}
+              disabled={vendorCreateLoading}
+              className="inline-flex h-10 cursor-pointer items-center justify-center rounded-xl border border-slate-300 bg-white px-5 text-sm font-semibold text-slate-900 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={createVendor}
+              disabled={vendorCreateLoading}
+              className="inline-flex h-10 cursor-pointer items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {vendorCreateLoading ? <CircularProgress size={18} className="text-white" /> : "Save"}
+            </button>
           </DialogActions>
         </Dialog>
       </div>
