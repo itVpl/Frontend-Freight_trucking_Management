@@ -416,7 +416,7 @@ const Dashboard = () => {
     <Box sx={{ p: 3 }}>
       <div className="mb-2 flex items-center gap-2">
         <div className="text-2xl font-semibold text-gray-700">Fleet Overview</div>
-        <span className="inline-block rounded-full bg-blue-600 text-white text-base font-semibold px-3 py-1">
+        <span className="inline-block rounded-full text-white text-base font-semibold px-3 py-1" style={{ backgroundColor: "#1976d2" }}>
           {vehicles.length} Vehicles
         </span>
       </div>
@@ -453,9 +453,19 @@ const Dashboard = () => {
           >
             Export CSV
           </button>
-         <button
+        <button
   onClick={() => setOpenAddDialog(true)}
-  className="h-11 px-4 rounded-md border border-blue-600 text-white text-base font-medium cursor-pointer bg-blue-600 hover:bg-blue-700 flex items-center gap-2"
+  className="h-11 px-4 rounded-md text-white text-base font-medium cursor-pointer flex items-center gap-2"
+  style={{
+    backgroundColor: "#1976d2",
+    border: "1px solid #1976d2",
+  }}
+  onMouseEnter={(e) =>
+    (e.currentTarget.style.backgroundColor = "#1565c0")
+  }
+  onMouseLeave={(e) =>
+    (e.currentTarget.style.backgroundColor = "#1976d2")
+  }
 >
   <FiPlus size={18} strokeWidth={4} />
   Add Vehicle

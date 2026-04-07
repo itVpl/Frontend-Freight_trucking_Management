@@ -1020,14 +1020,24 @@ const ExpenseTracking = () => {
               placeholder="Search category, truck, driver, vendor, status..."
               className="h-12 w-full flex-1 rounded-xl border border-slate-200 bg-white px-4 text-base text-slate-900 outline-none placeholder:text-slate-400 focus:border-slate-300"
             />
-            <button
-              type="button"
-              onClick={openAddForm}
-              className="inline-flex h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-slate-200 bg-blue-600 px-4 text-base font-medium text-white"
-            >
-              <Add fontSize="small" />
-              Add Expense
-            </button>
+           <button
+  type="button"
+  onClick={openAddForm}
+  className="inline-flex h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 text-base font-medium text-white"
+  style={{
+    backgroundColor: "#1976d2",
+    border: "1px solid #1976d2",
+  }}
+  onMouseEnter={(e) =>
+    (e.currentTarget.style.backgroundColor = "#1565c0")
+  }
+  onMouseLeave={(e) =>
+    (e.currentTarget.style.backgroundColor = "#1976d2")
+  }
+>
+  <Add fontSize="small" />
+  Add Expense
+</button>
           </div>
         </div>
 
