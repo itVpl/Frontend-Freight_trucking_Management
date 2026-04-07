@@ -1197,7 +1197,7 @@ onClose={() => {
         panelClassName="max-w-4xl"
         bodyClassName="max-h-[60vh] overflow-y-auto bg-slate-50 p-5"
         header={
-          <div className="flex items-center justify-between bg-blue-600 px-5 py-4 text-white">
+        <div className="flex items-center justify-between bg-[rgb(25,118,210)] px-5 py-4 text-white">
             <div>
               <div className="text-lg font-semibold leading-tight">
                 {formMode === "create" ? "Create Maintenance Record" : "Edit Maintenance Record"}
@@ -1219,7 +1219,7 @@ onClose={() => {
               type="button"
               onClick={() => setFormOpen(false)}
               disabled={formLoading}
-              className="cursor-pointer h-10 rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              className="cursor-pointer h-10 rounded-md border border-red-600 bg-white px-4 text-sm font-semibold text-red-500 hover:bg-red-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
               Cancel
             </button>
@@ -1649,7 +1649,7 @@ onClose={() => setViewOpen(false)}
         panelClassName="max-w-4xl"
         bodyClassName="max-h-[60vh] overflow-y-auto bg-slate-50 p-5"
         header={
-          <div className="flex items-center justify-between bg-blue-600 px-5 py-4 text-white">
+          <div className="flex items-center justify-between bg-[rgb(25,118,210)] px-5 py-4 text-white">
             <div>
               <div className="text-lg font-semibold leading-tight">Maintenance Record</div>
               <div className="text-base text-white/80">Review details below</div>
