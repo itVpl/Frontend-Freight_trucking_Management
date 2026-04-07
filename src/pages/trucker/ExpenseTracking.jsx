@@ -1484,7 +1484,7 @@ const ExpenseTracking = () => {
 
                   {form.payment?.method === "card" ? (
                     <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-                      <div className="text-sm font-semibold text-slate-500">Card last 4</div>
+                      <div className="text-sm font-semibold text-slate-500">Card last 4 digits</div>
                       <input
                         value={form.payment?.cardLastFour ?? ""}
                         onChange={(e) => handlePaymentChange("cardLastFour", e.target.value)}
