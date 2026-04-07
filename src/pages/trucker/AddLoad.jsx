@@ -1423,7 +1423,7 @@ const AddLoad = () => {
 
      <div className="mb-2 flex items-center gap-3">
   <span className="text-2xl font-semibold text-gray-700">Add Load</span>
-  <span className="bg-blue-600 text-white text-sm font-semibold px-3 py-1.5 rounded-full">
+  <span className="text-white text-sm font-semibold px-3 py-1.5 rounded-full" style={{ backgroundColor: "#1976d2" }}>
     {loadsData.length} Load{loadsData.length !== 1 ? 's' : ''}
   </span>
 </div>
@@ -1463,25 +1463,35 @@ const AddLoad = () => {
             Export CSV
           </button>
           <button
-            onClick={handleAddLoad}
-            className="h-11 px-6 rounded-md bg-blue-600 text-white text-base font-medium cursor-pointer flex items-center gap-1.5"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            Add Load
-          </button>
+  onClick={handleAddLoad}
+  className="h-11 px-6 rounded-md text-white text-base font-medium cursor-pointer flex items-center gap-1.5"
+  style={{
+    backgroundColor: "#1976d2",
+    border: "1px solid #1976d2",
+  }}
+  onMouseEnter={(e) =>
+    (e.currentTarget.style.backgroundColor = "#1565c0")
+  }
+  onMouseLeave={(e) =>
+    (e.currentTarget.style.backgroundColor = "#1976d2")
+  }
+>
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="4"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <line x1="12" y1="5" x2="12" y2="19" />
+    <line x1="5" y1="12" x2="19" y2="12" />
+  </svg>
+  Add Load
+</button>
         </div>
       </div>
 

@@ -921,13 +921,23 @@ const MaintenanceManagement = () => {
               Refresh
             </button>
             <button
-              type="button"
-              onClick={openCreate}
-              className="cursor-pointer inline-flex h-11 items-center gap-2 rounded-xl bg-blue-600 px-4 text-base font-semibold text-white hover:bg-blue-700"
-            >
-              <Plus size={20} />
-              New Record
-            </button>
+  type="button"
+  onClick={openCreate}
+  className="cursor-pointer inline-flex h-11 items-center gap-2 rounded-xl px-4 text-base font-semibold text-white"
+  style={{
+    backgroundColor: "#1976d2",
+    border: "1px solid #1976d2",
+  }}
+  onMouseEnter={(e) =>
+    (e.currentTarget.style.backgroundColor = "#1565c0")
+  }
+  onMouseLeave={(e) =>
+    (e.currentTarget.style.backgroundColor = "#1976d2")
+  }
+>
+  <Plus size={20} />
+  New Record
+</button>
           </div>
         </div>
       </div>
