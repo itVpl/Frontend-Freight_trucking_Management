@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Upload, X, Eye, Pencil, Trash2, Plus, RefreshCw, LayoutGrid, BarChart3, Zap, Calendar, Clock, CheckCircle2, ZapOff, ChevronDown, Check, AlertTriangle } from "lucide-react";
+import { Upload, X, Eye, Pencil, Trash2, Plus, RefreshCw, LayoutGrid, BarChart3, Zap, Calendar, Clock, CheckCircle2, ZapOff, ChevronDown, Check } from "lucide-react";
 import { BASE_API_URL } from "../../apiConfig";
 
 const DATE_RANGE_OPTIONS = [
@@ -1794,34 +1794,38 @@ onClose={() => setViewOpen(false)}
         onClose={() => {
           if (!deleteLoading) setDeleteOpen(false);
         }}
+        panelClassName="max-w-[444px] rounded-3xl"
+        bodyClassName="px-6 pb-6 pt-4"
         header={
-          <div className="flex flex-col items-center justify-center gap-1 bg-blue-600 px-6 py-6">
-            <AlertTriangle size={44} className="text-amber-400" />
-            <div className="text-lg font-bold text-white">Confirm Deletion</div>
-          </div>
-        }
-        footer={
-          <div className="flex items-center justify-center gap-3">
-            <button
-              type="button"
-              onClick={() => setDeleteOpen(false)}
-              disabled={deleteLoading}
-              className="h-11 rounded-xl border border-slate-900 bg-white px-6 text-sm font-semibold text-slate-900 hover:bg-slate-900 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={confirmDelete}
-              disabled={deleteLoading}
-              className="h-11 rounded-xl bg-red-600 px-6 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {deleteLoading ? "Deleting…" : "Delete"}
-            </button>
+          <div className="flex flex-col items-center justify-center gap-2 bg-[#1976d2] px-5 py-5 text-white">
+            <svg width="44" height="44" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M24 4L2 44h44L24 4z" fill="#F59E0B" />
+              <rect x="22.5" y="18" width="3" height="12" fill="#1F2937" />
+              <circle cx="24" cy="34" r="2.3" fill="#1F2937" />
+            </svg>
+            <div className="text-xl font-bold">Confirm Deletion</div>
           </div>
         }
       >
-        <div className="text-center text-sm text-slate-700">Are you sure you want to delete this record?</div>
+        <div className="text-center text-base font-gray-700">Are you sure you want to delete this record?</div>
+        <div className="mt-6 flex items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={() => setDeleteOpen(false)}
+            disabled={deleteLoading}
+            className="cursor-pointer h-11 rounded-xl border border-slate-900 bg-white px-6 text-sm font-semibold text-slate-900 hover:bg-slate-900 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={confirmDelete}
+            disabled={deleteLoading}
+            className="cursor-pointer h-11 items-center justify-center rounded-xl bg-red-600 px-6 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {deleteLoading ? <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/50 border-t-white" /> : "Delete"}
+          </button>
+        </div>
       </ModalShell>
 
       {toast.open ? (
