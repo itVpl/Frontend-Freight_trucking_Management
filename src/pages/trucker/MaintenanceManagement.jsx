@@ -116,6 +116,8 @@ const FilterDropdown = ({
   placeholder = "Select",
   searchable = false,
   searchPlaceholder = "Search...",
+  /** Render below the option list (e.g. “Create truck”). Pass a function to receive `close` and close the menu. */
+  dropdownFooter = null,
 }) => {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -170,6 +172,18 @@ const FilterDropdown = ({
     if (!open) setQuery("");
   }, [open]);
 
+  const closePanel = () => {
+    setOpen(false);
+    setQuery("");
+  };
+
+  const footerContent =
+    dropdownFooter == null
+      ? null
+      : typeof dropdownFooter === "function"
+        ? dropdownFooter(closePanel)
+        : dropdownFooter;
+
   return (
     <div className={containerClassName || "min-w-[220px] flex-1"}>
       {hideLabel ? null : <label className="mb-1 block text-sm font-medium text-gray-700">{label}</label>}
@@ -207,7 +221,7 @@ const FilterDropdown = ({
             ref={panelRef}
             className="absolute z-20 mt-2 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
           >
-            <div className="flex max-h-72 flex-col">
+            <div className="flex max-h-80 flex-col">
               {searchable ? (
                 <div className="border-b border-slate-200 bg-white p-2">
                   <input
@@ -218,7 +232,7 @@ const FilterDropdown = ({
                   />
                 </div>
               ) : null}
-              <div id={listboxId} role="listbox" className="max-h-72 overflow-auto py-1">
+              <div id={listboxId} role="listbox" className="min-h-0 max-h-56 overflow-auto py-1">
                 {visibleOptions.length === 0 ? (
                   <div className="px-4 py-3 text-sm text-slate-500">No results</div>
                 ) : (
@@ -246,6 +260,9 @@ const FilterDropdown = ({
                   })
                 )}
               </div>
+              {footerContent ? (
+                <div className="shrink-0 border-t border-slate-200 bg-slate-50 p-2">{footerContent}</div>
+              ) : null}
             </div>
           </div>
         )}
@@ -374,6 +391,15 @@ const MaintenanceManagement = () => {
 
   const [toast, setToast] = useState({ open: false, type: "success", message: "" });
 
+  const [createTruckOpen, setCreateTruckOpen] = useState(false);
+  const [createTruckLoading, setCreateTruckLoading] = useState(false);
+  const [createTruckForm, setCreateTruckForm] = useState({
+    truckNumber: "",
+    trailerNumber: "",
+    vin: "",
+    notes: "",
+  });
+
   const [formOpen, setFormOpen] = useState(false);
   const [formMode, setFormMode] = useState("create");
   const [activeId, setActiveId] = useState(null);
@@ -491,6 +517,53 @@ const MaintenanceManagement = () => {
       setOptionsLoading(false);
     }
   }, [request, showToast]);
+
+  const getTruckingExpenseAuthHeaders = useCallback(() => {
+    const token = localStorage.getItem("token");
+    const headers = { "Content-Type": "application/json" };
+    if (token) headers.Authorization = `Bearer ${token}`;
+    return headers;
+  }, []);
+
+  const submitCreateTruck = useCallback(async () => {
+    const truckNumber = createTruckForm.truckNumber.trim();
+    if (!truckNumber) {
+      showToast("Truck number is required", "error");
+      return;
+    }
+    const payload = {
+      truckNumber,
+      ...(createTruckForm.trailerNumber.trim() ? { trailerNumber: createTruckForm.trailerNumber.trim() } : {}),
+      ...(createTruckForm.vin.trim() ? { vin: createTruckForm.vin.trim() } : {}),
+      ...(createTruckForm.notes.trim() ? { notes: createTruckForm.notes.trim() } : {}),
+    };
+    setCreateTruckLoading(true);
+    try {
+      const res = await fetch(`${BASE_API_URL}/api/v1/trucking-expenses/trucks`, {
+        method: "POST",
+        headers: getTruckingExpenseAuthHeaders(),
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data?.success === false) {
+        throw new Error(data?.message || `Request failed (${res.status})`);
+      }
+      const created = data?.data?.truck ?? data?.data ?? data?.truck;
+      const newId = created?._id;
+      await loadDropdowns();
+      if (newId) {
+        setForm((p) => ({ ...p, truck: newId }));
+      }
+      setCreateTruckForm({ truckNumber: "", trailerNumber: "", vin: "", notes: "" });
+      setCreateTruckOpen(false);
+      showToast(data?.message || "Truck created");
+    } catch (e) {
+      showToast(e.message || "Failed to create truck", "error");
+    } finally {
+      setCreateTruckLoading(false);
+    }
+  }, [createTruckForm, getTruckingExpenseAuthHeaders, loadDropdowns, showToast]);
 
   const loadSummary = useCallback(async () => {
     setSummaryLoading(true);
@@ -1268,7 +1341,23 @@ onClose={() => {
                       placeholder="Select truck"
                       searchable
                       searchPlaceholder="Search truck..."
+                      dropdownFooter={(close) => (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            close();
+                            setCreateTruckOpen(true);
+                          }}
+                          className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-blue-600 bg-white px-3 py-2 text-xs font-semibold text-blue-600 hover:bg-blue-50"
+                        >
+                          <Plus size={16} className="shrink-0" />
+                          Add Truck
+                        </button>
+                      )}
                     />
+                  </div>
+                  <div className="mt-2 text-xs text-slate-600">
+                    {trucks.length === 0 ? "No trucks yet." : `${trucks.length} truck(s) available.`}
                   </div>
                 </div>
 
@@ -1646,6 +1735,96 @@ onClose={() => {
             </div>
           </div>
         )}
+      </ModalShell>
+
+      <ModalShell
+        open={createTruckOpen}
+        title=""
+        onClose={() => {
+          if (!createTruckLoading) setCreateTruckOpen(false);
+        }}
+        panelClassName="max-w-lg"
+        bodyClassName="max-h-[70vh] overflow-y-auto bg-slate-50 p-5"
+        header={
+          <div className="flex items-center justify-between bg-[rgb(25,118,210)] px-5 py-4 text-white">
+            <div>
+              <div className="text-lg font-semibold leading-tight">Create truck</div>
+              <div className="text-base text-white/80">Register via trucking expenses</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => !createTruckLoading && setCreateTruckOpen(false)}
+              className="grid h-9 w-9 cursor-pointer place-items-center rounded-xl bg-white/10 hover:bg-white/20"
+            >
+              <X size={18} className="text-white" />
+            </button>
+          </div>
+        }
+        footer={
+          <div className="flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => !createTruckLoading && setCreateTruckOpen(false)}
+              disabled={createTruckLoading}
+              className="cursor-pointer h-10 rounded-md border border-red-600 bg-white px-4 text-sm font-semibold text-red-500 hover:bg-red-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={submitCreateTruck}
+              disabled={createTruckLoading}
+              className="cursor-pointer h-10 rounded-md bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {createTruckLoading ? "Saving…" : "Save"}
+            </button>
+          </div>
+        }
+      >
+        <div className="mt-1 space-y-4">
+          <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+            <div className="text-sm font-semibold text-slate-500">
+              Truck number <span className="text-red-600">*</span>
+            </div>
+            <input
+              value={createTruckForm.truckNumber}
+              onChange={(e) => setCreateTruckForm((p) => ({ ...p, truckNumber: e.target.value }))}
+              className="mt-2 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15"
+              placeholder="e.g. T-102"
+              autoComplete="off"
+            />
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+            <div className="text-sm font-semibold text-slate-500">Trailer number</div>
+            <input
+              value={createTruckForm.trailerNumber}
+              onChange={(e) => setCreateTruckForm((p) => ({ ...p, trailerNumber: e.target.value }))}
+              className="mt-2 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15"
+              placeholder="e.g. TRL-55"
+              autoComplete="off"
+            />
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+            <div className="text-sm font-semibold text-slate-500">VIN</div>
+            <input
+              value={createTruckForm.vin}
+              onChange={(e) => setCreateTruckForm((p) => ({ ...p, vin: e.target.value }))}
+              className="mt-2 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15"
+              placeholder="Vehicle identification number"
+              autoComplete="off"
+            />
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+            <div className="text-sm font-semibold text-slate-500">Notes</div>
+            <textarea
+              value={createTruckForm.notes}
+              onChange={(e) => setCreateTruckForm((p) => ({ ...p, notes: e.target.value }))}
+              rows={3}
+              className="mt-2 w-full rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15"
+              placeholder="Primary lane truck, etc."
+            />
+          </div>
+        </div>
       </ModalShell>
 
       <ModalShell

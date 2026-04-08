@@ -16,6 +16,7 @@ import Yard from './pages/trucker/Yard';
 import YardDropContainer from './pages/trucker/YardDropContainer';
 import ExpenseTracking from './pages/trucker/ExpenseTracking';
 import MaintenanceManagement from './pages/trucker/MaintenanceManagement';
+import TruckingExpenseTrucks from './pages/trucker/TruckingExpenseTrucks';
 import Reports from './pages/reports/Reports';
 import Bills from './pages/shipper/Bills';
 import Loadboard from './pages/shipper/Loadboard';
@@ -253,6 +254,7 @@ function App() {
                       <Route path="/fleet" element={<ProtectedRoute userType="trucker"><Fleet /></ProtectedRoute>} />
                       <Route path="/billing" element={<ProtectedRoute userType="trucker" requiredPermission="billing"><Billing /></ProtectedRoute>} />
                       <Route path="/expense-tracking" element={<ProtectedRoute requiredPermission="expenseTracking"><ExpenseTracking /></ProtectedRoute>} />
+                      <Route path="/expense-trucks" element={<ProtectedRoute userType="trucker" requiredPermission="expenseTracking"><TruckingExpenseTrucks /></ProtectedRoute>} />
                       <Route path="/maintenance-management" element={<ProtectedRoute userType="trucker" requiredPermission="maintenanceManagement"><MaintenanceManagement /></ProtectedRoute>} />
                       <Route path="/driver" element={<ProtectedRoute userType="trucker"><Driver /></ProtectedRoute>} />
                       <Route path="/payments" element={<ProtectedRoute userType="trucker"><Payments /></ProtectedRoute>} />
