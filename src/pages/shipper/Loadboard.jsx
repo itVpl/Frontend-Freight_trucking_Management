@@ -290,6 +290,7 @@ const LoadBoard = () => {
     bidDeadline: '',
 
     // DRAYAGE specific fields
+    portName: '',
     fromAddress: '',
     fromCity: '',
     fromState: '',
@@ -507,6 +508,7 @@ const LoadBoard = () => {
     bidDeadline: '',
 
     // DRAYAGE specific fields
+    portName: '',
     fromAddress: '',
     fromCity: '',
     fromState: '',
@@ -1103,6 +1105,7 @@ const LoadBoard = () => {
         rate: '',
         rateType: 'Flat Rate',
         bidDeadline: '',
+        portName: '',
         fromAddress: '',
         fromCity: '',
         fromState: '',
@@ -1132,6 +1135,7 @@ const LoadBoard = () => {
         rate: '',
         rateType: 'Per Mile',
         bidDeadline: '',
+        portName: '',
         fromAddress: '',
         fromCity: '',
         fromState: '',
@@ -1278,6 +1282,7 @@ const LoadBoard = () => {
 
         payload = {
           loadType: 'DRAYAGE',
+          portName: form.portName || '',
           fromCity: form.fromCity,
           fromState: form.fromState,
           fromAddressLine1: form.fromAddress || '',
@@ -1777,6 +1782,7 @@ const handleEditLoad = (load) => {
       bidDeadline: load.bidDeadline ? new Date(load.bidDeadline).toISOString().split('T')[0] : '',
       
       // DRAYAGE specific fields - using origins/destinations from API
+      portName: load.portName || '',
       fromAddress: load.origins && load.origins.length > 0 ? load.origins[0].addressLine1 || '' : '',
       fromCity: load.origins && load.origins.length > 0 ? load.origins[0].city || '' : '',
       fromState: load.origins && load.origins.length > 0 ? load.origins[0].state || '' : '',
@@ -1870,6 +1876,7 @@ const handleEditLoad = (load) => {
       total: load.rateDetails?.totalRates || load.rate || '',
       
       // Clear DRAYAGE fields
+      portName: '',
       fromAddress: '',
       fromCity: '',
       fromState: '',
@@ -1924,6 +1931,7 @@ const handleEditLoad = (load) => {
       loadType: 'DRAYAGE',
       
       // DRAYAGE specific fields - using origins/destinations from API
+      portName: load.portName || '',
       fromAddress: load.origins && load.origins.length > 0 ? load.origins[0].addressLine1 || '' : '',
       fromCity: load.origins && load.origins.length > 0 ? load.origins[0].city || '' : '',
       fromState: load.origins && load.origins.length > 0 ? load.origins[0].state || '' : '',
@@ -2021,6 +2029,7 @@ const handleEditLoad = (load) => {
       total: load.rateDetails?.totalRates || load.rate || '',
       
       // Clear DRAYAGE fields
+      portName: '',
       fromAddress: '',
       fromCity: '',
       fromState: '',
@@ -2296,6 +2305,7 @@ const handleEditLoad = (load) => {
 
         updateData = {
           loadType: 'DRAYAGE',
+          portName: editForm.portName || '',
           fromCity: editForm.fromCity,
           fromState: editForm.fromState,
           fromAddressLine1: editForm.fromAddress || '',
@@ -3495,6 +3505,38 @@ const handleEditLoad = (load) => {
                       </Typography>
 
                       <Grid container spacing={2}>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            label="Port Name"
+                            name="portName"
+                            value={form.portName}
+                            onChange={handleFormChange}
+                            fullWidth
+                            placeholder="Port Name"
+                            InputLabelProps={{ shrink: true }}
+                            sx={{
+                              '& .MuiInputBase-root': {
+                                borderRadius: 2,
+                                backgroundColor: '#fff',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                                transition: 'border-color 0.2s ease',
+                              },
+                              '& .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#E2E8F0',
+                              },
+                              '&:hover .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '& .MuiInputLabel-root': {
+                                color: '#4A5568',
+                                fontSize: '0.875rem',
+                              },
+                            }}
+                          />
+                        </Grid>
                         <Grid item xs={12} sm={6}>
                           <TextField
                             label="Pickup Full Address *"
@@ -6865,6 +6907,38 @@ const handleEditLoad = (load) => {
                       </Typography>
 
                       <Grid container spacing={2}>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            label="Port Name"
+                            name="portName"
+                            value={editForm.portName}
+                            onChange={handleEditFormChange}
+                            fullWidth
+                            placeholder="Port Name"
+                            InputLabelProps={{ shrink: true }}
+                            sx={{
+                              '& .MuiInputBase-root': {
+                                borderRadius: 2,
+                                backgroundColor: '#fff',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                                transition: 'border-color 0.2s ease',
+                              },
+                              '& .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#E2E8F0',
+                              },
+                              '&:hover .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '& .MuiInputLabel-root': {
+                                color: '#4A5568',
+                                fontSize: '0.875rem',
+                              },
+                            }}
+                          />
+                        </Grid>
                         <Grid item xs={12} sm={6}>
                           <TextField
                             label="Pickup Full Address *"

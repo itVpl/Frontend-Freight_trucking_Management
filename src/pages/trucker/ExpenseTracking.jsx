@@ -101,6 +101,7 @@ const FilterDropdown = ({
   placeholder = "Select",
   searchable = false,
   searchPlaceholder = "Search...",
+  dropdownFooter = null,
 }) => {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -154,6 +155,11 @@ const FilterDropdown = ({
   useEffect(() => {
     if (!open) setQuery("");
   }, [open]);
+
+  const close = () => {
+    setOpen(false);
+    setQuery("");
+  };
 
   return (
     <div className={containerClassName || "min-w-[220px] flex-1"}>
@@ -227,8 +233,7 @@ const FilterDropdown = ({
                           type="button"
                           onClick={() => {
                             onChange(o.value);
-                            setOpen(false);
-                            setQuery("");
+                            close();
                           }}
                           className={`flex w-full items-center justify-between gap-3 px-4 py-2 text-left text-sm cursor-pointer transition ${
                             active
@@ -260,6 +265,11 @@ const FilterDropdown = ({
                   <li className="px-4 py-2 text-sm text-slate-500">No results</li>
                 )}
               </ul>
+              {typeof dropdownFooter === "function" ? (
+                <div className="border-t border-slate-200 bg-white p-3">
+                  {dropdownFooter(close)}
+                </div>
+              ) : null}
             </div>
           </div>
         )}
@@ -1618,6 +1628,20 @@ const ExpenseTracking = () => {
                           { value: "", label: "Select category" },
                           ...categories.map((c) => ({ value: c._id, label: c.name })),
                         ]}
+                        dropdownFooter={(close) => (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              close();
+                              setCategoryCreateError("");
+                              setCategoryCreateOpen(true);
+                            }}
+                            className="inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-blue-600 bg-white px-3 text-sm font-semibold text-blue-600 hover:bg-blue-50"
+                          >
+                            <Add fontSize="small" />
+                            Add Category
+                          </button>
+                        )}
                         hideLabel
                         containerClassName="w-full"
                         buttonClassName="h-10 rounded-lg px-3 text-sm"
@@ -1630,17 +1654,6 @@ const ExpenseTracking = () => {
                       <div className="text-xs text-slate-600">
                         {categories.length === 0 ? "No categories yet." : `${categories.length} category(ies) available.`}
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCategoryCreateError("");
-                          setCategoryCreateOpen(true);
-                        }}
-                        className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-lg border border-blue-600 bg-white px-3 text-xs font-semibold text-blue-600 hover:bg-blue-50"
-                      >
-                        <Add fontSize="small" />
-                        Add Category
-                      </button>
                     </div>
                     {formErrors.category ? (
                       <div className="mt-1 text-xs font-medium text-red-600">{formErrors.category}</div>
@@ -1769,6 +1782,20 @@ const ExpenseTracking = () => {
                           { value: "", label: "Select vendor" },
                           ...vendors.map((v) => ({ value: v._id, label: v.name })),
                         ]}
+                        dropdownFooter={(close) => (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              close();
+                              setVendorCreateError("");
+                              setVendorCreateOpen(true);
+                            }}
+                            className="inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-blue-600 bg-white px-3 text-sm font-semibold text-blue-600 hover:bg-blue-50"
+                          >
+                            <Add fontSize="small" />
+                            Add Vendor
+                          </button>
+                        )}
                         hideLabel
                         containerClassName="w-full"
                         buttonClassName="h-10 rounded-lg px-3 text-sm"
@@ -1781,17 +1808,6 @@ const ExpenseTracking = () => {
                       <div className="text-xs text-slate-600">
                         {vendors.length === 0 ? "No vendors yet." : `${vendors.length} vendor(s) available.`}
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setVendorCreateError("");
-                          setVendorCreateOpen(true);
-                        }}
-                        className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-lg border border-blue-600 bg-white px-3 text-xs font-semibold text-blue-600 hover:bg-blue-50"
-                      >
-                        <Add fontSize="small" />
-                        Add Vendor
-                      </button>
                     </div>
                   </div>
                 </div>
