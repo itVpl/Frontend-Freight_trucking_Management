@@ -300,8 +300,6 @@ const ExpenseTracking = () => {
   // Reference data
   const [categories, setCategories] = useState([]);
   const [vendors, setVendors] = useState([]);
-  const [trucks, setTrucks] = useState([]);
-  const [trips, setTrips] = useState([]);
   const [drivers, setDrivers] = useState([]);
   const [loads, setLoads] = useState([]);
 
@@ -310,9 +308,7 @@ const ExpenseTracking = () => {
     status: "",
     category: "",
     vendor: "",
-    truck: "",
     driver: "",
-    trip: "",
     load: "",
     startDate: null,
     endDate: null,
@@ -335,9 +331,7 @@ const ExpenseTracking = () => {
     category: "",
     expenseDate: new Date(),
     payment: { method: "card", cardLastFour: "", companyAccountRef: "" },
-    truck: "",
     driver: "",
-    trip: "",
     load: "",
     vendor: "",
     vendorName: "",
@@ -428,25 +422,19 @@ const ExpenseTracking = () => {
         const incomingLoads =
           loadData?.data?.loads || loadData?.data?.data?.loads || loadData?.data || loadData?.loads || [];
         setLoads(Array.isArray(incomingLoads) ? incomingLoads : []);
-        setTrucks([]);
-        setTrips([]);
         setDrivers([]);
       } else {
-        const [catRes, venRes, truckRes, tripRes, driverRes] = await Promise.all([
+        const [catRes, venRes, driverRes] = await Promise.all([
           fetch(`${apiBaseUrl}/categories`, {
             headers: getAuthHeaders(),
             credentials: "include",
           }),
           fetch(`${apiBaseUrl}/vendors`, { headers: getAuthHeaders(), credentials: "include" }),
-          fetch(`${apiBaseUrl}/trucks`, { headers: getAuthHeaders(), credentials: "include" }),
-          fetch(`${apiBaseUrl}/trips`, { headers: getAuthHeaders(), credentials: "include" }),
           fetch(`${BASE_API_URL}/api/v1/driver/my-drivers`, { headers: getAuthHeaders(), credentials: "include" }),
         ]);
 
         const catData = catRes.ok ? await catRes.json() : {};
         const venData = venRes.ok ? await venRes.json() : {};
-        const truckData = truckRes.ok ? await truckRes.json() : {};
-        const tripData = tripRes.ok ? await tripRes.json() : {};
         const driverData = driverRes.ok ? await driverRes.json() : {};
 
         const incomingCategories =
@@ -455,8 +443,6 @@ const ExpenseTracking = () => {
           venData?.data?.vendors ?? venData?.data?.data?.vendors ?? venData?.vendors ?? [];
         setCategories(Array.isArray(incomingCategories) ? incomingCategories : []);
         setVendors(Array.isArray(incomingVendors) ? incomingVendors : []);
-        setTrucks(truckData?.data?.trucks || []);
-        setTrips(tripData?.data?.trips || []);
         setDrivers(Array.isArray(driverData) ? driverData : driverData?.drivers || []);
         setLoads([]);
       }
@@ -559,9 +545,7 @@ const ExpenseTracking = () => {
         if (filters.startDate) params.set("from", format(filters.startDate, "yyyy-MM-dd"));
         if (filters.endDate) params.set("to", format(filters.endDate, "yyyy-MM-dd"));
       } else {
-        if (filters.truck) params.set("truck", filters.truck);
         if (filters.driver) params.set("driver", filters.driver);
-        if (filters.trip) params.set("trip", filters.trip);
         if (filters.startDate) params.set("startDate", format(filters.startDate, "yyyy-MM-dd"));
         if (filters.endDate) params.set("endDate", format(filters.endDate, "yyyy-MM-dd"));
       }
@@ -599,9 +583,7 @@ const ExpenseTracking = () => {
         if (filters.vendor) params.set("vendor", filters.vendor);
         if (filters.load) params.set("load", filters.load);
       } else {
-        if (filters.truck) params.set("truck", filters.truck);
         if (filters.driver) params.set("driver", filters.driver);
-        if (filters.trip) params.set("trip", filters.trip);
       }
       if (filters.category) params.set("category", filters.category);
 
@@ -691,9 +673,7 @@ const ExpenseTracking = () => {
       status: "",
       category: "",
       vendor: "",
-      truck: "",
       driver: "",
-      trip: "",
       load: "",
       startDate: null,
       endDate: null,
@@ -715,9 +695,7 @@ const ExpenseTracking = () => {
       category: "",
       expenseDate: new Date(),
       payment: { method: "card", cardLastFour: "", companyAccountRef: "" },
-      truck: "",
       driver: "",
-      trip: "",
       load: "",
       vendor: "",
       vendorName: "",
@@ -744,9 +722,7 @@ const ExpenseTracking = () => {
         cardLastFour: expense.payment?.cardLastFour ?? "",
         companyAccountRef: expense.payment?.companyAccountRef ?? "",
       },
-      truck: expense.truck?._id ?? "",
       driver: expense.driver?._id ?? "",
-      trip: expense.trip?._id ?? "",
       load: expense.load?._id ?? expense.load ?? "",
       vendor: expense.vendor?._id ?? "",
       vendorName: expense.vendorName ?? "",
@@ -822,9 +798,7 @@ const ExpenseTracking = () => {
         ...(isShipper
           ? { load: form.load || undefined }
           : {
-              truck: form.truck || undefined,
               driver: form.driver || undefined,
-              trip: form.trip || undefined,
             }),
         vendor: form.vendor || undefined,
         vendorName: form.vendorName || undefined,
@@ -1059,7 +1033,7 @@ const ExpenseTracking = () => {
                 row.load?.tripId,
                 row.load?._id,
               ]
-            : [row.truck?.truckNumber, row.driver?.fullName, row.trip?.tripId]),
+            : [row.driver?.fullName]),
         ]
           .filter(Boolean)
           .join(" ")
@@ -1218,7 +1192,7 @@ const ExpenseTracking = () => {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={isShipper ? "Search category, load, vendor, status..." : "Search category, truck, driver, vendor, status..."}
+              placeholder={isShipper ? "Search category, load, vendor, status..." : "Search category, driver, vendor, status..."}
               className="h-12 w-full flex-1 rounded-xl border border-slate-200 bg-white px-4 text-base text-slate-900 outline-none placeholder:text-slate-400 focus:border-slate-300"
             />
            <button
@@ -1285,17 +1259,7 @@ const ExpenseTracking = () => {
                   ]}
                 />
               </>
-            ) : (
-              <FilterDropdown
-                label="Truck"
-                value={filters.truck}
-                onChange={(v) => handleFilterChange("truck", v)}
-                options={[
-                  { value: "", label: "All" },
-                  ...trucks.map((t) => ({ value: t._id, label: t.truckNumber })),
-                ]}
-              />
-            )}
+            ) : null}
 
             <FilterDropdown
               label="Date Range"
@@ -1426,14 +1390,9 @@ const ExpenseTracking = () => {
                           Load
                         </th>
                       ) : (
-                        <>
-                          <th className="px-4 py-3 text-base font-semibold text-gray-500 border-t border-b border-gray-200">
-                            Truck
-                          </th>
-                          <th className="px-4 py-3 text-base font-semibold text-gray-500 border-t border-b border-gray-200">
-                            Driver
-                          </th>
-                        </>
+                        <th className="px-4 py-3 text-base font-semibold text-gray-500 border-t border-b border-gray-200">
+                          Driver
+                        </th>
                       )}
                       <th className="px-4 py-3 text-base font-semibold text-gray-500 border-t border-b border-gray-200">
                         Vendor
@@ -1451,7 +1410,7 @@ const ExpenseTracking = () => {
                     {visibleExpenses.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={isShipper ? 7 : 8}
+                          colSpan={7}
                           className="px-3 py-6 text-center text-sm text-slate-500"
                         >
                           No expenses found.
@@ -1479,14 +1438,9 @@ const ExpenseTracking = () => {
                               {row.load?.shipmentNumber || row.load?.loadNumber || row.load?.referenceNumber || "—"}
                             </td>
                           ) : (
-                            <>
-                              <td className="px-4 py-4 font-medium text-gray-700 truncate border-t border-b border-gray-200">
-                                {row.truck?.truckNumber ?? "—"}
-                              </td>
-                              <td className="px-4 py-4 font-medium text-gray-700 truncate border-t border-b border-gray-200">
-                                {row.driver?.fullName ?? "—"}
-                              </td>
-                            </>
+                            <td className="px-4 py-4 font-medium text-gray-700 truncate border-t border-b border-gray-200">
+                              {row.driver?.fullName ?? "—"}
+                            </td>
                           )}
                           <td className="px-4 py-4 font-medium text-gray-700 truncate border-t border-b border-gray-200">
                             {row.vendor?.name || row.vendorName || "—"}
@@ -1779,28 +1733,7 @@ const ExpenseTracking = () => {
                         />
                       </div>
                     </div>
-                  ) : (
-                    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-                      <div className="text-sm font-semibold text-slate-500">Truck</div>
-                      <div className="mt-2">
-                        <FilterDropdown
-                          label="Truck"
-                          value={form.truck}
-                          onChange={(v) => handleFormChange("truck", v)}
-                          options={[
-                            { value: "", label: "Select truck" },
-                            ...trucks.map((t) => ({ value: t._id, label: t.truckNumber })),
-                          ]}
-                          hideLabel
-                          containerClassName="w-full"
-                          buttonClassName="h-10 rounded-lg px-3 text-sm"
-                          placeholder="Select truck"
-                          searchable
-                          searchPlaceholder="Search truck..."
-                        />
-                      </div>
-                    </div>
-                  )}
+                  ) : null}
 
                   {!isShipper ? (
                     <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
@@ -1820,29 +1753,6 @@ const ExpenseTracking = () => {
                           placeholder="Select driver"
                           searchable
                           searchPlaceholder="Search driver..."
-                        />
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {!isShipper ? (
-                    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-                      <div className="text-sm font-semibold text-slate-500">Trip</div>
-                      <div className="mt-2">
-                        <FilterDropdown
-                          label="Trip"
-                          value={form.trip}
-                          onChange={(v) => handleFormChange("trip", v)}
-                          options={[
-                            { value: "", label: "Select trip" },
-                            ...trips.map((t) => ({ value: t._id, label: t.tripId })),
-                          ]}
-                          hideLabel
-                          containerClassName="w-full"
-                          buttonClassName="h-10 rounded-lg px-3 text-sm"
-                          placeholder="Select trip"
-                          searchable
-                          searchPlaceholder="Search trip..."
                         />
                       </div>
                     </div>
@@ -2154,26 +2064,10 @@ const ExpenseTracking = () => {
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                       <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
                         <div className="text-sm font-semibold text-slate-500">
-                          Truck
-                        </div>
-                        <div className="mt-1 text-sm font-semibold text-slate-900">
-                          {selectedExpense.truck?.truckNumber ?? "—"}
-                        </div>
-                      </div>
-                      <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-                        <div className="text-sm font-semibold text-slate-500">
                           Driver
                         </div>
                         <div className="mt-1 text-sm font-semibold text-slate-900">
                           {selectedExpense.driver?.fullName ?? "—"}
-                        </div>
-                      </div>
-                      <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-                        <div className="text-sm font-semibold text-slate-500">
-                          Trip
-                        </div>
-                        <div className="mt-1 text-sm font-semibold text-slate-900">
-                          {selectedExpense.trip?.tripId ?? "—"}
                         </div>
                       </div>
                     </div>
