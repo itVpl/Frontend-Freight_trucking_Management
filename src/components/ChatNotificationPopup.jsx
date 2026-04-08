@@ -62,7 +62,7 @@ const ChatNotificationPopup = () => {
           window.focus();
           handleNotificationClick(notification);
           browserNotif.close();
-        };
+        };  
 
         setTimeout(() => browserNotif.close(), 8000);
       }
