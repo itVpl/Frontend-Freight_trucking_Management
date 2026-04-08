@@ -127,6 +127,7 @@ const AddLoad = () => {
     total: '',
     bidDeadline: '',
     // DRAYAGE single fields
+    portName: '',
     fromAddress: '',
     fromCity: '',
     fromState: '',
@@ -674,6 +675,9 @@ const AddLoad = () => {
 
       // Add DRAYAGE specific fields
       if (loadData.loadType === 'DRAYAGE') {
+        if (loadData.portName) {
+          apiPayload.portName = loadData.portName;
+        }
         const returnDateISO = safeDateISO(loadData.returnDate);
         if (returnDateISO) {
           apiPayload.returnDate = returnDateISO;
@@ -815,6 +819,7 @@ const AddLoad = () => {
       rate: '',
       rateType: 'Flat Rate',
       bidDeadline: '',
+      portName: '',
       fromAddress: '',
       fromCity: '',
       fromState: '',
@@ -970,6 +975,7 @@ const AddLoad = () => {
         weight: loadData.origins?.[0]?.weight || loadData.weight || '',
         commodity: loadData.origins?.[0]?.commodity || loadData.commodity || '',
         // DRAYAGE fields - populate from origins/destinations arrays if loadType is DRAYAGE
+        portName: loadData.portName || '',
         fromAddress: loadTypeValue === 'DRAYAGE' ? (loadData.origins?.[0]?.addressLine1 || loadData.fromAddress || '') : (loadData.fromAddress || ''),
         fromCity: loadTypeValue === 'DRAYAGE' ? (loadData.origins?.[0]?.city || loadData.fromCity || '') : (loadData.fromCity || ''),
         fromState: loadTypeValue === 'DRAYAGE' ? (loadData.origins?.[0]?.state || loadData.fromState || '') : (loadData.fromState || ''),
@@ -2503,6 +2509,38 @@ const AddLoad = () => {
                       </Typography>
 
                       <Grid container spacing={2}>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            label="Port Name"
+                            name="portName"
+                            value={formData.portName}
+                            onChange={handleFormInputChange}
+                            fullWidth
+                            placeholder="Port Name"
+                            InputLabelProps={{ shrink: true }}
+                            sx={{
+                              '& .MuiInputBase-root': {
+                                borderRadius: 2,
+                                backgroundColor: '#fff',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                                transition: 'border-color 0.2s ease',
+                              },
+                              '& .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#E2E8F0',
+                              },
+                              '&:hover .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#4A90E2',
+                              },
+                              '& .MuiInputLabel-root': {
+                                color: '#4A5568',
+                                fontSize: '0.875rem',
+                              },
+                            }}
+                          />
+                        </Grid>
                         <Grid item xs={12} sm={6}>
                           <TextField
                             label="Pickup Full Address *"

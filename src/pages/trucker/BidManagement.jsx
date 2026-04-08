@@ -739,6 +739,9 @@ const Dashboard = () => {
                       Shipment Type
                     </th>
                     <th className="px-4 py-3 text-base font-semibold text-gray-500 border-t border-b border-gray-200">
+                      Port Name
+                    </th>
+                    <th className="px-4 py-3 text-base font-semibold text-gray-500 border-t border-b border-gray-200">
                       ETA
                     </th>
                     <th className="px-4 py-3 text-base font-semibold text-gray-500 rounded-r-xl border-t border-b border-r border-gray-200">
@@ -751,7 +754,7 @@ const Dashboard = () => {
                     <tr>
                       <td
                         className="px-4 py-6 text-center text-sm text-slate-500"
-                        colSpan={7}
+                        colSpan={8}
                       >
                         Loading…
                       </td>
@@ -760,7 +763,7 @@ const Dashboard = () => {
                     <tr>
                       <td
                         className="px-4 py-6 text-center text-sm text-slate-500"
-                        colSpan={7}
+                        colSpan={8}
                       >
                         No available loads found
                       </td>
@@ -801,6 +804,9 @@ const Dashboard = () => {
                         </td>
                         <td className="px-4 py-4 font-medium text-gray-700 truncate border-t border-b border-gray-200">
                           {row.shipper?.loadType || row.loadType || "-"}
+                        </td>
+                        <td className="px-4 py-4 font-medium text-gray-700 truncate border-t border-b border-gray-200">
+                          {row.shipper?.portName || row.portName || "-"}
                         </td>
                         <td className="px-4 py-4 font-medium text-gray-700 truncate border-t border-b border-gray-200">
                           {row.pickupDate
