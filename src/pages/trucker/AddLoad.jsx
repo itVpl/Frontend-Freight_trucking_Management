@@ -52,6 +52,8 @@ import {
   Business,
   Room,
   Person,
+  PictureAsPdf,
+  Mail,
 } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
 import { BASE_API_URL } from '../../apiConfig';
@@ -84,6 +86,23 @@ const OTR_VEHICLE_TYPES = [
   "Hopper Bottom"
 ];
 
+const getCustomerLoadRowId = (load) => load?.loadId || load?._id;
+
+/** Status shown in list + gating actions (API may put it on `status`, `tracking.status`, or `loadStatus`). */
+const getLoadListStatus = (load) =>
+  (load && (load.status ?? load.tracking?.status ?? load.loadStatus)) || '';
+
+const normalizeStatusKey = (s) =>
+  typeof s === 'string' ? s.toLowerCase().replace(/_/g, ' ').trim() : '';
+
+const isAssignedStatus = (load) => normalizeStatusKey(getLoadListStatus(load)) === 'assigned';
+
+/** Invoice routes expect a finished load; align with loadboard (delivered / completed). */
+const isInvoiceEligibleStatus = (load) => {
+  const n = normalizeStatusKey(getLoadListStatus(load));
+  return n === 'delivered' || n === 'completed';
+};
+
 const AddLoad = () => {
   const { user, userType } = useAuth();
   const { themeConfig } = useThemeConfig();
@@ -115,6 +134,11 @@ const AddLoad = () => {
   const [driversLoading, setDriversLoading] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [deleteTargetLoadId, setDeleteTargetLoadId] = useState(null);
+  const [invoiceDownloadingId, setInvoiceDownloadingId] = useState(null);
+  const [invoiceSendingId, setInvoiceSendingId] = useState(null);
+  const [sendInvoiceDialogOpen, setSendInvoiceDialogOpen] = useState(false);
+  const [sendInvoiceLoad, setSendInvoiceLoad] = useState(null);
+  const [sendInvoiceEmail, setSendInvoiceEmail] = useState('');
   const [formData, setFormData] = useState(() => ({
     customerId: '',
     loadType: 'OTR',
@@ -867,6 +891,7 @@ const AddLoad = () => {
       const s = searchTerm.toLowerCase();
       return (loadsData || []).filter((load) =>
         load.loadType?.toLowerCase().includes(s) ||
+        getLoadListStatus(load).toLowerCase().includes(s) ||
         load.origins?.[0]?.addressLine1?.toLowerCase().includes(s) ||
         load.destinations?.[0]?.addressLine1?.toLowerCase().includes(s) ||
         load.customerLoadDetails?.customerName?.toLowerCase().includes(s) ||
@@ -882,7 +907,7 @@ const AddLoad = () => {
       'Weight (lbs)': load.origins?.[0]?.weight || load.weight || '',
       'Rate': load.rate ?? '',
       'Customer': load.customerLoadDetails?.customerName || load.customerName || '',
-      'Status': load.status || '',
+      'Status': getLoadListStatus(load) || '',
     }));
     const headers = Object.keys(data[0] || { 'Load Type': '', Pickup: '', Delivery: '', 'Weight (lbs)': '', Rate: '', Customer: '', Status: '' });
     const csvRows = [
@@ -1097,6 +1122,104 @@ const AddLoad = () => {
     setDeleteTargetLoadId(null);
   };
 
+  const handleDownloadInvoice = useCallback(async (load) => {
+    const loadId = getCustomerLoadRowId(load);
+    if (!loadId) return;
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setError('No authentication token found');
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+    setInvoiceDownloadingId(loadId);
+    try {
+      const res = await fetch(`${BASE_API_URL}/api/v1/customer-load/${loadId}/invoice`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || res.statusText || 'Failed to download invoice');
+      }
+      const blob = await res.blob();
+      const cd = res.headers.get('Content-Disposition') || '';
+      const m = cd.match(/filename="?([^";]+)"?/);
+      const filename = m ? m[1] : `CustomerLoad_Invoice_${loadId}.pdf`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
+      setError(err.message || 'Failed to download invoice');
+      setTimeout(() => setError(null), 5000);
+    } finally {
+      setInvoiceDownloadingId(null);
+    }
+  }, []);
+
+  const openSendInvoiceDialog = (load) => {
+    setSendInvoiceLoad(load);
+    setSendInvoiceEmail((load.customerLoadDetails?.customerEmail || '').trim());
+    setSendInvoiceDialogOpen(true);
+  };
+
+  const closeSendInvoiceDialog = () => {
+    setSendInvoiceDialogOpen(false);
+    setSendInvoiceLoad(null);
+    setSendInvoiceEmail('');
+  };
+
+  const handleConfirmSendInvoice = async () => {
+    if (!sendInvoiceLoad) return;
+    const loadId = getCustomerLoadRowId(sendInvoiceLoad);
+    if (!loadId) return;
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setError('No authentication token found');
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+    const trimmed = sendInvoiceEmail.trim();
+    const defaultEmail = (sendInvoiceLoad.customerLoadDetails?.customerEmail || '').trim();
+    if (!trimmed && !defaultEmail) {
+      setError('No billing email on this load. Enter a recipient email.');
+      setTimeout(() => setError(null), 5000);
+      return;
+    }
+    const body = trimmed ? JSON.stringify({ toEmail: trimmed }) : JSON.stringify({});
+    setInvoiceSendingId(loadId);
+    try {
+      const res = await fetch(`${BASE_API_URL}/api/v1/customer-load/${loadId}/send-invoice`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.message || 'Failed to send invoice');
+      }
+      const recipient = data?.data?.recipient;
+      setSuccess(
+        recipient
+          ? `Invoice emailed successfully to ${recipient}`
+          : (data.message || 'Invoice emailed successfully')
+      );
+      closeSendInvoiceDialog();
+      setTimeout(() => setSuccess(null), 5000);
+    } catch (err) {
+      console.error(err);
+      setError(err.message || 'Email failed');
+      setTimeout(() => setError(null), 5000);
+    } finally {
+      setInvoiceSendingId(null);
+    }
+  };
+
   const handleOpenAssignDriver = async (load) => {
     setSelectedLoadForDriver(load);
     setDriverData({
@@ -1235,6 +1358,7 @@ const AddLoad = () => {
     const searchLower = searchTerm.toLowerCase();
     return loadsData.filter(load =>
       load.loadType?.toLowerCase().includes(searchLower) ||
+      getLoadListStatus(load).toLowerCase().includes(searchLower) ||
       load.origins?.[0]?.addressLine1?.toLowerCase().includes(searchLower) ||
       load.destinations?.[0]?.addressLine1?.toLowerCase().includes(searchLower) ||
       load.customerLoadDetails?.customerName?.toLowerCase().includes(searchLower) ||
@@ -1342,7 +1466,7 @@ const AddLoad = () => {
         <Table>
           <TableHead>
             <TableRow sx={{ background: 'linear-gradient(90deg, #f8fafc 0%, #f1f5f9 100%)' }}>
-              {[1, 2, 3, 4, 5, 6, 7].map((col) => (
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((col) => (
                 <TableCell key={col}>
                   <Skeleton variant="text" width={100} height={20} />
                 </TableCell>
@@ -1358,6 +1482,7 @@ const AddLoad = () => {
                 <TableCell><Skeleton variant="text" width={80} /></TableCell>
                 <TableCell><Skeleton variant="text" width={100} /></TableCell>
                 <TableCell><Skeleton variant="text" width={120} /></TableCell>
+                <TableCell><Skeleton variant="text" width={90} /></TableCell>
                 <TableCell>
                   <Stack direction="row" spacing={1}>
                     <Skeleton variant="rectangular" width={60} height={28} sx={{ borderRadius: 1 }} />
@@ -1518,6 +1643,9 @@ const AddLoad = () => {
     <th className="px-5 py-3 text-base font-semibold text-gray-500 border-t border-b border-gray-200">
       Customer
     </th>
+    <th className="px-5 py-3 text-base font-semibold text-gray-500 border-t border-b border-gray-200">
+      Status
+    </th>
     <th className="px-5 py-3 text-base font-semibold text-gray-500 rounded-r-xl border-t border-b border-r border-gray-200">
       Actions
     </th>
@@ -1526,11 +1654,11 @@ const AddLoad = () => {
       <tbody>
         {loading ? (
           <tr>
-            <td className="px-3 py-6 text-center text-sm text-slate-500" colSpan={7}>Loading…</td>
+            <td className="px-3 py-6 text-center text-sm text-slate-500" colSpan={8}>Loading…</td>
           </tr>
         ) : totalItems === 0 ? (
           <tr>
-            <td className="px-3 py-6 text-center text-sm text-slate-500" colSpan={7}>
+            <td className="px-3 py-6 text-center text-sm text-slate-500" colSpan={8}>
               {loadsData.length === 0 ? "Add your first load to get started!" : "No loads found. Try adjusting your search criteria"}
             </td>
           </tr>
@@ -1594,8 +1722,22 @@ const AddLoad = () => {
               <td className="px-5 py-4 text-gray-700 font-medium truncate border-t border-b border-gray-200">
                 {load.customerLoadDetails?.customerName || load.customerName || "N/A"}
               </td>
+              <td className="px-5 py-4 text-gray-700 font-medium border-t border-b border-gray-200">
+                <span
+                  className={`inline-block rounded-full px-3 py-1 text-xs font-semibold border ${
+                    isInvoiceEligibleStatus(load)
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                      : isAssignedStatus(load)
+                        ? 'bg-amber-50 text-amber-900 border-amber-200'
+                        : 'bg-slate-50 text-slate-700 border-slate-200'
+                  }`}
+                  title="Invoice actions appear when status is Delivered or Completed"
+                >
+                  {getLoadListStatus(load) || '—'}
+                </span>
+              </td>
               <td className="px-5 py-4 font-medium rounded-r-xl border-t border-b border-r border-gray-200">
-                <div className="flex flex-nowrap items-center gap-2 whitespace-nowrap min-w-max">
+                <div className="flex flex-wrap items-center gap-2 min-w-max max-w-[420px]">
                   <button
                     onClick={() => handleViewLoad(load)}
                     className="h-8 px-3 rounded-md border border-blue-600 text-blue-600 text-base cursor-pointer font-medium hover:bg-blue-600 hover:text-white shrink-0"
@@ -1604,9 +1746,9 @@ const AddLoad = () => {
                   </button>
                   <button
                     onClick={() => handleEditLoad(load)}
-                    disabled={load.status === 'Assigned'}
+                    disabled={isAssignedStatus(load)}
                     className={`h-8 px-3 rounded-md border text-base font-medium cursor-pointer shrink-0 ${
-                      load.status === 'Assigned'
+                      isAssignedStatus(load)
                         ? 'border-slate-300 text-slate-400 cursor-not-allowed'
                         : 'border-cyan-600 text-cyan-600 hover:bg-cyan-600 hover:text-white'
                     }`}
@@ -1615,9 +1757,9 @@ const AddLoad = () => {
                   </button>
                   <button
                     onClick={() => handleOpenAssignDriver(load)}
-                    disabled={load.status === 'Assigned'}
+                    disabled={isAssignedStatus(load)}
                     className={`h-8 px-3 rounded-md border text-base font-medium cursor-pointer shrink-0 ${
-                      load.status === 'Assigned'
+                      isAssignedStatus(load)
                         ? 'border-slate-300 text-slate-400 cursor-not-allowed'
                         : 'border-green-600 text-green-600 hover:bg-green-600 hover:text-white'
                     }`}
@@ -1626,15 +1768,38 @@ const AddLoad = () => {
                   </button>
                   <button
                     onClick={() => openDeleteConfirm(load._id)}
-                    disabled={load.status === 'Assigned'}
+                    disabled={isAssignedStatus(load)}
                     className={`h-8 px-3 rounded-md border text-base font-medium cursor-pointer shrink-0 ${
-                      load.status === 'Assigned'
+                      isAssignedStatus(load)
                         ? 'border-slate-300 text-slate-400 cursor-not-allowed'
                         : 'border-red-600 text-red-600 hover:bg-red-600 hover:text-white'
                     }`}
                   >
                     Delete
                   </button>
+                  {isInvoiceEligibleStatus(load) && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadInvoice(load)}
+                        disabled={invoiceDownloadingId === getCustomerLoadRowId(load)}
+                        className="h-8 px-3 rounded-md border border-violet-600 text-violet-700 text-sm font-medium cursor-pointer hover:bg-violet-600 hover:text-white shrink-0 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1"
+                        title="Download invoice PDF"
+                      >
+                        <PictureAsPdf sx={{ fontSize: 18 }} />
+                        {invoiceDownloadingId === getCustomerLoadRowId(load) ? '…' : 'Generate invoice'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openSendInvoiceDialog(load)}
+                        className="h-8 px-3 rounded-md border border-slate-700 text-slate-800 text-sm font-medium cursor-pointer hover:bg-slate-800 hover:text-white shrink-0 inline-flex items-center gap-1"
+                        title="Send invoice to customer"
+                      >
+                        <Mail sx={{ fontSize: 18 }} />
+                        Send invoice
+                      </button>
+                    </>
+                  )}
                 </div>
               </td>
             </tr>
@@ -1760,6 +1925,46 @@ const AddLoad = () => {
             sx={{ borderRadius: 3, textTransform: 'none', px: 3, color: '#fff' }}
           >
             Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={sendInvoiceDialogOpen}
+        onClose={() => {
+          if (!invoiceSendingId) closeSendInvoiceDialog();
+        }}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 700 }}>Send invoice to customer</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2, pt: 0.5 }}>
+            The invoice PDF will be emailed to the address below. You can override it for this send only
+            (defaults to the customer billing email on the load).
+          </Typography>
+          <TextField
+            fullWidth
+            label="Recipient email"
+            type="email"
+            value={sendInvoiceEmail}
+            onChange={(e) => setSendInvoiceEmail(e.target.value)}
+            margin="dense"
+            autoComplete="email"
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
+          <Button onClick={closeSendInvoiceDialog} disabled={!!invoiceSendingId} sx={{ textTransform: 'none' }}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleConfirmSendInvoice}
+            disabled={!!invoiceSendingId}
+            sx={{ textTransform: 'none' }}
+          >
+            {invoiceSendingId ? <CircularProgress size={22} color="inherit" /> : 'Send invoice'}
           </Button>
         </DialogActions>
       </Dialog>
