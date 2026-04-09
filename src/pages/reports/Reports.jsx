@@ -774,6 +774,17 @@ const Reports = () => {
     }
   };
 
+  const getChipTextColor = (status) => {
+    switch (status) {
+      case "Completed":
+      case "Not-Completed":
+      case "Transit":
+        return "#fff";
+      default:
+        return "#111827";
+    }
+  };
+
   // const handleRowClick = (status, id) => {
   //   // Navigate based on status
   //   if (status === 'Completed') navigate(`/consignment/${id}/complete`);
@@ -1074,6 +1085,11 @@ const Reports = () => {
                         <Chip
                           label={row.status}
                           color={getChipColor(row.status)}
+                          variant="filled"
+                          sx={{
+                            fontWeight: 700,
+                            "& .MuiChip-label": { color: getChipTextColor(row.status) },
+                          }}
                           // sx={{
                           //   "& .MuiChip-label": { color: "white !important" },
                           // }}

@@ -611,9 +611,29 @@ const Dashboard = () => {
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-4 font-medium text-gray-700 truncate border-t border-b border-gray-200">
-                      {driver.country || "-"}
-                    </td>
+                    <td className="px-4 py-4 font-medium text-gray-700 border-t border-b border-gray-200">
+  <div className="relative group max-w-[80px]">
+
+    {/* Truncated Text */}
+    <span className="block truncate">
+      {driver.country || "-"}
+    </span>
+
+    {/* Tooltip */}
+    {driver.country && (
+      <div className="absolute left-0 top-full mt-2 hidden group-hover:block
+                      bg-gray-900 text-white text-sm
+                      px-3 py-2.5
+                      rounded-lg shadow-xl
+                      max-w-[160px]
+                      break-words
+                      z-50">
+        {driver.country}
+      </div>
+    )}
+
+  </div>
+</td>
                     <td className="px-4 py-4 font-medium text-gray-700 truncate border-t border-b border-gray-200">
                       {driver.state || "-"}
                     </td>

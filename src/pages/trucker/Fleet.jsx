@@ -731,92 +731,107 @@ const Dashboard = () => {
             </Paper>
 
             <Paper elevation={0} sx={{ p: 3, mb: 1, borderRadius: 2, border: "1px solid #e8edf2", background: "#fff" }}>
-              <Typography variant="h6" sx={{ mb: 2.5, fontWeight: 700, display: "flex", alignItems: "center", gap: 1, color: "#1f2937" }}>
-                <Box sx={{ width: 4, height: 22, background: "#1976d2", borderRadius: 1 }} />
-                Specifications
-              </Typography>
-              <Grid container spacing={2.5}>
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth required>
-                    <InputLabel>Vehicle Type</InputLabel>
-                    <Select
-                      value={formData.vehicleType}
-                      onChange={(e) => setFormData({ ...formData, vehicleType: e.target.value })}
-                      label="Vehicle Type"
-                      fullWidth
-                      sx={{
-                        width: "100%",
-                        borderRadius: "12px",
-                        backgroundColor: "#f8f9fb",
-                        "& .MuiOutlinedInput-notchedOutline": { borderColor: "#e0e6ee" },
-                        "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#1976d2" },
-                      }}
-                    >
-                      {vehicleTypes.map((type) => (
-                        <MenuItem key={type} value={type}>
-                          {type}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    label="Make"
-                    value={formData.make}
-                    onChange={(e) => setFormData({ ...formData, make: e.target.value })}
-                    fullWidth
-                    required
-                    sx={inputFieldSx}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    label="Model"
-                    value={formData.model}
-                    onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-                    fullWidth
-                    required
-                    sx={inputFieldSx}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    label="Capacity (tons)"
-                    type="number"
-                    value={formData.capacity}
-                    onChange={(e) => setFormData({ ...formData, capacity: e.target.value })}
-                    fullWidth
-                    required
-                    sx={inputFieldSx}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth required>
-                    <InputLabel>Fuel Type</InputLabel>
-                    <Select
-                      value={formData.fuelType}
-                      onChange={(e) => setFormData({ ...formData, fuelType: e.target.value })}
-                      label="Fuel Type"
-                      fullWidth
-                      sx={{
-                        width: "100%",
-                        borderRadius: "12px",
-                        backgroundColor: "#f8f9fb",
-                        "& .MuiOutlinedInput-notchedOutline": { borderColor: "#e0e6ee" },
-                        "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#1976d2" },
-                      }}
-                    >
-                      {fuelTypes.map((type) => (
-                        <MenuItem key={type} value={type}>
-                          {type}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-              </Grid>
-            </Paper>
+  <Typography variant="h6" sx={{ mb: 2.5, fontWeight: 700, display: "flex", alignItems: "center", gap: 1, color: "#1f2937" }}>
+    <Box sx={{ width: 4, height: 22, background: "#1976d2", borderRadius: 1 }} />
+    Specifications
+  </Typography>
+  <Grid container spacing={2.5} sx={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 2.5 }}>
+    <Grid item sx={{ gridColumn: "span 1" }}>
+      <FormControl fullWidth required>
+        <InputLabel>Vehicle Type</InputLabel>
+        <Select
+          value={formData.vehicleType}
+          onChange={(e) => setFormData({ ...formData, vehicleType: e.target.value })}
+          label="Vehicle Type"
+          sx={{
+            borderRadius: "12px",
+            backgroundColor: "#f8f9fb",
+            "& .MuiOutlinedInput-notchedOutline": { borderColor: "#e0e6ee" },
+            "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#1976d2" },
+          }}
+        >
+          {vehicleTypes.map((type) => (
+            <MenuItem key={type} value={type}>
+              {type}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+    </Grid>
+
+    <Grid item sx={{ gridColumn: "span 1" }}>
+      <TextField
+        label="Make"
+        value={formData.make}
+        onChange={(e) => setFormData({ ...formData, make: e.target.value })}
+        fullWidth
+        required
+        sx={{
+          borderRadius: "12px",
+          backgroundColor: "#f8f9fb",
+          "& .MuiOutlinedInput-notchedOutline": { borderColor: "#e0e6ee" },
+          "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#1976d2" },
+        }}
+      />
+    </Grid>
+
+    <Grid item sx={{ gridColumn: "span 1" }}>
+      <TextField
+        label="Model"
+        value={formData.model}
+        onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+        fullWidth
+        required
+        sx={{
+          borderRadius: "12px",
+          backgroundColor: "#f8f9fb",
+          "& .MuiOutlinedInput-notchedOutline": { borderColor: "#e0e6ee" },
+          "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#1976d2" },
+        }}
+      />
+    </Grid>
+
+    <Grid item sx={{ gridColumn: "span 1" }}>
+      <TextField
+        label="Capacity (tons)"
+        type="number"
+        value={formData.capacity}
+        onChange={(e) => setFormData({ ...formData, capacity: e.target.value })}
+        fullWidth
+        required
+        sx={{
+          borderRadius: "12px",
+          backgroundColor: "#f8f9fb",
+          "& .MuiOutlinedInput-notchedOutline": { borderColor: "#e0e6ee" },
+          "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#1976d2" },
+        }}
+      />
+    </Grid>
+
+    <Grid item sx={{ gridColumn: "span 1" }}>
+      <FormControl fullWidth required>
+        <InputLabel>Fuel Type</InputLabel>
+        <Select
+          value={formData.fuelType}
+          onChange={(e) => setFormData({ ...formData, fuelType: e.target.value })}
+          label="Fuel Type"
+          sx={{
+            borderRadius: "12px",
+            backgroundColor: "#f8f9fb",
+            "& .MuiOutlinedInput-notchedOutline": { borderColor: "#e0e6ee" },
+            "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#1976d2" },
+          }}
+        >
+          {fuelTypes.map((type) => (
+            <MenuItem key={type} value={type}>
+              {type}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+    </Grid>
+  </Grid>
+</Paper>
           </Box>
         </DialogContent>
         <DialogActions sx={{ pb: 4, pr: 4 }}>
