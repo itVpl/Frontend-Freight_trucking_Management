@@ -426,7 +426,8 @@ const Layout = () => {
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* Logo Section */}
       <Box sx={{
-        p: 3,
+        px: sidebarOpen ? 3 : 1,
+        py: sidebarOpen ? 3 : 2,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -469,14 +470,30 @@ const Layout = () => {
           </>
         ) : (
           <>
-            <img
-              src="/images/logo_vpower.png"
-              alt="Power LOGISTICS"
-              style={{
-                height: '40px',
-                width: '40px'
+            <Box
+              sx={{
+                width: 44,
+                height: 44,
+                borderRadius: 2,
+                backgroundColor: '#fff',
+               
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden',
               }}
-            />
+            >
+              <img
+                src="/images/logo_vpower.png"
+                alt="Power LOGISTICS"
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  objectFit: 'contain',
+                  display: 'block',
+                }}
+              />
+            </Box>
 
             {/* Toggle Button for collapsed state */}
             <IconButton
