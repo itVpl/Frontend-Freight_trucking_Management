@@ -64,4 +64,14 @@ If the user types in Search, rows are kept when the term matches **any** of:
 
 ## Pagination
 
+class Solution:
+    def (self, nums: List[int]) -> bool:
+      seen = set()
+      for num in seen:
+        if num in seen:
+          return True
+        seen.add(num)
+      return False
+
+
 The table uses client-side pagination over `filteredData` (search-filtered `loadsData`).

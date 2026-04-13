@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Box,
   Typography,
@@ -23,6 +24,7 @@ import { BASE_API_URL } from "../../apiConfig";
 import { useThemeConfig } from "../../context/ThemeContext";
 
 const Dashboard = () => {
+  const [searchParams] = useSearchParams();
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(7);
   const [searchTerm, setSearchTerm] = useState("");
@@ -59,6 +61,16 @@ const Dashboard = () => {
     fetchDrivers();
   }, []);
 
+  useEffect(() => {
+    const q = searchParams.get("search");
+    if (q == null) return;
+    const t = decodeURIComponent(q).trim();
+    if (t) {
+      setSearchTerm(t);
+      setPage(0);
+    }
+  }, [searchParams]);
+
   const handleChangePage = (event, newPage) => setPage(newPage);
   const handleChangeRowsPerPage = (event) => {
     setRowsPerPage(parseInt(event.target.value, 10));
@@ -73,6 +85,7 @@ const Dashboard = () => {
       "Gender",
       "Phone No",
       "Email",
+      "License Expiry",
       "Address",
     ];
     const csvRows = [headers.join(",")];
@@ -84,6 +97,7 @@ const Dashboard = () => {
         row.gender,
         row.phone,
         row.email,
+        row.licenseExpiryDate || "",
         row.address,
       ];
       csvRows.push(values.join(","));
@@ -130,6 +144,7 @@ const Dashboard = () => {
     phone: "",
     email: "",
     license: "",
+    licenseExpiryDate: "",
     gender: "",
     country: "",
     state: "",
@@ -158,12 +173,13 @@ const Dashboard = () => {
       d.phone || "",
       d.email || "",
       d.driverLicense || "",
+      d.licenseExpiryDate || "",
       d.country || "",
       d.city || "",
     ].some((v) => String(v).toLowerCase().includes(term));
   });
   const totalPages = Math.max(
-    1,
+    1, 
     Math.ceil(filteredDrivers.length / rowsPerPage),
   );
   const clampedPage = Math.min(page, totalPages - 1);
@@ -193,6 +209,10 @@ const Dashboard = () => {
       phone: driver.phone || "",
       email: driver.email || "",
       license: driver.driverLicense || "",
+      licenseExpiryDate:
+        driver.licenseExpiryDate?.slice?.(0, 10) ||
+        driver.driverLicenseExpiryDate?.slice?.(0, 10) ||
+        "",
       gender: driver.gender || "",
       country: driver.country || "",
       state: driver.state || "",
@@ -213,6 +233,7 @@ const Dashboard = () => {
       phone: "",
       email: "",
       license: "",
+      licenseExpiryDate: "",
       gender: "",
       country: "",
       state: "",
@@ -250,6 +271,7 @@ const Dashboard = () => {
       "phone",
       "email",
       "license",
+      "licenseExpiryDate",
       "gender",
       "country",
       "state",
@@ -271,6 +293,7 @@ const Dashboard = () => {
     formData.append("phone", form.phone);
     formData.append("email", form.email);
     formData.append("driverLicense", form.license);
+    formData.append("licenseExpiryDate", form.licenseExpiryDate);
     formData.append("gender", form.gender);
     formData.append("country", form.country);
     formData.append("state", form.state);
@@ -301,6 +324,7 @@ const Dashboard = () => {
         phone: "",
         email: "",
         license: "",
+        licenseExpiryDate: "",
         gender: "",
         country: "",
         state: "",
@@ -352,6 +376,7 @@ const Dashboard = () => {
       "phone",
       "email",
       "license",
+      "licenseExpiryDate",
       "gender",
       "country",
       "state",
@@ -373,6 +398,7 @@ const Dashboard = () => {
         phone: form.phone,
         email: form.email,
         driverLicense: form.license,
+        licenseExpiryDate: form.licenseExpiryDate,
         gender: form.gender,
         country: form.country,
         state: form.state,
@@ -515,6 +541,9 @@ const Dashboard = () => {
                   License No
                 </th>
                 <th className="px-4 py-3 text-base font-semibold text-gray-500 border-t border-b border-gray-200">
+                  License expiry
+                </th>
+                <th className="px-4 py-3 text-base font-semibold text-gray-500 border-t border-b border-gray-200">
                   Gender
                 </th>
                 <th className="px-4 py-3 text-base font-semibold text-gray-500 border-t border-b border-gray-200">
@@ -560,6 +589,7 @@ const Dashboard = () => {
                     <td className="px-3 py-2 border-t border-b border-gray-200"></td>
                     <td className="px-3 py-2 border-t border-b border-gray-200"></td>
                     <td className="px-3 py-2 border-t border-b border-gray-200"></td>
+                    <td className="px-3 py-2 border-t border-b border-gray-200"></td>
                     <td className="px-3 py-2 rounded-r-xl border-t border-b border-r border-gray-200"></td>
                   </tr>
                 ))
@@ -567,7 +597,7 @@ const Dashboard = () => {
                 <tr>
                   <td
                     className="px-3 py-6 text-center text-sm text-slate-500"
-                    colSpan={12}
+                    colSpan={13}
                   >
                     No drivers found
                   </td>
@@ -592,6 +622,13 @@ const Dashboard = () => {
                           </div>
                         )}
                       </div>
+                    </td>
+                    <td className="px-4 py-4 font-medium text-gray-700 whitespace-nowrap border-t border-b border-gray-200">
+                      {driver.licenseExpiryDate
+                        ? String(driver.licenseExpiryDate).slice(0, 10)
+                        : driver.driverLicenseExpiryDate
+                          ? String(driver.driverLicenseExpiryDate).slice(0, 10)
+                          : "-"}
                     </td>
                     <td className="px-4 py-4 font-medium text-gray-700 truncate border-t border-b border-gray-200">
                       {driver.gender || "-"}
@@ -854,6 +891,20 @@ const Dashboard = () => {
             fullWidth
             error={!!errors.license}
             variant="outlined"
+            sx={fieldSx}
+          />
+        </Grid>
+        <Grid item xs={12} sm={3}>
+          <TextField
+            label="License expiry date"
+            name="licenseExpiryDate"
+            type="date"
+            value={form.licenseExpiryDate || ""}
+            onChange={handleFormChange}
+            fullWidth
+            error={!!errors.licenseExpiryDate}
+            variant="outlined"
+            InputLabelProps={{ shrink: true }}
             sx={fieldSx}
           />
         </Grid>
@@ -1372,7 +1423,7 @@ const Dashboard = () => {
                     }}
                   />
                 </Grid>
-                <Grid item xs={12} sm={8}>
+                <Grid item xs={12} sm={4}>
                   <TextField
                     label="Driver License No"
                     name="license"
@@ -1381,6 +1432,37 @@ const Dashboard = () => {
                     fullWidth
                     error={!!errors.license}
                     variant="outlined"
+                    sx={{
+                      "& .MuiInputBase-root": {
+                        borderRadius: "12px",
+                        backgroundColor: "#f8f9fa",
+                        "&:hover": {
+                          backgroundColor: "#f1f3f4",
+                        },
+                        "&.Mui-focused": {
+                          backgroundColor: "white",
+                        },
+                      },
+                      "& .MuiOutlinedInput-notchedOutline": {
+                        borderColor: "#e0e0e0",
+                      },
+                      "&:hover .MuiOutlinedInput-notchedOutline": {
+                        borderColor: "#1976d2",
+                      },
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    label="License expiry date"
+                    name="licenseExpiryDate"
+                    type="date"
+                    value={form.licenseExpiryDate || ""}
+                    onChange={handleFormChange}
+                    fullWidth
+                    error={!!errors.licenseExpiryDate}
+                    variant="outlined"
+                    InputLabelProps={{ shrink: true }}
                     sx={{
                       "& .MuiInputBase-root": {
                         borderRadius: "12px",

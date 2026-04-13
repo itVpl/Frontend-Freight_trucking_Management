@@ -64,6 +64,7 @@ import { useThemeConfig } from '../../context/ThemeContext';
 import { useNegotiation } from '../../context/NegotiationContext';
 import { Badge } from '@mui/material';
 import LatestMessageAlert from '../LatestMessageAlert';
+import LicenseExpiryTicker from './LicenseExpiryTicker';
 
 const drawerWidth = 280;
 const collapsedDrawerWidth = 70;
@@ -988,6 +989,7 @@ const Layout = () => {
         }}
       >
         <Toolbar />
+        {userType === 'trucker' && <LicenseExpiryTicker />}
         {themeConfig.content?.bgImage && (
           <Box sx={{
             position: 'absolute',
